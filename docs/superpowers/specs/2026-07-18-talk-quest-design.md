@@ -13,6 +13,7 @@ A live talking tutor for Japanese elementary-school kids (ages 6–12), built as
 
 ## 2. Cast
 
+- **The Hero — the kid themself.** The main character is not a fictional avatar: it carries the child's own name, an avatar they customize to be *them* (from `content/avatars/`), and it visibly wears/holds the items they have unlocked. The hero stands in the arena facing the enemy; when the kid speaks, the hero acts (attack animations, reactions). Stats, XP, and levels are framed everywhere — by the UI and by the tutor's spoken lines — as the child's own growth, never the character's: 「〇〇ちゃんのこうしょうレベルが上がった！」 not "your character leveled up". One hero per child profile (§4.2.1).
 - **The Tutor** — friendly mentor character with its own VOICEVOX anime voice. Teaches, coaches from the sidelines during battles, praises, corrects, announces rewards out loud.
 - **Enemy characters** — animated transparent-WebM billboard sprites in the 3D arena, reusing the credit-palace character pipeline (`/mnt/c/Projects/book/credit-palace/assets/character/web/`, transcode via `transcode-web.sh`). Existing bull WebMs (10 actions: idle/angry/cry/laugh/shock/excitement/dancing/fighting/flying/sleep in 6 colors) serve as v1 placeholder enemies. Each enemy has a persona and its own VOICEVOX speaker ID (e.g., stingy merchant for negotiation, sulking friend for friendship, trickster for philosophy, scam-fox for money safety).
 
@@ -81,7 +82,7 @@ All code lives in `kids_education`; credit-palace is imported from (patterns + c
 
 ### 4.1 Frontend — `src/game/` (Vite + TypeScript + Three.js)
 
-- **3D stage:** one small fixed arena scene (the-chair style: Kenney kit props, warm colors). Camera frames the enemy; tutor stands at the side. Enemy = WebM billboard with action switching (idle → shock on hit → cry on defeat).
+- **3D stage:** one small fixed arena scene (the-chair style: Kenney kit props, warm colors). The kid's hero avatar stands in the foreground facing the enemy (over-the-shoulder framing so the kid sees "themself" confronting it); tutor stands at the side. Hero reacts when the kid speaks (attack/act animations) and displays equipped unlocked items. Enemy = WebM billboard with action switching (idle → shock on hit → cry on defeat). v1 hero: simple picker from `content/avatars/` + name entry; deeper customization later.
 - **HUD (DOM overlay, not WebGL):** enemy HP bar, live subtitles of kid's speech, tutor/enemy captions, damage numbers, XP toast. Big fonts, tap-friendly.
 - **Speech in:** Web Speech API with interim results. Push-to-talk (big mic button) plus hands-free mode. Barge-in: kid speaking pauses character audio.
 - **Screens:** subject select → unit select → arena. Hidden debug mode: type instead of speak (no-mic testing path).
