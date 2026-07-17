@@ -77,3 +77,12 @@ function initSubjects() {
 
 initSetup();
 initSubjects();
+
+// TEMP preview (Task 13) — replaced by session controller in Task 15
+document.addEventListener("tq-launch", async () => {
+  router.show("arena");
+  const { Arena } = await import("./arena");
+  const arena = new Arena(document.getElementById("arena-canvas") as HTMLCanvasElement);
+  await arena.loadEnemy("yellow");
+  arena.setHero(getChild()?.avatar ?? "🦊", getChild()?.name ?? "");
+});
