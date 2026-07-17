@@ -13,14 +13,19 @@ const turnSchema = z.object({
   enemy_line: z.string(),
   enemy_action: z.enum(ENEMY_ACTIONS),
   coach_line: z.string(),
-  damage: z.number().transform((n) => Math.max(0, Math.min(100, n))),
+  damage: z.number().transform((n) => Math.round(Math.max(0, Math.min(100, n)))),
   score_reason: z.string(),
   phase: z.enum(PHASES),
   deep_question: z.string().nullable(),
-});
+}).strict();
 export type TurnResult = z.infer<typeof turnSchema>;
 
-export class TurnParseError extends Error {}
+export class TurnParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TurnParseError";
+  }
+}
 
 export function parseTurnResult(raw: string): TurnResult {
   let obj: unknown;

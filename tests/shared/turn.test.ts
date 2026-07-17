@@ -25,4 +25,13 @@ describe("parseTurnResult", () => {
   it("throws TurnParseError on non-JSON", () => {
     expect(() => parseTurnResult("not json")).toThrow(TurnParseError);
   });
+  it("throws TurnParseError on unknown key", () => {
+    expect(() =>
+      parseTurnResult(good.replace("}", ', "foo": 1}')),
+    ).toThrow(TurnParseError);
+  });
+  it("rounds damage to integer", () => {
+    const t = parseTurnResult(good.replace('"damage":40', '"damage":40.6'));
+    expect(t.damage).toBe(41);
+  });
 });
