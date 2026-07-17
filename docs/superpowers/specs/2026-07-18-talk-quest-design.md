@@ -21,13 +21,25 @@ A live talking tutor for Japanese elementary-school kids (ages 6–12), built as
 1. **Subject select** — 12 icons → unit select.
 2. **Teach phase (~3 min)** — tutor explains one small concept aloud with examples, asks check questions. Kid can interrupt with free talk at any time; tutor answers, then steers back to the lesson.
 3. **Battle phase** — enemy appears with an HP bar. Each spoken answer by the kid is scored by Claude (0–100) → damage. Enemy replies in character; tutor gives coaching tips when the kid is stuck. 3–6 exchanges.
-4. **Victory & rewards** — defeat is always comic (enemy runs away crying; never scary). Tutor debriefs (~30 s) what the kid did well, then announces XP/stat gains; progression written to CSV; item-unlock celebrations when thresholds cross. Losing = enemy giggles, tutor offers a retry with a hint.
+4. **Victory & debrief** — defeat is always comic (enemy runs away crying; never scary). Tutor debriefs (~30 s) what the kid did well; progression written to CSV; item-unlock celebrations when thresholds cross. Losing = enemy giggles, tutor offers a retry with a hint. Rewards themselves are NOT granted for winning or for correct answers — see §3.5: they accumulate continuously from voiced engagement throughout the whole session.
 
 **Realtime feel:** streaming speech recognition shows live subtitles as the kid talks; Claude responses stream so the enemy/tutor starts speaking within ~1–2 s. The pipeline is deliberately STT → text LLM → TTS (no live video/avatar generation) — this keeps latency low and cost near zero outside the LLM calls.
 
 **Safety:** kid-safe system prompt — age-appropriate language, nothing scary or inappropriate, always encouraging.
 
-## 3.5 Visual & audio polish
+## 3.5 Engagement-based reward economy
+
+**Design decision (user, 2026-07-18): rewards accrue from engagement, not correctness.** Correct answers are not the currency — voiced effort is.
+
+- **Voice is the gate.** XP/coins accumulate only while the kid is actually vocalizing — talking to the tutor, answering the enemy, thinking out loud, even a wrong answer or a "うーん、えっとね…". **No sound = no accumulation.** Silence (or button-mashing without speaking) earns nothing.
+- **Accumulation is continuous.** A ticker accrues reward while voice activity is detected during teach, battle, and free-talk phases alike. Trying to think about a question earns just as the answer itself does. Not answering a question forfeits nothing already earned — the pile only grows.
+- **Answers are counted, not paid.** A separate visible tally tracks "answers given" (and the battle still uses answer quality for damage/drama — the enemy reacting is part of the fun), but the reward economy is decoupled from being right. Losing a battle while talking the whole time earns more than winning one silently.
+- **Anti-gaming, gently.** The accumulation uses the speech-recognition activity signal (real speech, not table-banging); if a kid discovers they can chant nonsense, the tutor playfully redirects rather than punishing — the design goal is "talking and thinking here always pays", not surveillance.
+- **Implementation:** the frontend's speech recognizer already produces an active/inactive signal; the reward ticker sums voiced seconds per session and the backend converts to XP/coins on the existing CSV progression. Two displayed meters: engagement earnings (grows live, satisfying counter animation) and answer count.
+
+**Motivation-science layer (research-informed):** the user flagged that extrinsic rewards can *undermine* kids' intrinsic motivation (overjustification effect). A deep-research pass on self-determination theory, process-vs-outcome praise, and gamification for children is in progress; its design consequences (how the tutor frames rewards and praise, what the meters emphasize, what we deliberately avoid) will be folded into this section before implementation. The overarching intent: kids who play because it's fun and because they want to grow — enjoying the journey, not chasing the numbers.
+
+## 3.6 Visual & audio polish
 
 High-quality presentation is a core requirement, not a nice-to-have:
 
@@ -36,12 +48,12 @@ High-quality presentation is a core requirement, not a nice-to-have:
 - **Background music:** per-phase BGM (calm during teach phase, upbeat battle track, victory theme), auto-ducked while characters speak so voices stay clear.
 - **Asset source:** the existing "asset box" repository (SFX + BGM library; repo link to be provided by user — until then, development uses silent placeholders wired through the same audio manager so assets drop in without code changes).
 
-## 3.6 Deep Question Engine (pedagogy core)
+## 3.7 Deep Question Engine (pedagogy core)
 
 The product's core value is asking profound, growth-driving questions — not just quizzing. The tutor's system prompt embeds a question strategy layer that fires at three moments: **after a mistake** (instead of just correcting), **during the debrief**, and **opportunistically during free talk**. One deep question at a time, phrased for ages 6–12. The six question lenses:
 
 1. **Practical application** — 「それ、明日学校でどう使える？」(How could you use this tomorrow?)
-2. **Creative synthesis** — connect today's lesson with *yesterday's* lesson or another subject (powered by conversation history, §4.4): 「昨日の『お金』の話と今日の『交渉』、どうつながると思う？」
+2. **Creative synthesis** — connect today's lesson with *yesterday's* lesson or another subject (powered by conversation history, §4.2.1): 「昨日の『お金』の話と今日の『交渉』、どうつながると思う？」
 3. **Critical thinking** — why/what-if/what's-the-evidence questions that make them reason, not recall.
 4. **Emotional intelligence & resilience** — 「そのとき、どんな気持ちだった？次はどうする？」— naming feelings, bouncing back from the lost battle.
 5. **Mindset, gratitude & open-mindedness** — questions that motivate and notice what they already have.
