@@ -1,3 +1,32 @@
+interface MinimalSpeechRecognitionResultItem {
+  transcript: string;
+}
+
+interface MinimalSpeechRecognitionResult {
+  readonly length: number;
+  isFinal: boolean;
+  [index: number]: MinimalSpeechRecognitionResultItem;
+}
+
+interface MinimalSpeechRecognitionResultList {
+  readonly length: number;
+  [index: number]: MinimalSpeechRecognitionResult;
+}
+
+interface MinimalSpeechRecognitionEvent {
+  results: MinimalSpeechRecognitionResultList;
+}
+
+interface MinimalSpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((e: MinimalSpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
 export interface SpeechEvents {
   onInterim(text: string): void;
   onFinal(text: string, voicedMs: number): void;
@@ -7,28 +36,28 @@ export interface SpeechEvents {
 const SILENCE_MS = 10_000;
 
 export class Recognizer {
-  private rec: SpeechRecognition;
+  private rec: MinimalSpeechRecognition;
   private voiceStart = 0;
   private silenceTimer: ReturnType<typeof setTimeout> | null = null;
   listening = false;
 
   constructor(private events: SpeechEvents, lang: "ja-JP" | "en-US" = "ja-JP") {
-    const Ctor = (window as never as { webkitSpeechRecognition: new () => SpeechRecognition })
+    const Ctor = (window as never as { webkitSpeechRecognition: new () => MinimalSpeechRecognition })
       .webkitSpeechRecognition;
     this.rec = new Ctor();
     this.rec.lang = lang;
     this.rec.interimResults = true;
     this.rec.continuous = false;
-    this.rec.onresult = (e: SpeechRecognitionEvent) => {
+    this.rec.onresult = (e: MinimalSpeechRecognitionEvent) => {
       this.resetSilence();
-      if (!this.voiceStart) this.voiceStart = Date.now();
       const res = e.results[e.results.length - 1];
       const text = res[0].transcript;
       if (res.isFinal) {
-        const voicedMs = Date.now() - this.voiceStart;
+        const voicedMs = this.voiceStart ? Date.now() - this.voiceStart : text.length * 120;
         this.voiceStart = 0;
         this.events.onFinal(text, voicedMs);
       } else {
+        if (!this.voiceStart) this.voiceStart = Date.now();
         this.events.onInterim(text);
       }
     };

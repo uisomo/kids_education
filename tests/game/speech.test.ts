@@ -1,6 +1,49 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { DebugRecognizer } from "../../src/game/speech";
+import { DebugRecognizer, Recognizer } from "../../src/game/speech";
+
+interface FakeResultItem {
+  transcript: string;
+}
+
+interface FakeResult {
+  readonly length: number;
+  isFinal: boolean;
+  [index: number]: FakeResultItem;
+}
+
+interface FakeResultList {
+  readonly length: number;
+  [index: number]: FakeResult;
+}
+
+interface FakeEvent {
+  results: FakeResultList;
+}
+
+class FakeRec {
+  lang = "";
+  interimResults = false;
+  continuous = false;
+  onresult: ((e: FakeEvent) => void) | null = null;
+  onend: (() => void) | null = null;
+  start() {}
+  stop() {}
+}
+
+describe("Recognizer", () => {
+  it("falls back to text.length * 120 for voicedMs when the first result is already final", () => {
+    (window as never as { webkitSpeechRecognition: new () => FakeRec }).webkitSpeechRecognition = FakeRec;
+    const onFinal = vi.fn();
+    const r = new Recognizer({ onInterim: vi.fn(), onFinal, onSilence: vi.fn() });
+    const fake = (r as unknown as { rec: FakeRec }).rec;
+    const text = "こんにちは";
+    const result: FakeResult = { length: 1, isFinal: true, 0: { transcript: text } };
+    const event: FakeEvent = { results: { length: 1, 0: result } };
+    fake.onresult?.(event);
+    expect(onFinal).toHaveBeenCalledWith(text, text.length * 120);
+  });
+});
 
 describe("DebugRecognizer", () => {
   it("emits final with simulated voicedMs when tqSay is called", () => {
