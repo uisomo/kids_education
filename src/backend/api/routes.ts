@@ -53,13 +53,17 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       res.status(400).json({ error: "invalid childName, subject, or unitId" });
       return;
     }
-    const lesson = loadLesson(config.contentDir, subject, unitId);
-    const profile = getProfile(config.dataDir, childName);
-    const carriedMs = readCarry(config.dataDir, childName);
-    banks.set(bankKey(childName, unitId), new EngagementBank({ carriedMs }));
-    writeCarry(config.dataDir, childName, 0);
-    appendTranscript(config.dataDir, childName, { kind: "session-start", unitId });
-    res.json({ lesson, profile, carriedMs });
+    try {
+      const lesson = loadLesson(config.contentDir, subject, unitId);
+      const profile = getProfile(config.dataDir, childName);
+      const carriedMs = readCarry(config.dataDir, childName);
+      banks.set(bankKey(childName, unitId), new EngagementBank({ carriedMs }));
+      writeCarry(config.dataDir, childName, 0);
+      appendTranscript(config.dataDir, childName, { kind: "session-start", unitId });
+      res.json({ lesson, profile, carriedMs });
+    } catch (e) {
+      res.status(404).json({ error: "unknown unit" });
+    }
   });
 
   app.post("/api/turn", async (req, res) => {
@@ -68,11 +72,11 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       res.status(400).json({ error: "invalid childName or unitId" });
       return;
     }
-    const lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
-    const profile = getProfile(config.dataDir, childName);
-    const bank = banks.get(bankKey(childName, unitId));
-    bank?.addVoicedMs(voicedMs ?? 0);
     try {
+      const lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+      const profile = getProfile(config.dataDir, childName);
+      const bank = banks.get(bankKey(childName, unitId));
+      bank?.addVoicedMs(voicedMs ?? 0);
       const turn = await runTurn(claude, config.model, lesson, profile,
         { childName, unitId, utterance, phase, history });
       const drop: Drop | null = bank?.maybeDrop() ?? null;
@@ -86,8 +90,11 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       });
       res.json({ turn, drop, unlocked });
     } catch (e) {
-      const status = e instanceof TurnServiceError ? 502 : 500;
-      res.status(status).json({ error: String(e) });
+      if (e instanceof TurnServiceError) {
+        res.status(502).json({ error: String(e) });
+      } else {
+        res.status(404).json({ error: "unknown unit" });
+      }
     }
   });
 
@@ -97,27 +104,31 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       res.status(400).json({ error: "invalid childName or unitId" });
       return;
     }
-    const lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
-    const bank = banks.get(bankKey(childName, unitId));
-    let drops: Drop[] = [];
-    let unlocked: { japanese_name: string; unlock_message: string }[] = [];
-    if (bank) {
-      const out = bank.endOfSession();
-      drops = out.drops;
-      writeCarry(config.dataDir, childName, out.carryMs);
-      for (const d of drops) {
-        unlocked = unlocked.concat(
-          applyReward(config.dataDir, childName, lesson.reward.stat, d.xp).unlocked,
-        );
+    try {
+      const lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+      const bank = banks.get(bankKey(childName, unitId));
+      let drops: Drop[] = [];
+      let unlocked: { japanese_name: string; unlock_message: string }[] = [];
+      if (bank) {
+        const out = bank.endOfSession();
+        drops = out.drops;
+        writeCarry(config.dataDir, childName, out.carryMs);
+        for (const d of drops) {
+          unlocked = unlocked.concat(
+            applyReward(config.dataDir, childName, lesson.reward.stat, d.xp).unlocked,
+          );
+        }
+        banks.delete(bankKey(childName, unitId));
       }
-      banks.delete(bankKey(childName, unitId));
+      recordLessonSummary(config.dataDir, childName, {
+        unitId, title: lesson.title, summary,
+        date: new Date().toISOString().slice(0, 10),
+      });
+      appendTranscript(config.dataDir, childName, { kind: "session-end", unitId, summary, drops });
+      res.json({ drops, unlocked });
+    } catch (e) {
+      res.status(404).json({ error: "unknown unit" });
     }
-    recordLessonSummary(config.dataDir, childName, {
-      unitId, title: lesson.title, summary,
-      date: new Date().toISOString().slice(0, 10),
-    });
-    appendTranscript(config.dataDir, childName, { kind: "session-end", unitId, summary, drops });
-    res.json({ drops, unlocked });
   });
 
   app.get("/api/tts", async (req, res) => {

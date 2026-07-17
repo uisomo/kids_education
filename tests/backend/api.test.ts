@@ -70,4 +70,10 @@ describe("api", () => {
       .send({ childName: "yuta", subject: "negotiation", unitId: "../unit-01" });
     expect(r.status).toBe(400);
   });
+  it("returns 404 for unknown unit", async () => {
+    const r = await request(app).post("/api/session/start")
+      .send({ childName: "yuta", subject: "negotiation", unitId: "unit-99" });
+    expect(r.status).toBe(404);
+    expect(r.body.error).toBe("unknown unit");
+  });
 });
