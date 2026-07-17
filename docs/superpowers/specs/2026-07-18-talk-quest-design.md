@@ -14,7 +14,7 @@ A live talking tutor for Japanese elementary-school kids (ages 6–12), built as
 ## 2. Cast
 
 - **The Hero — the kid themself.** The main character is not a fictional avatar: it carries the child's own name, an avatar they customize to be *them* (from `content/avatars/`), and it visibly wears/holds the items they have unlocked. The hero stands in the arena facing the enemy; when the kid speaks, the hero acts (attack animations, reactions). Stats, XP, and levels are framed everywhere — by the UI and by the tutor's spoken lines — as the child's own growth, never the character's: 「〇〇ちゃんのこうしょうレベルが上がった！」 not "your character leveled up". One hero per child profile (§4.2.1).
-- **The Tutor** — friendly mentor character with its own VOICEVOX anime voice. Teaches, coaches from the sidelines during battles, praises, corrects, announces rewards out loud.
+- **The Tutor** — friendly mentor character with its own VOICEVOX anime voice. Teaches, coaches from the sidelines during battles, corrects gently, and delivers praise and reward reveals in informational, process-focused language per §3.5 rule 3.
 - **Enemy characters** — animated transparent-WebM billboard sprites in the 3D arena, reusing the credit-palace character pipeline (`/mnt/c/Projects/book/credit-palace/assets/character/web/`, transcode via `transcode-web.sh`). Existing bull WebMs (10 actions: idle/angry/cry/laugh/shock/excitement/dancing/fighting/flying/sleep in 6 colors) serve as v1 placeholder enemies. Each enemy has a persona and its own VOICEVOX speaker ID (e.g., stingy merchant for negotiation, sulking friend for friendship, trickster for philosophy, scam-fox for money safety).
 
 ## 3. Session flow (~10–15 min)
@@ -28,17 +28,26 @@ A live talking tutor for Japanese elementary-school kids (ages 6–12), built as
 
 **Safety:** kid-safe system prompt — age-appropriate language, nothing scary or inappropriate, always encouraging.
 
-## 3.5 Engagement-based reward economy
+## 3.5 Engagement-based reward system (research-informed)
 
-**Design decision (user, 2026-07-18): rewards accrue from engagement, not correctness.** Correct answers are not the currency — voiced effort is.
+**Design decisions (user, 2026-07-18):** rewards come from voiced engagement, never from correctness — and, after a deep-research pass on motivation science (`docs/superpowers/research/2026-07-18-reward-motivation-research.md`), rewards are delivered as **surprise, informational feedback**, never as a promised payment for engaging. Rationale: announced "talk = earn" tickers are the most motivation-damaging reward pattern for children (engagement-contingent expected rewards, d = −0.43 for kids), while surprise rewards show no harm and informationally-framed rewards actively help.
 
-- **Voice is the gate.** XP/coins accumulate only while the kid is actually vocalizing — talking to the tutor, answering the enemy, thinking out loud, even a wrong answer or a "うーん、えっとね…". **No sound = no accumulation.** Silence (or button-mashing without speaking) earns nothing.
-- **Accumulation is continuous.** A ticker accrues reward while voice activity is detected during teach, battle, and free-talk phases alike. Trying to think about a question earns just as the answer itself does. Not answering a question forfeits nothing already earned — the pile only grows.
-- **Answers are counted, not paid.** A separate visible tally tracks "answers given" (and the battle still uses answer quality for damage/drama — the enemy reacting is part of the fun), but the reward economy is decoupled from being right. Losing a battle while talking the whole time earns more than winning one silently.
-- **Anti-gaming, gently.** The accumulation uses the speech-recognition activity signal (real speech, not table-banging); if a kid discovers they can chant nonsense, the tutor playfully redirects rather than punishing — the design goal is "talking and thinking here always pays", not surveillance.
-- **Implementation:** the frontend's speech recognizer already produces an active/inactive signal; the reward ticker sums voiced seconds per session and the backend converts to XP/coins on the existing CSV progression. Two displayed meters: engagement earnings (grows live, satisfying counter animation) and answer count.
+**The four rules:**
 
-**Motivation-science layer (research-informed):** the user flagged that extrinsic rewards can *undermine* kids' intrinsic motivation (overjustification effect). A deep-research pass on self-determination theory, process-vs-outcome praise, and gamification for children is in progress; its design consequences (how the tutor frames rewards and praise, what the meters emphasize, what we deliberately avoid) will be folded into this section before implementation. The overarching intent: kids who play because it's fun and because they want to grow — enjoying the journey, not chasing the numbers.
+1. **Talking IS the power (competence, in the loop itself).** The primary "reward" for speaking is diegetic and immediate: when the kid voices a thought, the enemy staggers, the hero acts, the world responds. No sound = nothing happens in the world. This delivers the no-voice-no-progress rule through gameplay rather than through a wage.
+2. **Surprise treasure, never wages.** There is no visible earning meter and the game never says "talk and you'll earn X." Voiced engagement accrues silently in the backend (nothing is ever forfeited — skipping a question loses nothing; the accrual only grows while real speech is detected). At **unpredictable, variable moments** — mid-battle, at debrief, sometimes next session — accrued engagement converts into treasure drops, item unlocks, and XP, presented as discoveries. Variable timing (variable-ratio + milestone + narrative-embedded delivery) is deliberate: it keeps repeated surprises from congealing into an expected payout.
+3. **Every reward is information about growth.** The tutor frames each drop as evidence of what the kid *can now do*, in process language: 「じぶんのことばで理由をせつめいできたね！だから…」 — never "you earned 50 coins for talking." Levels, stats, and items are records of ability ("negotiation level = how well you can negotiate now"), reinforced by the hero-is-you framing (§2). Praise itself follows the same rule: informational and specific about what the kid did, never controlling ("good, now do it again") and never evaluative of the child as a person.
+4. **Answers counted, never graded.** A neutral "things I said" journal tallies answers given and questions explored — a logbook, not a score. **No correctness scores, no grades, no leaderboards anywhere in the game.** Answer quality still drives battle drama (damage, enemy reactions) because the enemy reacting is the fun, but the tutor's debrief talks about ideas and effort, not rightness percentage.
+
+**Supporting mechanics:**
+
+- **Autonomy everywhere:** kid chooses subject, unit, and (later) which enemy to face and how to approach it; the tutor offers choices rather than commands.
+- **Cold-start bootstrapping:** for a reluctant child with low initial interest, a per-child config enables more frequent early treasure to get them talking at all — then deliberately fades as engagement becomes self-sustaining (the research-legitimate use of extrinsic incentives).
+- **Anti-gaming, gently:** accrual uses the speech-recognition signal (real speech, not table-banging); nonsense-chanting gets a playful tutor redirect, not punishment.
+- **Parent visibility:** the engagement accrual and session records are visible to parents in the data files, not to the kid as a wage meter.
+- **Implementation:** the recognizer's active/inactive signal feeds a backend accrual per session; a drop-scheduler converts accrual into surprise rewards on a variable schedule; CSV progression stores the results. The kid-facing UI shows: the hero, the enemy, the journal — no money ticker.
+
+The overarching intent stands: kids who play because talking feels powerful and growing feels good — enjoying the journey, not chasing the numbers.
 
 ## 3.6 Visual & audio polish
 
