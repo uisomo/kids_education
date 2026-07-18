@@ -34,14 +34,23 @@ export async function runTurn(
   try {
     resp = await client.create(params);
   } catch {
-    resp = await client.create(params); // one retry on API error; throws through on 2nd failure
+    try {
+      resp = await client.create(params); // one retry on API error
+    } catch (e) {
+      throw new TurnServiceError("Claude API unavailable: " + String(e));
+    }
   }
 
   try {
     return parseTurnResult(textOf(resp));
   } catch (e) {
     if (!(e instanceof TurnParseError)) throw e;
-    const again = await client.create(params); // one re-ask on malformed output
+    let again;
+    try {
+      again = await client.create(params); // one re-ask on malformed output
+    } catch (e2) {
+      throw new TurnServiceError("Claude API unavailable: " + String(e2));
+    }
     try {
       return parseTurnResult(textOf(again));
     } catch {

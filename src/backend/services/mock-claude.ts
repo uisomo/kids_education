@@ -20,6 +20,7 @@ export function makeMockClaude(): ClaudeLike {
             damage, score_reason: "good attempt", phase: "battle",
             deep_question: null,
           };
+      if (finishing) totalDamage = 0; // reset so a second battle in this dev-server process works
       return { content: [{ type: "text", text: JSON.stringify(body) }] };
     },
   };

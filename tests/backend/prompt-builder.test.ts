@@ -41,7 +41,9 @@ describe("buildMessages", () => {
       childName: "ゆうた", unitId: "unit-01", utterance: "やすくして！",
       phase: "battle", history,
     });
-    expect(msgs[msgs.length - 1]).toEqual({ role: "user", content: "やすくして！" });
+    expect(msgs[msgs.length - 1].role).toBe("user");
+    expect(msgs[msgs.length - 1].content.endsWith("やすくして！")).toBe(true);
+    expect(msgs[msgs.length - 1].content).toContain("battle");
     expect(msgs.length).toBeLessThanOrEqual(21);
     expect(msgs[0].role).toBe("user");
   });

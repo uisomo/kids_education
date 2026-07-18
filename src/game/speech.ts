@@ -23,6 +23,7 @@ interface MinimalSpeechRecognition {
   continuous: boolean;
   onresult: ((e: MinimalSpeechRecognitionEvent) => void) | null;
   onend: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
   start(): void;
   stop(): void;
 }
@@ -31,6 +32,7 @@ export interface SpeechEvents {
   onInterim(text: string): void;
   onFinal(text: string, voicedMs: number): void;
   onSilence(): void;
+  onMicError?(): void;
 }
 
 const SILENCE_MS = 10_000;
@@ -62,6 +64,13 @@ export class Recognizer {
       }
     };
     this.rec.onend = () => { if (this.listening) this.rec.start(); }; // keep alive
+    this.rec.onerror = (e: { error: string }) => {
+      if (e.error === "not-allowed" || e.error === "audio-capture") {
+        this.listening = false;
+        this.clearSilence();
+        this.events.onMicError?.();
+      }
+    };
   }
 
   setLang(l: "ja-JP" | "en-US") { this.rec.lang = l; }

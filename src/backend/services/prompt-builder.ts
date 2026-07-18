@@ -115,6 +115,9 @@ export function buildMessages(req: TurnRequest) {
   }
   const trimmed = msgs.slice(start);
   if (trimmed[0]?.role === "assistant") trimmed.shift(); // must start with user
-  trimmed.push({ role: "user", content: req.utterance });
+  trimmed.push({
+    role: "user",
+    content: `【状況】いまのフェーズ: ${req.phase}（teachの説明はクライアントで読み上げ済み）\n${req.utterance}`,
+  });
   return trimmed;
 }

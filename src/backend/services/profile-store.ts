@@ -15,7 +15,14 @@ export function getProfile(dataDir: string, name: string): ChildProfile {
     writeFileSync(path, JSON.stringify(fresh, null, 2));
     return fresh;
   }
-  return JSON.parse(readFileSync(path, "utf8"));
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    console.warn(`profile-store: failed to parse profile.json for "${name}", resetting to default`, e);
+    const fresh: ChildProfile = { name, age: null, interests: [], recentLessons: [] };
+    writeFileSync(path, JSON.stringify(fresh, null, 2));
+    return fresh;
+  }
 }
 
 export function saveProfile(dataDir: string, p: ChildProfile): void {

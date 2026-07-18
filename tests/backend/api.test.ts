@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
-import { mkdtempSync, writeFileSync, cpSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, cpSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { makeApp } from "../../src/backend/api/routes";
@@ -48,6 +48,23 @@ describe("api", () => {
     expect(r.status).toBe(200);
     expect(r.body.turn.damage).toBe(40);
     expect(r.body).toHaveProperty("drop");
+  });
+  it("writes voiced engagement through to engagement.json even without a session end", async () => {
+    await request(app).post("/api/session/start")
+      .send({ childName: "yuta", subject: "negotiation", unitId: "unit-01" });
+    const r = await request(app).post("/api/turn").send({
+      childName: "yuta", unitId: "unit-01", utterance: "やすくして！",
+      phase: "battle", history: [], voicedMs: 3000,
+    });
+    expect(r.status).toBe(200);
+    const engagement = JSON.parse(
+      readFileSync(join(dataDir, "children", "yuta", "engagement.json"), "utf8"),
+    );
+    if (r.body.drop) {
+      expect(engagement.carryMs).toBe(0);
+    } else {
+      expect(engagement.carryMs).toBe(3000);
+    }
   });
   it("ends a session, cashing drops into the reward stat", async () => {
     await request(app).post("/api/session/start")

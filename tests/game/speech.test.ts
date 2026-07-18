@@ -27,6 +27,7 @@ class FakeRec {
   continuous = false;
   onresult: ((e: FakeEvent) => void) | null = null;
   onend: (() => void) | null = null;
+  onerror: ((e: { error: string }) => void) | null = null;
   start() {}
   stop() {}
 }
@@ -42,6 +43,18 @@ describe("Recognizer", () => {
     const event: FakeEvent = { results: { length: 1, 0: result } };
     fake.onresult?.(event);
     expect(onFinal).toHaveBeenCalledWith(text, text.length * 120);
+  });
+
+  it("stops listening and reports onMicError when the mic is denied", () => {
+    (window as never as { webkitSpeechRecognition: new () => FakeRec }).webkitSpeechRecognition = FakeRec;
+    const onMicError = vi.fn();
+    const r = new Recognizer({ onInterim: vi.fn(), onFinal: vi.fn(), onSilence: vi.fn(), onMicError });
+    const fake = (r as unknown as { rec: FakeRec }).rec;
+    r.start();
+    expect(r.listening).toBe(true);
+    fake.onerror?.({ error: "not-allowed" });
+    expect(r.listening).toBe(false);
+    expect(onMicError).toHaveBeenCalled();
   });
 });
 

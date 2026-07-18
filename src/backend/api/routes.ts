@@ -53,8 +53,14 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       res.status(400).json({ error: "invalid childName, subject, or unitId" });
       return;
     }
+    let lesson;
     try {
-      const lesson = loadLesson(config.contentDir, subject, unitId);
+      lesson = loadLesson(config.contentDir, subject, unitId);
+    } catch {
+      res.status(404).json({ error: "unknown unit" });
+      return;
+    }
+    try {
       const profile = getProfile(config.dataDir, childName);
       const carriedMs = readCarry(config.dataDir, childName);
       banks.set(bankKey(childName, unitId), new EngagementBank({ carriedMs }));
@@ -62,7 +68,7 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       appendTranscript(config.dataDir, childName, { kind: "session-start", unitId });
       res.json({ lesson, profile, carriedMs });
     } catch (e) {
-      res.status(404).json({ error: "unknown unit" });
+      res.status(500).json({ error: String(e) });
     }
   });
 
@@ -72,14 +78,21 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       res.status(400).json({ error: "invalid childName or unitId" });
       return;
     }
+    let lesson;
     try {
-      const lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+      lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+    } catch {
+      res.status(404).json({ error: "unknown unit" });
+      return;
+    }
+    try {
       const profile = getProfile(config.dataDir, childName);
       const bank = banks.get(bankKey(childName, unitId));
       bank?.addVoicedMs(voicedMs ?? 0);
       const turn = await runTurn(claude, config.model, lesson, profile,
         { childName, unitId, utterance, phase, history });
       const drop: Drop | null = bank?.maybeDrop() ?? null;
+      writeCarry(config.dataDir, childName, bank?.accruedMs ?? 0);
       const unlocked = drop
         ? applyReward(config.dataDir, childName, lesson.reward.stat, drop.xp).unlocked
         : [];
@@ -93,7 +106,7 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       if (e instanceof TurnServiceError) {
         res.status(502).json({ error: String(e) });
       } else {
-        res.status(404).json({ error: "unknown unit" });
+        res.status(500).json({ error: String(e) });
       }
     }
   });
@@ -104,8 +117,14 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       res.status(400).json({ error: "invalid childName or unitId" });
       return;
     }
+    let lesson;
     try {
-      const lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+      lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+    } catch {
+      res.status(404).json({ error: "unknown unit" });
+      return;
+    }
+    try {
       const bank = banks.get(bankKey(childName, unitId));
       let drops: Drop[] = [];
       let unlocked: { japanese_name: string; unlock_message: string }[] = [];
@@ -127,7 +146,7 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       appendTranscript(config.dataDir, childName, { kind: "session-end", unitId, summary, drops });
       res.json({ drops, unlocked });
     } catch (e) {
-      res.status(404).json({ error: "unknown unit" });
+      res.status(500).json({ error: String(e) });
     }
   });
 

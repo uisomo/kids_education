@@ -43,6 +43,11 @@ function initSetup() {
   $("#btn-start").onclick = () => {
     const name = ($("#child-name") as HTMLInputElement).value.trim();
     if (!name) return;
+    const SAFE_NAME = /^[\p{L}\p{N}_-]{1,32}$/u;
+    if (!SAFE_NAME.test(name)) {
+      alert("なまえは もじ・すうじだけで いれてね（スペースは つかえないよ）");
+      return;
+    }
     const avatar = picker.querySelector(".selected")?.textContent ?? "🦊";
     localStorage.setItem("tq-child", JSON.stringify({ name, avatar }));
     router.show("subjects");

@@ -52,6 +52,10 @@ export class SessionController {
       onInterim: (t) => { this.d.audio.interrupt(); this.d.hud.setSubtitle(t); },
       onFinal: (t, ms) => void this.handleUtterance(t, ms),
       onSilence: () => void this.handleSilence(),
+      onMicError: () => {
+        this.d.hud.toast("マイクがつかえないみたい。ブラウザのマイクせっていをみてね");
+        this.d.hud.showRetry(() => this.listen());
+      },
     });
     if (lesson.lang === "en") this.rec.setLang("en-US");
 
@@ -145,6 +149,7 @@ export class SessionController {
     ) {
       this.d.audio.playBgm("victory");
       this.d.arena.enemyDefeat();
+      this.d.hud.setHp(0, this.maxHp);
     }
     if (turn.phase === "end") {
       await this.finish();
@@ -154,19 +159,24 @@ export class SessionController {
   }
 
   private async finish(): Promise<void> {
-    const { drops, unlocked } = await this.d.api.endSession({
-      childName: this.d.child.name, unitId: this.lesson.id, summary: this.lastCoachLine,
-    });
-    for (const d of drops) {
-      this.d.audio.sfx("unlock");
-      this.d.hud.celebration("きょうも こえに だして かんがえられたね！たからばこ はっけん！");
+    try {
+      const { drops, unlocked } = await this.d.api.endSession({
+        childName: this.d.child.name, unitId: this.lesson.id, summary: this.lastCoachLine,
+      });
+      for (const d of drops) {
+        this.d.audio.sfx("unlock");
+        this.d.hud.celebration("きょうも こえに だして かんがえられたね！たからばこ はっけん！");
+      }
+      for (const u of unlocked) {
+        this.d.audio.sfx("fanfare");
+        this.d.hud.toast(u.unlock_message);
+      }
+    } catch {
+      this.d.hud.toast("きろくで つまずいたけど、きょうの ぼうけんは バッチリ！");
+    } finally {
+      this.d.audio.stopBgm();
+      this.rec.stop();
+      setTimeout(() => this.d.onExit(), 3500);
     }
-    for (const u of unlocked) {
-      this.d.audio.sfx("fanfare");
-      this.d.hud.toast(u.unlock_message);
-    }
-    this.d.audio.stopBgm();
-    this.rec.stop();
-    setTimeout(() => this.d.onExit(), 3500);
   }
 }
