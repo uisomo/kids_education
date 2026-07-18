@@ -78,11 +78,27 @@ function initSubjects() {
 initSetup();
 initSubjects();
 
-// TEMP preview (Task 13) — replaced by session controller in Task 15
-document.addEventListener("tq-launch", async () => {
+document.addEventListener("tq-launch", async (e) => {
+  const { subject, unitId } = (e as CustomEvent).detail;
+  const child = getChild();
+  if (!child) { router.show("setup"); return; }
   router.show("arena");
-  const { Arena } = await import("./arena");
+  const [{ Arena }, { Hud }, { AudioMan }, { SessionController }, { makeRecognizer }, api] =
+    await Promise.all([
+      import("./arena"), import("./hud"), import("./audio"),
+      import("./session"), import("./speech"), import("./api"),
+    ]);
   const arena = new Arena(document.getElementById("arena-canvas") as HTMLCanvasElement);
-  await arena.loadEnemy("yellow");
-  arena.setHero(getChild()?.avatar ?? "🦊", getChild()?.name ?? "");
+  const hud = new Hud(document.getElementById("hud")!);
+  const audio = new AudioMan();
+  const controller = new SessionController({
+    arena, hud, audio, api, child,
+    makeRec: (ev) => makeRecognizer(ev),
+    onExit: () => { arena.dispose(); router.show("subjects"); },
+  });
+  try {
+    await controller.start(subject, unitId);
+  } catch {
+    hud.toast("マイクのじゅんびができなかったよ。せっていをみてね");
+  }
 });
