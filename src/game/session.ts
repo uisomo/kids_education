@@ -105,6 +105,7 @@ export class SessionController {
     this.lastCoachLine = turn.coach_line;
 
     if (this.phase === "teach" && turn.phase === "battle") this.d.audio.playBgm("battle");
+    const prevPhase = this.phase;
     this.phase = turn.phase;
 
     if (turn.damage > 0) {
@@ -137,7 +138,11 @@ export class SessionController {
       this.d.hud.toast(u.unlock_message);
     }
 
-    if (turn.phase === "debrief" || turn.phase === "end") {
+    if (
+      (turn.phase === "debrief" || turn.phase === "end") &&
+      prevPhase !== "debrief" &&
+      prevPhase !== "end"
+    ) {
       this.d.audio.playBgm("victory");
       this.d.arena.enemyDefeat();
     }
@@ -154,9 +159,12 @@ export class SessionController {
     });
     for (const d of drops) {
       this.d.audio.sfx("unlock");
-      this.d.hud.celebration(`きょうの ぼうけんの あかし！（+${d.xp}）`);
+      this.d.hud.celebration("きょうも こえに だして かんがえられたね！たからばこ はっけん！");
     }
-    for (const u of unlocked) this.d.hud.toast(u.unlock_message);
+    for (const u of unlocked) {
+      this.d.audio.sfx("fanfare");
+      this.d.hud.toast(u.unlock_message);
+    }
     this.d.audio.stopBgm();
     this.rec.stop();
     setTimeout(() => this.d.onExit(), 3500);

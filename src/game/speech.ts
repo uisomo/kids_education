@@ -71,7 +71,10 @@ export class Recognizer {
 
   private resetSilence() {
     this.clearSilence();
-    this.silenceTimer = setTimeout(() => this.events.onSilence(), SILENCE_MS);
+    this.silenceTimer = setTimeout(() => {
+      this.events.onSilence();
+      if (this.listening) this.resetSilence();
+    }, SILENCE_MS);
   }
   private clearSilence() { if (this.silenceTimer) clearTimeout(this.silenceTimer); }
 }
@@ -97,7 +100,10 @@ export class DebugRecognizer {
   }
   private resetSilence() {
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
-    this.silenceTimer = setTimeout(() => this.events.onSilence(), SILENCE_MS);
+    this.silenceTimer = setTimeout(() => {
+      this.events.onSilence();
+      if (this.listening) this.resetSilence();
+    }, SILENCE_MS);
   }
 }
 

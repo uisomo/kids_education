@@ -68,4 +68,14 @@ describe("DebugRecognizer", () => {
     expect(onSilence).toHaveBeenCalled();
     vi.useRealTimers();
   });
+
+  it("re-arms the silence timer so onSilence keeps firing while listening continues", () => {
+    vi.useFakeTimers();
+    const onSilence = vi.fn();
+    const r = new DebugRecognizer({ onInterim: vi.fn(), onFinal: vi.fn(), onSilence });
+    r.start();
+    vi.advanceTimersByTime(30_500);
+    expect(onSilence).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
 });

@@ -99,6 +99,8 @@ document.addEventListener("tq-launch", async (e) => {
   try {
     await controller.start(subject, unitId);
   } catch {
-    hud.toast("マイクのじゅんびができなかったよ。せっていをみてね");
+    hud.toast("じゅんびで つまずいちゃった。もういちど えらんでね");
+    arena.dispose();
+    router.show("subjects");
   }
 });
