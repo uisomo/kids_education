@@ -5,6 +5,7 @@ export interface AppConfig {
   model: string;
   port: number;
   voicevoxUrl: string;
+  ttsSpeed: number;
   dataDir: string;
   contentDir: string;
 }
@@ -13,6 +14,7 @@ const DEFAULTS: AppConfig = {
   model: "claude-haiku-4-5",
   port: 5179,
   voicevoxUrl: "http://localhost:50021",
+  ttsSpeed: 1.2,
   dataDir: "data",
   contentDir: "content",
 };

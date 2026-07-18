@@ -13,10 +13,12 @@ describe("AudioMan", () => {
     const am = new AudioMan(vi.fn().mockRejectedValue(new Error("down")) as never);
     const p = am.speak("こんにちは", 13);
     await new Promise((r) => setTimeout(r, 0));
-    const utt = speak.mock.calls[0][0] as { onend: () => void };
+    const utt = speak.mock.calls[0][0] as { onend: () => void; rate: number; pitch: number };
     utt.onend(); // simulate finish
     await p;
     expect(speak).toHaveBeenCalled();
+    expect(utt.rate).toBe(1.3);  // default browser ja voice is far too slow
+    expect(utt.pitch).toBe(0.7); // speaker 13 is an enemy → low scary pitch
   });
 
   it("interrupt during pending fetch prevents stale playback", async () => {
@@ -47,6 +49,25 @@ describe("AudioMan", () => {
     await p;
 
     expect(playCalls.length).toBe(0);
+  });
+
+  it("speak reuses a prefetched response instead of fetching again", async () => {
+    if (!(URL as unknown as { createObjectURL?: unknown }).createObjectURL) {
+      (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => "blob:x";
+    }
+    class FakeAudio {
+      onended: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(public src = "") {}
+      play() { setTimeout(() => this.onended?.(), 0); return Promise.resolve(); }
+      pause() {}
+    }
+    (window as unknown as { Audio: unknown }).Audio = FakeAudio;
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob() });
+    const am = new AudioMan(fetchFn as never);
+    am.prefetch("やあ", 13);
+    await am.speak("やあ", 13);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
   it("playBgm while ducked starts at ducked volume", async () => {

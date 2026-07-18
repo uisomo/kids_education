@@ -6,7 +6,8 @@ echo ====================================
 echo.
 
 REM --- Backend server (WSL, loads ANTHROPIC_KEY from linekeys.env) ---
-start "Talk Quest Server" wsl.exe bash -lc "cd /mnt/c/Projects/kids_education && export ANTHROPIC_API_KEY=$(grep -m1 ^ANTHROPIC_KEY= /mnt/c/Projects/linekeys.env | cut -d= -f2- | tr -d '\r') && npm run dev:server"
+REM tr strips CR, double and single quotes (octal escapes: \015 \042 \047)
+start "Talk Quest Server" wsl.exe bash -lc "cd /mnt/c/Projects/kids_education && export ANTHROPIC_API_KEY=$(grep -m1 ^ANTHROPIC_KEY= /mnt/c/Projects/linekeys.env | cut -d= -f2- | tr -d '\015\042\047') && npm run dev:server"
 
 REM --- Game frontend (Vite) ---
 start "Talk Quest Game" wsl.exe bash -lc "cd /mnt/c/Projects/kids_education && npm run dev:game"

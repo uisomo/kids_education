@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemBlocks, buildMessages, type ChildProfile } from "../../src/backend/services/prompt-builder";
+import {
+  buildSystemBlocks, buildQuickMessages, buildFollowupMessages, type ChildProfile,
+} from "../../src/backend/services/prompt-builder";
 import { loadLesson } from "../../src/backend/services/lesson-store";
 
 const profile: ChildProfile = {
@@ -31,20 +33,41 @@ describe("buildSystemBlocks", () => {
   });
 });
 
-describe("buildMessages", () => {
+describe("buildQuickMessages", () => {
   it("maps kid→user, enemy/coach→assistant and trims to 10 exchanges", () => {
     const history = Array.from({ length: 30 }, (_, i) => ({
       role: (i % 2 === 0 ? "kid" : "enemy") as "kid" | "enemy",
       text: `t${i}`,
     }));
-    const msgs = buildMessages({
+    const msgs = buildQuickMessages({
       childName: "ゆうた", unitId: "unit-01", utterance: "やすくして！",
       phase: "battle", history,
     });
     expect(msgs[msgs.length - 1].role).toBe("user");
-    expect(msgs[msgs.length - 1].content.endsWith("やすくして！")).toBe(true);
+    expect(msgs[msgs.length - 1].content).toContain("やすくして！");
     expect(msgs[msgs.length - 1].content).toContain("battle");
+    expect(msgs[msgs.length - 1].content).toContain("即答");
     expect(msgs.length).toBeLessThanOrEqual(21);
+    expect(msgs[0].role).toBe("user");
+  });
+});
+
+describe("buildFollowupMessages", () => {
+  it("ends with a user instruction carrying enemy reply and battle state", () => {
+    const msgs = buildFollowupMessages({
+      childName: "ゆうた", unitId: "unit-01", utterance: "やすくして！",
+      phase: "battle",
+      history: [
+        { role: "kid", text: "やすくして！" },
+        { role: "enemy", text: "だめだね！" },
+      ],
+      enemyLine: "だめだね！", damage: 10, remainingHp: 90, maxHp: 100,
+    });
+    const last = msgs[msgs.length - 1];
+    expect(last.role).toBe("user");
+    expect(last.content).toContain("だめだね！");
+    expect(last.content).toContain("90/100");
+    expect(last.content).toContain("coach_line");
     expect(msgs[0].role).toBe("user");
   });
 });

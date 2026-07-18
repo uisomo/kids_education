@@ -2,7 +2,7 @@ import express from "express";
 import type { AppConfig } from "../config";
 import { listLessons, loadLesson } from "../services/lesson-store";
 import { getProfile, appendTranscript, recordLessonSummary } from "../services/profile-store";
-import { runTurn, type ClaudeLike, TurnServiceError } from "../services/claude-turn";
+import { runQuickTurn, runFollowup, type ClaudeLike, TurnServiceError } from "../services/claude-turn";
 import { applyReward } from "../services/progression";
 import { EngagementBank, type Drop } from "../services/reward-scheduler";
 import { synthesize, TtsUnavailableError } from "../services/tts";
@@ -72,8 +72,40 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
     }
   });
 
-  app.post("/api/turn", async (req, res) => {
-    const { childName, unitId, utterance, phase, history, voicedMs } = req.body;
+  // Stage 1: the enemy's immediate reply — kept small so the voice starts fast.
+  app.post("/api/turn/quick", async (req, res) => {
+    const { childName, unitId, utterance, phase, history } = req.body;
+    if (!safe(childName, unitId)) {
+      res.status(400).json({ error: "invalid childName or unitId" });
+      return;
+    }
+    let lesson;
+    try {
+      lesson = loadLesson(config.contentDir, lessonSubject(unitId, config), unitId);
+    } catch {
+      res.status(404).json({ error: "unknown unit" });
+      return;
+    }
+    try {
+      const profile = getProfile(config.dataDir, childName);
+      const turn = await runQuickTurn(claude, config.model, lesson, profile,
+        { childName, unitId, utterance, phase, history });
+      appendTranscript(config.dataDir, childName, { kind: "kid", text: utterance });
+      res.json({ turn });
+    } catch (e) {
+      if (e instanceof TurnServiceError) {
+        res.status(502).json({ error: String(e) });
+      } else {
+        res.status(500).json({ error: String(e) });
+      }
+    }
+  });
+
+  // Stage 2: coaching/scoring/phase + engagement rewards, fetched while the
+  // enemy line is being voiced on the client.
+  app.post("/api/turn/followup", async (req, res) => {
+    const { childName, unitId, utterance, phase, history,
+            enemyLine, damage, remainingHp, maxHp, voicedMs } = req.body;
     if (!safe(childName, unitId)) {
       res.status(400).json({ error: "invalid childName or unitId" });
       return;
@@ -89,17 +121,17 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
       const profile = getProfile(config.dataDir, childName);
       const bank = banks.get(bankKey(childName, unitId));
       bank?.addVoicedMs(voicedMs ?? 0);
-      const turn = await runTurn(claude, config.model, lesson, profile,
-        { childName, unitId, utterance, phase, history });
+      const turn = await runFollowup(claude, config.model, lesson, profile,
+        { childName, unitId, utterance, phase, history,
+          enemyLine, damage, remainingHp, maxHp });
       const drop: Drop | null = bank?.maybeDrop() ?? null;
       writeCarry(config.dataDir, childName, bank?.accruedMs ?? 0);
       const unlocked = drop
         ? applyReward(config.dataDir, childName, lesson.reward.stat, drop.xp).unlocked
         : [];
-      appendTranscript(config.dataDir, childName, { kind: "kid", text: utterance });
       appendTranscript(config.dataDir, childName, {
-        kind: "turn", enemy: turn.enemy_line, coach: turn.coach_line,
-        damage: turn.damage, deep_question: turn.deep_question, drop,
+        kind: "turn", enemy: enemyLine, coach: turn.coach_line,
+        damage, deep_question: turn.deep_question, drop,
       });
       res.json({ turn, drop, unlocked });
     } catch (e) {
@@ -154,6 +186,7 @@ export function makeApp(deps: { config: AppConfig; claude: ClaudeLike }) {
     try {
       const wav = await synthesize(
         config.voicevoxUrl, String(req.query.text ?? ""), Number(req.query.speaker ?? 1),
+        config.ttsSpeed,
       );
       res.type("audio/wav").send(Buffer.from(wav));
     } catch (e) {

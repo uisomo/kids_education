@@ -1,8 +1,12 @@
 import type { SpeechEvents } from "./speech";
-import type { TurnResult, Phase } from "../shared/types/turn";
-import type { startSession, postTurn, endSession, Drop, Unlock } from "./api";
+import type { QuickTurnResult, Phase } from "../shared/types/turn";
+import type { startSession, postQuickTurn, postFollowup, endSession } from "./api";
+import { TUTOR_SPEAKER } from "./audio";
 
-const TUTOR_SPEAKER = 3;
+// Instant reactions played the moment the kid finishes talking, while Claude
+// thinks — the pause reads as "the character heard me" instead of dead air.
+const ENEMY_AIZUCHI = ["むむっ…！", "ほほう…？", "なんだと…", "むむむ…"];
+const TUTOR_AIZUCHI = ["ふんふん…", "なるほど…", "うんうん…"];
 
 export interface SessionDeps {
   arena: {
@@ -11,15 +15,19 @@ export interface SessionDeps {
   };
   hud: {
     setHp(c: number, m: number): void; setEnemyName(n: string): void;
-    setSubtitle(t: string): void; caption(w: "enemy" | "coach", t: string): void;
+    setSubtitle(t: string): void; caption(w: "enemy" | "coach" | "kid", t: string): void;
     damageNumber(n: number): void; journalAdd(e: string): void; toast(t: string): void;
     celebration(t: string): void; micState(s: string): void; showRetry(f: () => void): void;
   };
   audio: {
     playBgm(p: string): void; stopBgm(): void; sfx(n: string): void;
     speak(t: string, s: number): Promise<void>; interrupt(): void;
+    prefetch(t: string, s: number): void;
   };
-  api: { startSession: typeof startSession; postTurn: typeof postTurn; endSession: typeof endSession };
+  api: {
+    startSession: typeof startSession; postQuickTurn: typeof postQuickTurn;
+    postFollowup: typeof postFollowup; endSession: typeof endSession;
+  };
   child: { name: string; avatar: string };
   makeRec(events: SpeechEvents): { start(): void; stop(): void; setLang(l: "ja-JP" | "en-US"): void };
   onExit(): void;
@@ -34,6 +42,7 @@ export class SessionController {
   private rec!: ReturnType<SessionDeps["makeRec"]>;
   private lastCoachLine = "";
   private silenceCount = 0;
+  private aizuchiIdx = 0;
 
   constructor(private d: SessionDeps) {}
 
@@ -59,6 +68,9 @@ export class SessionController {
     });
     if (lesson.lang === "en") this.rec.setLang("en-US");
 
+    for (const beat of lesson.teach) this.d.audio.prefetch(beat, TUTOR_SPEAKER);
+    for (const a of TUTOR_AIZUCHI) this.d.audio.prefetch(a, TUTOR_SPEAKER);
+    for (const a of ENEMY_AIZUCHI) this.d.audio.prefetch(a, lesson.enemy.voice);
     for (const beat of lesson.teach) {
       this.d.hud.caption("coach", beat);
       await this.d.audio.speak(beat, TUTOR_SPEAKER);
@@ -72,15 +84,9 @@ export class SessionController {
   }
 
   private async handleSilence(): Promise<void> {
+    // Never switch the mic off: kids need thinking time. Nudge twice, then wait quietly.
     this.silenceCount += 1;
-    if (this.silenceCount >= 3) {
-      this.silenceCount = 0;
-      this.rec.stop();
-      this.d.hud.showRetry(() => {
-        this.listen();
-      });
-      return;
-    }
+    if (this.silenceCount > 2) return;
     await this.d.audio.speak("きこえてるよ、ゆっくりでいいからね", TUTOR_SPEAKER);
   }
 
@@ -89,53 +95,87 @@ export class SessionController {
     this.rec.stop();
     this.d.hud.micState("thinking");
     this.d.hud.setSubtitle(text);
+    this.d.hud.caption("kid", text);
 
-    let res: { turn: TurnResult; drop: Drop | null; unlocked: Unlock[] };
+    // Instant grunt while Claude thinks (fire-and-forget; the real line interrupts it).
+    const teach = this.phase === "teach";
+    const pool = teach ? TUTOR_AIZUCHI : ENEMY_AIZUCHI;
+    const aizuchiVoice = teach ? TUTOR_SPEAKER : this.lesson.enemy.voice;
+    const aizuchi = pool[this.aizuchiIdx++ % pool.length];
+    void this.d.audio.speak(aizuchi, aizuchiVoice);
+    this.d.audio.prefetch(aizuchi, aizuchiVoice); // refill for a later turn
+
+    let quick: QuickTurnResult;
     try {
-      res = await this.d.api.postTurn({
+      quick = (await this.d.api.postQuickTurn({
         childName: this.d.child.name, unitId: this.lesson.id, utterance: text,
-        phase: this.phase, history: this.history, voicedMs,
-      });
+        phase: this.phase, history: this.history,
+      })).turn;
     } catch {
       await this.d.audio.speak("ちょっとかんがえちゅう…もういちどいってみて！", TUTOR_SPEAKER);
       this.listen();
       return;
     }
 
-    const { turn, drop, unlocked } = res;
+    this.d.audio.prefetch(quick.enemy_line, this.lesson.enemy.voice);
     this.history.push({ role: "kid", text });
-    this.history.push({ role: "enemy", text: turn.enemy_line });
-    this.history.push({ role: "coach", text: turn.coach_line });
-    this.lastCoachLine = turn.coach_line;
+    this.history.push({ role: "enemy", text: quick.enemy_line });
 
-    if (this.phase === "teach" && turn.phase === "battle") this.d.audio.playBgm("battle");
-    const prevPhase = this.phase;
-    this.phase = turn.phase;
-
-    if (turn.damage > 0) {
+    if (quick.damage > 0) {
       this.d.arena.heroAttack();
       this.d.audio.sfx("hit");
-      this.hp = Math.max(0, this.hp - turn.damage);
+      this.hp = Math.max(0, this.hp - quick.damage);
       this.d.hud.setHp(this.hp, this.maxHp);
-      this.d.hud.damageNumber(turn.damage);
+      this.d.hud.damageNumber(quick.damage);
     }
-    this.d.arena.setEnemyAction(turn.enemy_action);
+    this.d.arena.setEnemyAction(quick.enemy_action);
 
-    this.d.hud.caption("coach", turn.coach_line);
-    await this.d.audio.speak(turn.coach_line, TUTOR_SPEAKER);
-    this.d.hud.caption("enemy", turn.enemy_line);
-    await this.d.audio.speak(turn.enemy_line, this.lesson.enemy.voice);
+    // Coaching/scoring is fetched while the enemy line is being voiced.
+    const followP = this.d.api.postFollowup({
+      childName: this.d.child.name, unitId: this.lesson.id, utterance: text,
+      phase: this.phase, history: this.history,
+      enemyLine: quick.enemy_line, damage: quick.damage,
+      remainingHp: this.hp, maxHp: this.maxHp, voicedMs,
+    }).then((r) => {
+      this.d.audio.prefetch(r.turn.coach_line, TUTOR_SPEAKER);
+      if (r.turn.deep_question) this.d.audio.prefetch(r.turn.deep_question, TUTOR_SPEAKER);
+      return r;
+    });
+    followP.catch(() => { /* handled after the enemy line */ });
 
-    if (turn.deep_question) {
-      this.d.hud.caption("coach", turn.deep_question);
-      this.d.hud.journalAdd(turn.deep_question);
-      await this.d.audio.speak(turn.deep_question, TUTOR_SPEAKER);
+    this.d.hud.caption("enemy", quick.enemy_line);
+    await this.d.audio.speak(quick.enemy_line, this.lesson.enemy.voice);
+
+    let res: Awaited<ReturnType<typeof postFollowup>>;
+    try {
+      res = await followP;
+    } catch {
+      await this.d.audio.speak("ちょっとかんがえちゅう…もういちどいってみて！", TUTOR_SPEAKER);
+      this.listen();
+      return;
+    }
+
+    const { turn: follow, drop, unlocked } = res;
+    this.history.push({ role: "coach", text: follow.coach_line });
+    this.lastCoachLine = follow.coach_line;
+
+    if (this.phase === "teach" && follow.phase === "battle") this.d.audio.playBgm("battle");
+    const prevPhase = this.phase;
+    this.phase = follow.phase;
+
+    this.d.hud.caption("coach", follow.coach_line);
+    await this.d.audio.speak(follow.coach_line, TUTOR_SPEAKER);
+
+    if (follow.deep_question) {
+      this.d.hud.caption("coach", follow.deep_question);
+      this.d.hud.journalAdd(follow.deep_question);
+      await this.d.audio.speak(follow.deep_question, TUTOR_SPEAKER);
     }
     this.d.hud.journalAdd(text.length > 24 ? `${text.slice(0, 24)}…` : text);
 
     if (drop) {
       this.d.audio.sfx("unlock");
-      this.d.hud.celebration(turn.coach_line);   // informational framing: what they did
+      this.d.hud.celebration(follow.coach_line);   // informational framing: what they did
     }
     for (const u of unlocked) {
       this.d.audio.sfx("fanfare");
@@ -143,7 +183,7 @@ export class SessionController {
     }
 
     if (
-      (turn.phase === "debrief" || turn.phase === "end") &&
+      (follow.phase === "debrief" || follow.phase === "end") &&
       prevPhase !== "debrief" &&
       prevPhase !== "end"
     ) {
@@ -151,7 +191,7 @@ export class SessionController {
       this.d.arena.enemyDefeat();
       this.d.hud.setHp(0, this.maxHp);
     }
-    if (turn.phase === "end") {
+    if (follow.phase === "end") {
       await this.finish();
       return;
     }

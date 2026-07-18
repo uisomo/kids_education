@@ -24,10 +24,11 @@ export class Hud {
 
   setSubtitle(text: string): void { this.el["subtitle"].textContent = text; }
 
-  caption(who: "enemy" | "coach", text: string): void {
+  caption(who: "enemy" | "coach" | "kid", text: string): void {
     const d = document.createElement("div");
     d.className = `caption caption-${who}`;
-    d.textContent = `${who === "enemy" ? "👹" : "🦉"} ${text}`;
+    const icon = { enemy: "👹", coach: "🦉", kid: "🧒" }[who];
+    d.textContent = `${icon} ${text}`;
     this.el["captions"].appendChild(d);
     while (this.el["captions"].children.length > 3) this.el["captions"].firstChild!.remove();
   }

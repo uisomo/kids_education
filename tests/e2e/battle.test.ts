@@ -16,7 +16,7 @@ beforeEach(() => {
     "item_category,level,image_path,required_stat_level,required_stat_type,japanese_name,emoji_fallback,description,unlock_message\n" +
     "accessory,1,/x.png,1,charisma,こうしょうバッジ,🗣️,d,こうしょうバッジを手に入れた！\n");
   app = makeApp({
-    config: { model: "claude-haiku-4-5", port: 0, voicevoxUrl: "http://127.0.0.1:1", dataDir, contentDir: "content" },
+    config: { model: "claude-haiku-4-5", port: 0, voicevoxUrl: "http://127.0.0.1:1", ttsSpeed: 1.2, dataDir, contentDir: "content" },
     claude: makeMockClaude(),
   });
 });
@@ -28,15 +28,25 @@ describe("scripted battle e2e", () => {
 
     const history: object[] = [];
     let phase = "battle";
+    let hp = 100;
     let turns = 0;
     while (phase !== "end" && turns < 10) {
-      const r = await request(app).post("/api/turn").send({
-        childName: "e2e", unitId: "unit-01",
-        utterance: `おてつだいするから、やすくして（${turns}）`,
-        phase, history, voicedMs: 30000,
+      const utterance = `おてつだいするから、やすくして（${turns}）`;
+      const quick = await request(app).post("/api/turn/quick").send({
+        childName: "e2e", unitId: "unit-01", utterance, phase, history,
       });
-      expect(r.status).toBe(200);
-      phase = r.body.turn.phase;
+      expect(quick.status).toBe(200);
+      hp = Math.max(0, hp - quick.body.turn.damage);
+      history.push({ role: "kid", text: utterance });
+      history.push({ role: "enemy", text: quick.body.turn.enemy_line });
+      const follow = await request(app).post("/api/turn/followup").send({
+        childName: "e2e", unitId: "unit-01", utterance, phase, history,
+        enemyLine: quick.body.turn.enemy_line, damage: quick.body.turn.damage,
+        remainingHp: hp, maxHp: 100, voicedMs: 30000,
+      });
+      expect(follow.status).toBe(200);
+      history.push({ role: "coach", text: follow.body.turn.coach_line });
+      phase = follow.body.turn.phase;
       turns++;
     }
     expect(phase).toBe("end");

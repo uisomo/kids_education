@@ -31,6 +31,7 @@ input { font-size: 1.6rem; padding: 10px 16px; border-radius: 12px; border: none
             flex-direction: column; align-items: center; gap: 6px; }
 .caption { background: rgba(0,0,0,.55); padding: 8px 18px; border-radius: 14px;
            font-size: 1.3rem; animation: rise .3s ease; }
+.caption-kid { background: rgba(33,158,188,.55); }
 .journal-wrap { position: absolute; top: 16px; left: 16px; max-width: 260px;
                 background: rgba(0,0,0,.35); border-radius: 12px; padding: 10px; font-size: .95rem; }
 .journal { list-style: "・"; padding-left: 1em; }

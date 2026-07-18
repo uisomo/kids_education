@@ -1,4 +1,6 @@
-import type { TurnRequest, TurnResult } from "../shared/types/turn";
+import type {
+  TurnRequest, FollowupRequest, QuickTurnResult, FollowupResult,
+} from "../shared/types/turn";
 
 export interface Drop { xp: number; kind: string }
 export interface Unlock { japanese_name: string; unlock_message: string }
@@ -17,10 +19,18 @@ export const startSession = (childName: string, subject: string, unitId: string)
     body: JSON.stringify({ childName, subject, unitId }),
   }).then(j);
 
-export const postTurn = (
-  body: TurnRequest & { voicedMs: number },
-): Promise<{ turn: TurnResult; drop: Drop | null; unlocked: Unlock[] }> =>
-  fetch("/api/turn", {
+export const postQuickTurn = (
+  body: TurnRequest,
+): Promise<{ turn: QuickTurnResult }> =>
+  fetch("/api/turn/quick", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).then(j);
+
+export const postFollowup = (
+  body: FollowupRequest & { voicedMs: number },
+): Promise<{ turn: FollowupResult; drop: Drop | null; unlocked: Unlock[] }> =>
+  fetch("/api/turn/followup", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }).then(j);

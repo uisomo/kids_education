@@ -31,5 +31,7 @@ describe("game dev server", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("javascript");
     },
+    // first-request transforms can be slow on /mnt/c under load
+    15_000,
   );
 });

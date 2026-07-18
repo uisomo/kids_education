@@ -1,5 +1,5 @@
 import type { Lesson } from "./lesson-store";
-import type { TurnRequest } from "../../shared/types/turn";
+import type { TurnRequest, FollowupRequest } from "../../shared/types/turn";
 
 export interface ChildProfile {
   name: string;
@@ -98,9 +98,9 @@ export function buildSystemBlocks(lesson: Lesson, profile: ChildProfile) {
 
 const MAX_EXCHANGES = 10;
 
-export function buildMessages(req: TurnRequest) {
+function historyMessages(history: TurnRequest["history"]) {
   const msgs: { role: "user" | "assistant"; content: string }[] = [];
-  for (const h of req.history) {
+  for (const h of history) {
     const role = h.role === "kid" ? "user" : "assistant";
     const prev = msgs[msgs.length - 1];
     if (prev && prev.role === role) prev.content += `\n${h.text}`;
@@ -115,9 +115,34 @@ export function buildMessages(req: TurnRequest) {
   }
   const trimmed = msgs.slice(start);
   if (trimmed[0]?.role === "assistant") trimmed.shift(); // must start with user
-  trimmed.push({
-    role: "user",
-    content: `【状況】いまのフェーズ: ${req.phase}（teachの説明はクライアントで読み上げ済み）\n${req.utterance}`,
-  });
   return trimmed;
+}
+
+// Stage 1: only the enemy's immediate reply, so the voice starts fast.
+export function buildQuickMessages(req: TurnRequest) {
+  const msgs = historyMessages(req.history);
+  msgs.push({
+    role: "user",
+    content:
+      `【状況】いまのフェーズ: ${req.phase}（teachの説明はクライアントで読み上げ済み）\n${req.utterance}\n` +
+      `【指示】このターンは敵の即答だけをかえす。enemy_line はみじかく1〜2文。` +
+      `damage は発話がレッスンのねらいをどれだけ実践できたか（0〜100）。`,
+  });
+  return msgs;
+}
+
+// Stage 2: coaching, scoring and phase control, given the enemy reply above.
+// req.history already ends with the kid's utterance and the enemy's reply.
+export function buildFollowupMessages(req: FollowupRequest) {
+  const msgs = historyMessages(req.history);
+  msgs.push({
+    role: "user",
+    content:
+      `【状況】いまのフェーズ: ${req.phase}。敵はさっき「${req.enemyLine}」とこたえ、` +
+      `ダメージは${req.damage}、敵ののこりHPは${req.remainingHp}/${req.maxHp}。\n` +
+      `【指示】先生として coach_line・score_reason・phase・deep_question をかえす。` +
+      `のこりHPが0なら phase は "debrief"、デブリーフのしめくくりがすんだら "end"。` +
+      `score_reason はログ用のみじかいメモ（10語いない）でよい。coach_line は1〜2文。`,
+  });
+  return msgs;
 }

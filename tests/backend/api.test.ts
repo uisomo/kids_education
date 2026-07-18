@@ -5,10 +5,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { makeApp } from "../../src/backend/api/routes";
 
-const goodTurn = JSON.stringify({
-  enemy_line: "ぐぬぬ", enemy_action: "shock", coach_line: "いいね！",
-  damage: 40, score_reason: "reason", phase: "battle", deep_question: null,
+const goodQuick = JSON.stringify({ enemy_line: "ぐぬぬ", enemy_action: "shock", damage: 40 });
+const goodFollowup = JSON.stringify({
+  coach_line: "いいね！", score_reason: "reason", phase: "battle", deep_question: null,
 });
+// mirror the real client's schema-driven routing
+const mockCreate = (params: Record<string, unknown>) => {
+  const props = (params as {
+    output_config?: { format?: { schema?: { properties?: Record<string, unknown> } } };
+  }).output_config?.format?.schema?.properties ?? {};
+  const text = "enemy_line" in props ? goodQuick : goodFollowup;
+  return Promise.resolve({ content: [{ type: "text", text }] });
+};
 
 let dataDir: string;
 let app: ReturnType<typeof makeApp>;
@@ -18,9 +26,9 @@ beforeEach(() => {
   writeFileSync(join(dataDir, "characters.csv"), "child,stat,points\n");
   writeFileSync(join(dataDir, "items_progression.csv"),
     "item_category,level,image_path,required_stat_level,required_stat_type,japanese_name,emoji_fallback,description,unlock_message\n");
-  const claude = { create: vi.fn().mockResolvedValue({ content: [{ type: "text", text: goodTurn }] }) };
+  const claude = { create: vi.fn().mockImplementation(mockCreate) };
   app = makeApp({
-    config: { model: "claude-haiku-4-5", port: 0, voicevoxUrl: "http://127.0.0.1:1", dataDir, contentDir: "content" },
+    config: { model: "claude-haiku-4-5", port: 0, voicevoxUrl: "http://127.0.0.1:1", ttsSpeed: 1.2, dataDir, contentDir: "content" },
     claude,
   });
 });
@@ -38,23 +46,36 @@ describe("api", () => {
     expect(r.body.lesson.enemy.name).toContain("ゴルド");
     expect(r.body.profile.name).toBe("yuta");
   });
-  it("runs a turn and returns turn result", async () => {
+  it("runs a quick turn and returns the enemy reply", async () => {
     await request(app).post("/api/session/start")
       .send({ childName: "yuta", subject: "negotiation", unitId: "unit-01" });
-    const r = await request(app).post("/api/turn").send({
+    const r = await request(app).post("/api/turn/quick").send({
       childName: "yuta", unitId: "unit-01", utterance: "やすくして！",
-      phase: "battle", history: [], voicedMs: 3000,
+      phase: "battle", history: [],
     });
     expect(r.status).toBe(200);
     expect(r.body.turn.damage).toBe(40);
+    expect(r.body.turn.enemy_line).toBe("ぐぬぬ");
+  });
+  it("runs a followup and returns coaching plus reward slots", async () => {
+    await request(app).post("/api/session/start")
+      .send({ childName: "yuta", subject: "negotiation", unitId: "unit-01" });
+    const r = await request(app).post("/api/turn/followup").send({
+      childName: "yuta", unitId: "unit-01", utterance: "やすくして！",
+      phase: "battle", history: [], enemyLine: "ぐぬぬ", damage: 40,
+      remainingHp: 60, maxHp: 100, voicedMs: 3000,
+    });
+    expect(r.status).toBe(200);
+    expect(r.body.turn.coach_line).toBe("いいね！");
     expect(r.body).toHaveProperty("drop");
   });
   it("writes voiced engagement through to engagement.json even without a session end", async () => {
     await request(app).post("/api/session/start")
       .send({ childName: "yuta", subject: "negotiation", unitId: "unit-01" });
-    const r = await request(app).post("/api/turn").send({
+    const r = await request(app).post("/api/turn/followup").send({
       childName: "yuta", unitId: "unit-01", utterance: "やすくして！",
-      phase: "battle", history: [], voicedMs: 3000,
+      phase: "battle", history: [], enemyLine: "ぐぬぬ", damage: 40,
+      remainingHp: 60, maxHp: 100, voicedMs: 3000,
     });
     expect(r.status).toBe(200);
     const engagement = JSON.parse(
@@ -69,9 +90,10 @@ describe("api", () => {
   it("ends a session, cashing drops into the reward stat", async () => {
     await request(app).post("/api/session/start")
       .send({ childName: "yuta", subject: "negotiation", unitId: "unit-01" });
-    await request(app).post("/api/turn").send({
+    await request(app).post("/api/turn/followup").send({
       childName: "yuta", unitId: "unit-01", utterance: "a", phase: "battle",
-      history: [], voicedMs: 60000,
+      history: [], enemyLine: "ぐぬぬ", damage: 40, remainingHp: 60, maxHp: 100,
+      voicedMs: 60000,
     });
     const r = await request(app).post("/api/session/end")
       .send({ childName: "yuta", unitId: "unit-01", summary: "りゆうをつけて交渉できた" });
