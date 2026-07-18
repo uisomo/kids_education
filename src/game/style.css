@@ -20,3 +20,33 @@ input { font-size: 1.6rem; padding: 10px 16px; border-radius: 12px; border: none
 #avatar-picker img, #avatar-picker .avatar-slot { width: 84px; height: 84px; border-radius: 50%;
   border: 4px solid transparent; cursor: pointer; background: #444; }
 #avatar-picker .selected { border-color: #ffb703; }
+.hp-wrap { position: absolute; top: 16px; right: 16px; width: 320px; }
+.hp-bar { height: 22px; background: #222; border-radius: 11px; overflow: hidden; }
+.hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg,#ff5e5e,#ffb703);
+           transition: width .5s ease; }
+.enemy-name { font-size: 1.1rem; }
+.subtitle { position: absolute; bottom: 88px; width: 100%; text-align: center;
+            font-size: 1.6rem; text-shadow: 0 2px 6px #000; min-height: 2rem; }
+.captions { position: absolute; bottom: 130px; width: 100%; display: flex;
+            flex-direction: column; align-items: center; gap: 6px; }
+.caption { background: rgba(0,0,0,.55); padding: 8px 18px; border-radius: 14px;
+           font-size: 1.3rem; animation: rise .3s ease; }
+.journal-wrap { position: absolute; top: 16px; left: 16px; max-width: 260px;
+                background: rgba(0,0,0,.35); border-radius: 12px; padding: 10px; font-size: .95rem; }
+.journal { list-style: "・"; padding-left: 1em; }
+.mic-state { position: absolute; bottom: 24px; width: 100%; text-align: center; font-size: 2.4rem; }
+.mic-state[data-state="listening"] { animation: pulse 1s infinite; }
+.dmg-pop { position: absolute; top: 30%; right: 30%; font-size: 3.4rem; font-weight: bold;
+           color: #ffd166; animation: pop 1.2s ease forwards; }
+.toast { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 1.6rem;
+         animation: rise .4s ease; }
+.celebration { position: absolute; inset: 0; display: flex; align-items: center;
+               justify-content: center; font-size: 2.2rem; }
+.confetti { position: absolute; top: 40%; left: 50%; width: 10px; height: 10px;
+            background: hsl(calc(360 * var(--delay,0) * 2.5), 90%, 60%);
+            animation: burst 1.6s var(--delay) ease-out forwards; }
+.retry { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); }
+@keyframes pop { 0% {transform: scale(.3)} 30% {transform: scale(1.3)} 100% {transform: translateY(-80px) scale(1); opacity: 0} }
+@keyframes rise { from {transform: translateY(14px); opacity: 0} to {transform: none; opacity: 1} }
+@keyframes pulse { 50% { opacity: .4 } }
+@keyframes burst { to { transform: translate(var(--dx), 60vh) rotate(720deg); opacity: 0 } }
