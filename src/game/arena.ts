@@ -28,6 +28,7 @@ export class Arena {
   private hero: THREE.Sprite | null = null;
   private color = "yellow";
   private raf = 0;
+  private onResize: () => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: false, antialias: true });
@@ -52,14 +53,14 @@ export class Arena {
     this.video.loop = true;
     this.video.playsInline = true;
 
-    const resize = () => {
+    this.onResize = () => {
       const { clientWidth: w, clientHeight: h } = canvas;
       this.renderer.setSize(w, h, false);
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
     };
-    window.addEventListener("resize", resize);
-    resize();
+    window.addEventListener("resize", this.onResize);
+    this.onResize();
 
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
@@ -120,6 +121,13 @@ export class Arena {
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
+    window.removeEventListener("resize", this.onResize);
+    this.video.pause();
+    this.video.removeAttribute("src");
+    this.enemy?.material.map?.dispose();
+    this.enemy?.material.dispose();
+    this.hero?.material.map?.dispose();
+    this.hero?.material.dispose();
     this.renderer.dispose();
   }
 }
