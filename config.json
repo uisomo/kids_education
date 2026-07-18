@@ -1,0 +1,7 @@
+{
+  "model": "claude-haiku-4-5",
+  "port": 5179,
+  "voicevoxUrl": "http://localhost:50021",
+  "dataDir": "data",
+  "contentDir": "content"
+}

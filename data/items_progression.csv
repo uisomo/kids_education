@@ -1,0 +1,13 @@
+item_category,level,image_path,required_stat_level,required_stat_type,japanese_name,emoji_fallback,description,unlock_message
+weapon,1,/assets/items/weapons/wooden_sword.png,5,power,木の剣,🪄,Basic wooden training sword for beginners,木の剣を手に入れました！
+weapon,2,/assets/items/weapons/iron_sword.png,15,power,鉄の剣,⚔️,Sturdy iron sword for intermediate warriors,鉄の剣を獲得しました！
+weapon,3,/assets/items/weapons/steel_sword.png,30,power,鋼の剣,🗡️,Sharp steel blade for advanced fighters,鋼の剣を手に入れました！
+armor,1,/assets/items/armor/cloth_armor.png,3,toughness,布の鎧,🔮,Simple cloth protection for novice adventurers,布の鎧を手に入れました！
+armor,2,/assets/items/armor/leather_armor.png,12,toughness,革の鎧,🛡️,Flexible leather armor for growing heroes,革の鎧を獲得しました！
+armor,3,/assets/items/armor/chain_armor.png,25,toughness,鎖帷子,⚙️,Strong chainmail for experienced fighters,鎖帷子を手に入れました！
+accessory,1,/assets/items/accessories/bronze_ring.png,8,logic,青銅の指輪,📿,Mystical bronze ring enhancing wisdom,青銅の指輪を手に入れました！
+accessory,2,/assets/items/accessories/silver_ring.png,18,logic,銀の指輪,💍,Elegant silver ring boosting intelligence,銀の指輪を獲得しました！
+accessory,3,/assets/items/accessories/gold_ring.png,35,logic,金の指輪,👑,Precious golden ring of great wisdom,金の指輪を手に入れました！
+accessory,1,/assets/items/accessories/silver_tongue.png,1,charisma,銀の舌のバッジ,🗣️,Badge for a budding negotiator,銀の舌のバッジを手に入れた！
+accessory,2,/assets/items/accessories/orator_cape.png,3,charisma,交渉士のマント,🧣,Cape for a skilled talker,交渉士のマントを手に入れた！
+accessory,3,/assets/items/accessories/golden_crown.png,6,charisma,金の舌の王冠,👑,Crown of the master negotiator,金の舌の王冠を手に入れた！

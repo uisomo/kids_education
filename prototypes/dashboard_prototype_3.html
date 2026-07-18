@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medieval Quest Dashboard - Prototype 3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', serif;
+            background:
+                radial-gradient(circle at 25% 25%, rgba(139, 69, 19, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(184, 134, 11, 0.3) 0%, transparent 50%),
+                linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #d4af37 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1300px;
+            margin: 0 auto;
+            background:
+                linear-gradient(45deg, rgba(139, 69, 19, 0.9) 0%, rgba(160, 82, 45, 0.9) 100%),
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23654321" width="100" height="100"/><circle fill="%23d4af37" cx="10" cy="10" r="2" opacity="0.1"/><circle fill="%23d4af37" cx="90" cy="90" r="2" opacity="0.1"/></svg>');
+            border: 5px solid #d4af37;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow:
+                0 0 50px rgba(212, 175, 55, 0.3),
+                inset 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .banner {
+            background: linear-gradient(90deg, #8b4513 0%, #d4af37 50%, #8b4513 100%);
+            padding: 25px;
+            text-align: center;
+            border-bottom: 3px solid #d4af37;
+            position: relative;
+        }
+
+        .banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 2px,
+                rgba(212, 175, 55, 0.1) 2px,
+                rgba(212, 175, 55, 0.1) 4px
+            );
+        }
+
+        .hero-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .character-portrait {
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, #ffd700 0%, #b8860b 100%);
+            border: 6px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            box-shadow:
+                0 0 30px rgba(255, 215, 0, 0.6),
+                inset 0 0 20px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .character-portrait::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 2px solid #d4af37;
+            border-radius: 50%;
+            opacity: 0.5;
+        }
+
+        .hero-info {
+            color: white;
+            text-align: left;
+        }
+
+        .hero-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .hero-subtitle {
+            background: rgba(212, 175, 55, 0.8);
+            color: #2c1810;
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .hero-stats {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content-area {
+            display: grid;
+            grid-template-columns: 2.5fr 1.5fr;
+            gap: 25px;
+            padding: 25px;
+            background: rgba(44, 24, 16, 0.3);
+        }
+
+        .attributes-panel {
+            background: rgba(139, 69, 19, 0.4);
+            border: 2px solid #d4af37;
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .panel-header {
+            color: #d4af37;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 25px;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .attributes-layout {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .attribute-item {
+            background: rgba(160, 82, 45, 0.6);
+            border: 2px solid rgba(212, 175, 55, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .attribute-item:hover {
+            border-color: #d4af37;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .attribute-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .attribute-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        .attribute-label {
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .attribute-number {
+            color: #d4af37;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .attribute-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(44, 24, 16, 0.8);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.4s ease;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .hp-fill { background: linear-gradient(90deg, #dc143c, #ff6b6b); }
+        .power-fill { background: linear-gradient(90deg, #ff4500, #ffa500); }
+        .agility-fill { background: linear-gradient(90deg, #00ced1, #87ceeb); }
+        .tough-fill { background: linear-gradient(90deg, #8b4513, #cd853f); }
+        .equity-fill { background: linear-gradient(90deg, #228b22, #90ee90); }
+        .logic-fill { background: linear-gradient(90deg, #4b0082, #9370db); }
+        .acting-fill { background: linear-gradient(90deg, #ff1493, #ff69b4); }
+        .martial-fill { background: linear-gradient(90deg, #b22222, #dc143c); }
+
+        .level-up-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(45deg, #8b4513, #d4af37);
+            border: 2px solid #d4af37;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .level-up-btn:hover {
+            background: linear-gradient(45deg, #d4af37, #ffd700);
+            color: #2c1810;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+            transform: scale(1.02);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .inventory-section {
+            background: rgba(139, 69, 19, 0.4);
+            border: 2px solid #d4af37;
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .treasure-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .treasure-slot {
+            aspect-ratio: 1;
+            background: rgba(44, 24, 16, 0.8);
+            border: 2px solid rgba(212, 175, 55, 0.4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .treasure-slot:hover {
+            border-color: #d4af37;
+            background: rgba(212, 175, 55, 0.2);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+            transform: scale(1.05);
+        }
+
+        .progress-section {
+            background: rgba(139, 69, 19, 0.4);
+            border: 2px solid #d4af37;
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .exp-container {
+            background: rgba(44, 24, 16, 0.8);
+            border-radius: 15px;
+            height: 30px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 2px solid rgba(212, 175, 55, 0.4);
+        }
+
+        .exp-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%);
+            border-radius: 13px;
+            width: 30%;
+            transition: width 0.6s ease;
+            box-shadow:
+                0 0 20px rgba(255, 215, 0, 0.6),
+                inset 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .exp-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #2c1810;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+        }
+
+        .advancement-info {
+            color: #d4af37;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="banner">
+            <div class="hero-section">
+                <div class="character-portrait">⚔️</div>
+                <div class="hero-info">
+                    <div class="hero-title">Sir Galahad the Brave</div>
+                    <div class="hero-subtitle">Level 1 Knight Errant</div>
+                    <div class="hero-stats">
+                        Honor: 245 • Renown: 89 • Quests: 3
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="attributes-panel">
+                <div class="panel-header">⚔️ Knight's Attributes</div>
+                <div class="attributes-layout">
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">❤️</span>
+                                Vitality
+                            </div>
+                            <div class="attribute-number">100/100</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill hp-fill" style="width: 100%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Vitality')">Train Vitality</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">💪</span>
+                                Might
+                            </div>
+                            <div class="attribute-number">15/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill power-fill" style="width: 30%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Might')">Train Might</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">🏃</span>
+                                Swiftness
+                            </div>
+                            <div class="attribute-number">12/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill agility-fill" style="width: 24%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Swiftness')">Train Swiftness</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">🛡️</span>
+                                Fortitude
+                            </div>
+                            <div class="attribute-number">8/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill tough-fill" style="width: 16%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Fortitude')">Train Fortitude</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">⚖️</span>
+                                Justice
+                            </div>
+                            <div class="attribute-number">20/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill equity-fill" style="width: 40%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Justice')">Train Justice</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">🧠</span>
+                                Wisdom
+                            </div>
+                            <div class="attribute-number">18/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill logic-fill" style="width: 36%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Wisdom')">Train Wisdom</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">🎭</span>
+                                Charisma
+                            </div>
+                            <div class="attribute-number">5/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill acting-fill" style="width: 10%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Charisma')">Train Charisma</button>
+                    </div>
+
+                    <div class="attribute-item">
+                        <div class="attribute-top">
+                            <div class="attribute-label">
+                                <span class="attribute-icon">⚔️</span>
+                                Combat
+                            </div>
+                            <div class="attribute-number">3/50</div>
+                        </div>
+                        <div class="attribute-bar">
+                            <div class="bar-fill martial-fill" style="width: 6%"></div>
+                        </div>
+                        <button class="level-up-btn" onclick="enhanceAttribute('Combat')">Train Combat</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <div class="inventory-section">
+                    <div class="panel-header">💎 Royal Treasury</div>
+                    <div class="treasure-grid">
+                        <div class="treasure-slot">🗡️</div>
+                        <div class="treasure-slot">🛡️</div>
+                        <div class="treasure-slot">👑</div>
+                        <div class="treasure-slot">🏹</div>
+                        <div class="treasure-slot">🧪</div>
+                        <div class="treasure-slot">📜</div>
+                        <div class="treasure-slot">💍</div>
+                        <div class="treasure-slot">🔮</div>
+                        <div class="treasure-slot">⚡</div>
+                    </div>
+                </div>
+
+                <div class="progress-section">
+                    <div class="panel-header">🏆 Quest Progress</div>
+                    <div class="exp-container">
+                        <div class="exp-progress"></div>
+                        <div class="exp-label">150 / 3,000 Glory</div>
+                    </div>
+                    <div class="advancement-info">
+                        Next Rank: Seasoned Knight<br>
+                        Glory Required: 2,850<br><br>
+                        Complete quests and train attributes<br>
+                        to advance in the Order of Knights
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function enhanceAttribute(attribute) {
+            alert(`🏆 ${attribute} enhanced!\n💎 Sacred relic acquired!\n⭐ +50 Glory earned!\n\nYour dedication to knightly virtues grows stronger!`);
+        }
+    </script>
+</body>
+</html>
