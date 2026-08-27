@@ -367,3 +367,15 @@
   color: #999;
   text-align: center;
 }
+
+.voice-status {
+  font-size: 0.85rem;
+  color: #c00;
+  text-align: center;
+  min-height: 1em;
+}
+
+.btn-play:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

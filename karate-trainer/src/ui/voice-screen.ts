@@ -13,6 +13,12 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
 
   let recorder: ReturnType<typeof deps.makeRecorder> | null = null;
   let isRecording = false;
+  let busy = false; // synchronous re-entrancy guard for start/stop
+
+  // Status line for user feedback (e.g. mic errors)
+  const status = document.createElement("div");
+  status.dataset.voiceStatus = "";
+  status.className = "voice-status";
 
   // Role selector
   const roleSelect = document.createElement("select");
@@ -40,24 +46,46 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   recordBtn.textContent = "🎙 録音";
 
   recordBtn.addEventListener("click", async () => {
+    // Synchronous re-entrancy guard: ignore clicks while a start/stop is in flight.
+    if (busy) return;
+    busy = true;
+
     if (!isRecording) {
       // Start recording
-      recorder = deps.makeRecorder();
-      await recorder.start();
+      status.textContent = "";
+      const rec = deps.makeRecorder();
+      try {
+        await rec.start();
+      } catch {
+        // Mic denied or failed: stay idle, surface a message, clear recorder ref.
+        recorder = null;
+        isRecording = false;
+        recordBtn.textContent = "🎙 録音";
+        status.textContent = "マイクを開始できませんでした";
+        busy = false;
+        return;
+      }
+      recorder = rec;
       isRecording = true;
       recordBtn.textContent = "⏹ 停止";
+      busy = false;
     } else {
       // Stop recording and save
-      if (recorder) {
-        const blob = await recorder.stop();
-        const role = roleSelect.value as CueRole;
-        const label = labelInput.value || `Recording (${new Date().toLocaleTimeString()})`;
-        await deps.store.add(role, label, blob);
-        labelInput.value = "";
+      try {
+        if (recorder) {
+          const blob = await recorder.stop();
+          const role = roleSelect.value as CueRole;
+          const label = labelInput.value || `録音 ${new Date().toLocaleTimeString()}`;
+          await deps.store.add(role, label, blob);
+          labelInput.value = "";
+        }
+        recorder = null;
+        isRecording = false;
+        recordBtn.textContent = "🎙 録音";
+        await refresh();
+      } finally {
+        busy = false;
       }
-      isRecording = false;
-      recordBtn.textContent = "🎙 録音";
-      await refresh();
     }
   });
 
@@ -92,6 +120,9 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
       heading.textContent = roleLabel;
       section.appendChild(heading);
 
+      // Playable URLs only exist on the store.list(role) shape ({id, url}[]),
+      // not on StoredClip from store.all(). Look up each clip's url by id.
+      const urls = deps.store.list(role);
       const list = document.createElement("ul");
       grouped[role].forEach((clip) => {
         const item = document.createElement("li");
@@ -101,13 +132,19 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
         label.className = "clip-label";
         label.textContent = clip.label;
 
+        const url = urls.find((u) => u.id === clip.id)?.url;
+
         const playBtn = document.createElement("button");
         playBtn.className = "btn-play";
         playBtn.textContent = "▶ 再生";
-        playBtn.addEventListener("click", async () => {
-          const audio = new Audio(clip.url);
-          await audio.play();
-        });
+        if (!url) {
+          playBtn.disabled = true;
+        } else {
+          playBtn.addEventListener("click", async () => {
+            const audio = new Audio(url);
+            await audio.play();
+          });
+        }
 
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "btn-delete";
@@ -137,7 +174,8 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
     link.href = url;
     link.download = `voice-backup-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
-    URL.revokeObjectURL(url);
+    // Defer revoke so Safari doesn't race and cancel the download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   });
 
   // Import input
@@ -167,7 +205,7 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   backBtn.addEventListener("click", () => deps.onBack());
 
   // Assemble
-  root.append(backBtn, roleSelect, labelInput, recordBtn, clipList, exportBtn, importInput, caveat);
+  root.append(backBtn, roleSelect, labelInput, recordBtn, status, clipList, exportBtn, importInput, caveat);
 
   // Initial refresh
   refresh();
