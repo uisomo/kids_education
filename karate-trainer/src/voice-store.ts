@@ -20,13 +20,14 @@ export function idbKv(dbName = "karate-voice"): KvAdapter {
   const tx = async (mode: IDBTransactionMode) =>
     (await open()).transaction("clips", mode).objectStore("clips");
   return {
-    async get(k) { const s = await tx("readonly"); return new Promise((r) => { const q = s.get(k); q.onsuccess = () => r(q.result); }); },
-    async set(k, v) { const s = await tx("readwrite"); return new Promise((r) => { s.put(v, k).onsuccess = () => r(); }); },
-    async delete(k) { const s = await tx("readwrite"); return new Promise((r) => { s.delete(k).onsuccess = () => r(); }); },
-    async entries() { const s = await tx("readonly"); return new Promise((r) => {
+    async get(k) { const s = await tx("readonly"); return new Promise((res, rej) => { const q = s.get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+    async set(k, v) { const s = await tx("readwrite"); return new Promise<void>((res, rej) => { const q = s.put(v, k); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); },
+    async delete(k) { const s = await tx("readwrite"); return new Promise<void>((res, rej) => { const q = s.delete(k); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); },
+    async entries() { const s = await tx("readonly"); return new Promise((res, rej) => {
       const out: [string, unknown][] = [];
       const c = s.openCursor();
-      c.onsuccess = () => { const cur = c.result; if (cur) { out.push([String(cur.key), cur.value]); cur.continue(); } else r(out); };
+      c.onsuccess = () => { const cur = c.result; if (cur) { out.push([String(cur.key), cur.value]); cur.continue(); } else res(out); };
+      c.onerror = () => rej(c.error);
     }); },
   };
 }
@@ -71,7 +72,8 @@ export class VoiceStore {
   list(role: CueRole): { id: string; url: string }[] {
     return [...this.clips.values()]
       .filter((c) => c.role === role)
-      .map((c) => ({ id: c.id, url: this.urls.get(c.id)! }));
+      .map((c) => ({ id: c.id, url: this.urls.get(c.id) }))
+      .filter((x): x is { id: string; url: string } => typeof x.url === "string");
   }
 
   async export(): Promise<Blob> {

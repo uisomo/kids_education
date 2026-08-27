@@ -43,4 +43,16 @@ describe("VoiceStore", () => {
     await store.remove(clip.id);
     expect(store.list("countdown")).toHaveLength(0);
   });
+
+  it("propagates a failing kv request instead of hanging", async () => {
+    const failingKv: KvAdapter = {
+      get: async () => undefined,
+      set: async () => { throw new Error("quota"); },
+      delete: async () => undefined,
+      entries: async () => [],
+    };
+    const store = new VoiceStore(failingKv);
+    await store.init();
+    await expect(store.add("announce", "x", new Blob(["y"]))).rejects.toThrow("quota");
+  });
 });
