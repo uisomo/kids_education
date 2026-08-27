@@ -59,7 +59,7 @@ export class KarateApp {
     this.showSetup();
   }
 
-  private showSetup(): void {
+  private showSetup(message?: string): void {
     renderSetupScreen(this.root, {
       menu: this.menu,
       onChange: (menu) => {
@@ -70,6 +70,15 @@ export class KarateApp {
       onStart: () => { void this.beginTraining(); },
       onOpenVoice: () => this.showVoice(),
     });
+    if (message) {
+      const note = document.createElement("div");
+      note.dataset.setupStatus = "";
+      note.className = "setup-status";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      // Show it above the drill list so it's immediately visible.
+      this.root.prepend(note);
+    }
   }
 
   private showVoice(): void {
@@ -81,10 +90,28 @@ export class KarateApp {
   }
 
   private async beginTraining(): Promise<void> {
-    const view = renderTrainingScreen(this.root);
+    // Acquire the camera/recorder/wake lock BEFORE mounting the training
+    // screen. If the camera is denied (a guaranteed first-launch scenario on
+    // iOS) we must not leave a broken, buttonless training screen mounted —
+    // instead we land the user back on setup with a message and a clean state
+    // for retry.
+    const recorder = this.deps.makeVideoRecorder();
+    let stream: MediaStream;
+    try {
+      stream = await recorder.startCamera();
+      recorder.startRecording();
+      await this.deps.wakeGuard.acquire();
+    } catch {
+      // Camera denied/unavailable, or recording failed to start. Release any
+      // partially-acquired wake lock and return to setup with a message.
+      await this.deps.wakeGuard.release();
+      this.videoRecorder = null;
+      this.showSetup("カメラを開始できませんでした。権限を確認してください");
+      return;
+    }
+    this.videoRecorder = recorder;
 
-    this.videoRecorder = this.deps.makeVideoRecorder();
-    const stream = await this.videoRecorder.startCamera();
+    const view = renderTrainingScreen(this.root);
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -96,8 +123,6 @@ export class KarateApp {
     } catch {
       // jsdom's play() is unimplemented and may throw synchronously — ignore.
     }
-    this.videoRecorder.startRecording();
-    await this.deps.wakeGuard.acquire();
 
     this.recElapsedMs = 0;
     this.cueCount = 0;
