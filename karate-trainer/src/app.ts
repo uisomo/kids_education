@@ -74,6 +74,12 @@ export class KarateApp {
         saveMenu(menu, this.deps.storage);
         this.showSetup();
       },
+      // Field edits (name / seconds): persist without re-rendering, so the
+      // focused input and the iOS IME composition survive each keystroke.
+      onEdit: (menu) => {
+        this.menu = menu;
+        saveMenu(menu, this.deps.storage);
+      },
       onStart: () => { void this.beginTraining(); },
       onOpenVoice: () => this.showVoice(),
     });

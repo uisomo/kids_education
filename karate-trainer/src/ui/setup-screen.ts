@@ -3,7 +3,12 @@ import { totalSeconds, formatMMSS } from "../menu-store";
 
 export interface SetupDeps {
   menu: Menu;
+  // Structural change (add / delete / reorder): caller re-renders the screen.
   onChange(menu: Menu): void;
+  // In-place field edit (name / seconds): caller persists only, NO re-render —
+  // re-rendering on every keystroke destroys the focused <input> and cancels
+  // the iOS IME composition (かな入力 drops out after one character).
+  onEdit(menu: Menu): void;
   onStart(): void;
   onOpenVoice(): void;
 }
@@ -30,9 +35,10 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     const name = document.createElement("input");
     name.value = drill.name;
     name.className = "drill-name";
+    // Edit in place + persist only (no re-render) so focus / IME survive typing.
     name.addEventListener("input", () => {
-      const next = menu.map((d, j) => j === i ? { ...d, name: name.value } : d);
-      deps.onChange(next);
+      menu[i] = { ...menu[i], name: name.value };
+      deps.onEdit(menu);
     });
 
     const secs = document.createElement("input");
@@ -40,7 +46,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     secs.className = "drill-secs";
     secs.addEventListener("input", () => {
       const n = Math.max(1, Number(secs.value) || 1);
-      deps.onChange(menu.map((d, j) => j === i ? { ...d, seconds: n } : d));
+      menu[i] = { ...menu[i], seconds: n };
+      deps.onEdit(menu);
+      updateTotal();
     });
 
     const up = document.createElement("button");
@@ -82,7 +90,10 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
 
   const total = document.createElement("div");
   total.className = "total";
-  total.textContent = `合計 ${menu.length} 種目 · ${formatMMSS(totalSeconds(menu))}`;
+  function updateTotal(): void {
+    total.textContent = `合計 ${menu.length} 種目 · ${formatMMSS(totalSeconds(menu))}`;
+  }
+  updateTotal();
 
   const voice = document.createElement("button");
   voice.dataset.voice = ""; voice.className = "btn-ghost"; voice.textContent = "声を録音";
