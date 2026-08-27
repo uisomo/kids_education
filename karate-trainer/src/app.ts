@@ -43,6 +43,9 @@ export interface KarateAppDeps {
   // How to ask the user for a preset name (defaults to window.prompt).
   // Injectable so the save flow is testable. Returns null to cancel.
   promptName?(defaultName: string): string | null;
+  // 録画の共有（native → シェアシート / web → <a download>）。
+  // platform.ts から注入される。
+  shareRecording(blob: Blob, ext: string): Promise<void>;
 }
 
 // Generic on-screen toast for encouragement. The actual spoken/played cue is
@@ -256,6 +259,7 @@ export class KarateApp {
 
     const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
+    const blobForShare = blob;
     renderDoneScreen(this.root, {
       videoUrl,
       ext,
@@ -264,11 +268,10 @@ export class KarateApp {
         drills: this.drillCount,
         cues: this.cueCount,
       },
-      onDownload: () => {
-        const a = document.createElement("a");
-        a.href = videoUrl;
-        a.download = `karate-training.${ext}`;
-        a.click();
+      onShare: () => {
+        void this.deps.shareRecording(blobForShare, ext).catch((e) => {
+          console.error("shareRecording failed", e);
+        });
       },
       onAgain: () => {
         this.sessionEnding = false;

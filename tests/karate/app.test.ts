@@ -33,6 +33,7 @@ it("runs setup → training → done when Start is pressed", async () => {
     makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
     // tiny menu so the test is fast
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
@@ -74,6 +75,7 @@ it("returns to setup with a message when the camera is denied", async () => {
     makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
     wakeGuard,
     rafLoop: { start: rafStart, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
   await app.start();
@@ -117,6 +119,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
     makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
     // a longer drill so we can pause mid-way without ending the session
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 10, kind: "drill" }],
   });
@@ -145,4 +148,52 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   expect(pauseBtn().textContent).toContain("一時停止");
   for (let t = 0; t < 2000; t += 250) loopCb!(250);
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
+});
+
+it("passes the recorded blob to shareRecording after the parental gate", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const shareRecording = vi.fn().mockResolvedValue(undefined);
+  const recordedBlob = new Blob(["v"]);
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(recordedBlob),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording,
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+  for (let t = 0; t < 2500; t += 250) loopCb!(250);
+  await new Promise((r) => setTimeout(r, 0));
+
+  // done screen shown → press save → clear the parental gate → share fires
+  const save = root.querySelector<HTMLButtonElement>("[data-download]")!;
+  save.click();
+  const input = root.querySelector<HTMLInputElement>("[data-gate-input]")!;
+  const q = root.querySelector<HTMLElement>("[data-gate-question]")!.textContent!;
+  // parse "a + b = ?" and answer correctly
+  const [a, b] = q.replace(/[^0-9+]/g, "").split("+").map(Number);
+  input.value = String(a + b);
+  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
+
+  expect(shareRecording).toHaveBeenCalledOnce();
+  expect(shareRecording.mock.calls[0][0]).toBe(recordedBlob);
+  expect(shareRecording.mock.calls[0][1]).toBe("mp4");
 });

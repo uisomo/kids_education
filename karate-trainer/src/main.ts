@@ -3,7 +3,7 @@ import { VideoRecorder } from "./recorder";
 import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
 import { VoiceStore, idbKv } from "./voice-store";
-import { WakeGuard } from "./wake-lock";
+import { makeWakeGuard, shareRecording } from "./platform";
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
@@ -26,7 +26,8 @@ const app = new KarateApp(root, {
   audioSink: new BrowserAudioSink(),
   makeVideoRecorder: () => new VideoRecorder(),
   makeVoiceRecorder: () => new VoiceRecorder(),
-  wakeGuard: new WakeGuard(),
+  wakeGuard: makeWakeGuard(),
   rafLoop,
+  shareRecording,
 });
 await app.start();
