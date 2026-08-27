@@ -60,6 +60,55 @@ button {
   letter-spacing: 0.04em;
 }
 
+/* Preset band: saved named menus, horizontally scrollable */
+.preset-band {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  overflow-x: auto;
+  padding: 0.25rem 0.1rem 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+.preset-chip {
+  display: inline-flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  border: 1px solid var(--panel-line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.preset-load {
+  background: transparent;
+  border: none;
+  color: var(--tatami);
+  font: inherit;
+  padding: 0.4rem 0.5rem 0.4rem 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.preset-del {
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--panel-line);
+  color: rgba(243, 237, 227, 0.5);
+  font-size: 0.75rem;
+  padding: 0 0.6rem;
+  cursor: pointer;
+}
+.preset-del:hover { color: var(--obi); }
+.preset-save {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px dashed var(--panel-line);
+  border-radius: 999px;
+  color: var(--tatami);
+  font: inherit;
+  padding: 0.4rem 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .setup-status {
   background: rgba(200, 64, 47, 0.15);
   border: 1px solid var(--obi);

@@ -10,6 +10,10 @@ function deps(over: Record<string, unknown> = {}) {
     onEdit: vi.fn(),
     onStart: vi.fn(),
     onOpenVoice: vi.fn(),
+    presets: [],
+    onSavePreset: vi.fn(),
+    onLoadPreset: vi.fn(),
+    onDeletePreset: vi.fn(),
     ...over,
   };
 }
@@ -98,4 +102,35 @@ it("editing seconds calls onEdit and updates the total in place", () => {
   expect(onEdit.mock.calls[0][0][0].seconds).toBe(40);
   // total reflects the new value without a full re-render
   expect(root.querySelector(".total")!.textContent).toContain("種目");
+});
+
+// --- Preset band ---
+it("renders a chip per preset and fires onLoadPreset when tapped", () => {
+  const root = document.createElement("div");
+  const onLoadPreset = vi.fn();
+  const presets = [
+    { id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) },
+    { id: "p2", name: "型の日", menu: structuredClone(DEFAULT_MENU) },
+  ];
+  renderSetupScreen(root, deps({ presets, onLoadPreset }));
+  expect(root.querySelectorAll("[data-preset]")).toHaveLength(2);
+  root.querySelector<HTMLButtonElement>('[data-preset-load="p2"]')!.click();
+  expect(onLoadPreset).toHaveBeenCalledWith("p2");
+});
+
+it("save button fires onSavePreset", () => {
+  const root = document.createElement("div");
+  const onSavePreset = vi.fn();
+  renderSetupScreen(root, deps({ onSavePreset }));
+  root.querySelector<HTMLButtonElement>("[data-preset-save]")!.click();
+  expect(onSavePreset).toHaveBeenCalledOnce();
+});
+
+it("preset delete button fires onDeletePreset with the id", () => {
+  const root = document.createElement("div");
+  const onDeletePreset = vi.fn();
+  const presets = [{ id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) }];
+  renderSetupScreen(root, deps({ presets, onDeletePreset }));
+  root.querySelector<HTMLButtonElement>('[data-preset-del="p1"]')!.click();
+  expect(onDeletePreset).toHaveBeenCalledWith("p1");
 });

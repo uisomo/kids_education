@@ -1,5 +1,6 @@
 import type { Menu, Drill } from "./types";
 import { loadMenu, saveMenu, formatMMSS } from "./menu-store";
+import { loadPresets, savePreset, deletePreset } from "./preset-store";
 import { SessionScheduler, type SchedulerHandlers } from "./scheduler";
 import { CuePlayer, type CueSink, type ClipSource } from "./cue-player";
 import type { VoiceStore } from "./voice-store";
@@ -39,6 +40,9 @@ export interface KarateAppDeps {
   rafLoop: RafLoop;
   menuOverride?: Menu;
   storage?: Storage;
+  // How to ask the user for a preset name (defaults to window.prompt).
+  // Injectable so the save flow is testable. Returns null to cancel.
+  promptName?(defaultName: string): string | null;
 }
 
 // Generic on-screen toast for encouragement. The actual spoken/played cue is
@@ -82,6 +86,27 @@ export class KarateApp {
       },
       onStart: () => { void this.beginTraining(); },
       onOpenVoice: () => this.showVoice(),
+      presets: loadPresets(this.deps.storage),
+      onSavePreset: () => {
+        const ask = this.deps.promptName
+          ?? ((d: string) => (typeof window !== "undefined" ? window.prompt("メニュー名", d) : null));
+        const name = ask("新しいメニュー")?.trim();
+        if (!name) return; // cancelled or empty → do nothing
+        savePreset(name, this.menu, this.deps.storage);
+        this.showSetup();
+      },
+      onLoadPreset: (id) => {
+        const preset = loadPresets(this.deps.storage).find((p) => p.id === id);
+        if (!preset) return;
+        // Load a copy so later edits don't mutate the stored preset.
+        this.menu = structuredClone(preset.menu);
+        saveMenu(this.menu, this.deps.storage);
+        this.showSetup();
+      },
+      onDeletePreset: (id) => {
+        deletePreset(id, this.deps.storage);
+        this.showSetup();
+      },
     });
     if (message) {
       const note = document.createElement("div");
