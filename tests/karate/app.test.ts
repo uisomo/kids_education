@@ -96,3 +96,53 @@ it("returns to setup with a message when the camera is denied", async () => {
   expect(unhandled).not.toHaveBeenCalled();
   process.off("unhandledRejection", unhandled);
 });
+
+it("pause freezes the countdown and a second click resumes it", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    // a longer drill so we can pause mid-way without ending the session
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 10, kind: "drill" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+
+  const timer = () => root.querySelector<HTMLElement>("[data-timer]")!.textContent;
+  const pauseBtn = () => root.querySelector<HTMLButtonElement>("[data-pause]")!;
+
+  // pump 3s → 10 - 3 = 7 left
+  for (let t = 0; t < 3000; t += 250) loopCb!(250);
+  expect(timer()).toBe("7");
+  expect(pauseBtn().textContent).toContain("一時停止");
+
+  // pause → label flips, countdown frozen
+  pauseBtn().click();
+  expect(pauseBtn().textContent).toContain("再開");
+  const frozen = timer();
+  for (let t = 0; t < 2000; t += 250) loopCb!(250);
+  expect(timer()).toBe(frozen);   // scheduler.pause() held it
+
+  // resume → label flips back, countdown advances again
+  pauseBtn().click();
+  expect(pauseBtn().textContent).toContain("一時停止");
+  for (let t = 0; t < 2000; t += 250) loopCb!(250);
+  expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
+});

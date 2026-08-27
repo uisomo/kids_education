@@ -9,7 +9,7 @@ export interface CueSink {
   speak(text: string): Promise<void>;
 }
 
-const DEFAULT_ENCOURAGE = ["もっと早く", "一生懸命", "いいぞ"];
+export const DEFAULT_ENCOURAGE = ["もっと早く", "一生懸命", "いいぞ"];
 
 export class CuePlayer {
   constructor(

@@ -7,6 +7,7 @@ export interface TrainingView {
   showCue(text: string): void;
   setNext(text: string | null): void;
   setRecElapsed(text: string): void;
+  setPaused(paused: boolean): void;
   onPause(cb: () => void): void;
   onSkip(cb: () => void): void;
   onStop(cb: () => void): void;
@@ -70,10 +71,12 @@ export function renderTrainingScreen(root: HTMLElement): TrainingView {
   const controls = document.createElement("div");
   controls.className = "training-controls";
 
+  const PAUSE_LABEL = "⏸ 一時停止";
+  const RESUME_LABEL = "▶ 再開";
   const pauseBtn = document.createElement("button");
   pauseBtn.dataset.pause = "";
   pauseBtn.className = "ctrl-btn pause-btn";
-  pauseBtn.textContent = "⏸ 一時停止";
+  pauseBtn.textContent = PAUSE_LABEL;
 
   const skipBtn = document.createElement("button");
   skipBtn.dataset.skip = "";
@@ -120,6 +123,9 @@ export function renderTrainingScreen(root: HTMLElement): TrainingView {
     },
     setRecElapsed(text: string) {
       recEl.textContent = text;
+    },
+    setPaused(paused: boolean) {
+      pauseBtn.textContent = paused ? RESUME_LABEL : PAUSE_LABEL;
     },
     onPause(cb: () => void) {
       pauseBtn.addEventListener("click", cb);

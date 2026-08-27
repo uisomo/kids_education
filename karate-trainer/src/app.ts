@@ -41,7 +41,13 @@ export interface KarateAppDeps {
   storage?: Storage;
 }
 
-const ENCOURAGE_TEXTS = ["もっと早く", "一生懸命", "いいぞ"];
+// Generic on-screen toast for encouragement. The actual spoken/played cue is
+// owned entirely by CuePlayer (a recorded clip if the user has any, otherwise a
+// TTS phrase it picks itself). We deliberately do NOT echo a specific phrase
+// here — a hardcoded phrase would contradict the audio (wrong TTS pick, or a
+// recorded clip whose words we can't know). One neutral toast keeps the UI
+// honest and avoids maintaining a second, divergent phrase list.
+const ENCOURAGE_TOAST = "ファイト！";
 
 export class KarateApp {
   private menu: Menu;
@@ -50,6 +56,7 @@ export class KarateApp {
   private cueCount = 0;
   private drillCount = 0;
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
+  private paused = false;
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     this.menu = deps.menuOverride ?? loadMenu(deps.storage);
@@ -127,6 +134,8 @@ export class KarateApp {
     this.recElapsedMs = 0;
     this.cueCount = 0;
     this.drillCount = 0;
+    this.paused = false;
+    view.setPaused(false);
     this.startRecTimer(view);
 
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
@@ -143,9 +152,8 @@ export class KarateApp {
         view.setTime(secondsLeft);
       },
       onEncourage: () => {
-        const text = ENCOURAGE_TEXTS[Math.floor(Math.random() * ENCOURAGE_TEXTS.length)];
         this.cueCount++;
-        view.showCue(text);
+        view.showCue(ENCOURAGE_TOAST);
         void cuePlayer.encourage();
       },
       onCountdown: (n: number) => {
@@ -158,7 +166,21 @@ export class KarateApp {
 
     const scheduler = new SessionScheduler(this.menu, handlers);
 
-    view.onPause(() => scheduler.pause());
+    view.onPause(() => {
+      // Toggle: freeze both the scheduler and the REC elapsed timer so the
+      // recorded stat matches wall-clock training time, then resume both.
+      if (!this.paused) {
+        this.paused = true;
+        scheduler.pause();
+        this.stopRecTimer();
+        view.setPaused(true);
+      } else {
+        this.paused = false;
+        scheduler.resume();
+        this.startRecTimer(view);
+        view.setPaused(false);
+      }
+    });
     view.onSkip(() => scheduler.skip());
     view.onStop(() => { void this.finishSession(); });
 
