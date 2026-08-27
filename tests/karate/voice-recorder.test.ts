@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { VoiceRecorder } from "../../src/voice-recorder";
+import { VoiceRecorder } from "../../karate-trainer/src/voice-recorder";
 
 it("records an audio clip into a blob", async () => {
   (globalThis as any).MediaRecorder = class {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { WakeGuard } from "../../src/wake-lock";
+import { WakeGuard } from "../../karate-trainer/src/wake-lock";
 
 it("acquires and releases a wake lock when supported", async () => {
   const sentinel = { release: vi.fn().mockResolvedValue(undefined) };

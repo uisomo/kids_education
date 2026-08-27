@@ -1,9 +1,9 @@
 import { KarateApp } from "./app";
-import { VideoRecorder } from "../../src/recorder";
-import { VoiceRecorder } from "../../src/voice-recorder";
+import { VideoRecorder } from "./recorder";
+import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
 import { VoiceStore, idbKv } from "./voice-store";
-import { WakeGuard } from "../../src/wake-lock";
+import { WakeGuard } from "./wake-lock";
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());

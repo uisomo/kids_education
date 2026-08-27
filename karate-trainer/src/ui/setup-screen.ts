@@ -16,6 +16,10 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   root.textContent = "";
   root.className = "screen setup";
 
+  const title = document.createElement("h1");
+  title.className = "screen-title";
+  title.textContent = "今日の稽古";
+
   const rows = document.createElement("div");
   rows.dataset.rows = "";
   menu.forEach((drill, i) => {
@@ -64,5 +68,5 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   start.dataset.start = ""; start.className = "btn-start"; start.textContent = "稽古 開始 ▶";
   start.addEventListener("click", () => deps.onStart());
 
-  root.append(rows, add, total, voice, start);
+  root.append(title, rows, add, total, voice, start);
 }

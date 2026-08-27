@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { VideoRecorder } from "../../src/recorder";
+import { VideoRecorder } from "../../karate-trainer/src/recorder";
 
 describe("VideoRecorder", () => {
   it("prefers mp4 when supported (iOS)", () => {
