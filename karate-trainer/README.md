@@ -90,3 +90,66 @@ realistically on-device.
       Safari's site data, Import (file picker) restores the exported clips.
 - [ ] Menu edits (drill name/seconds, add/remove rows) persist across a
       page reload.
+
+## iOS ネイティブアプリ (Capacitor)
+
+このアプリは Capacitor で iOS ネイティブアプリ化できます。設計の詳細は
+`docs/superpowers/specs/2026-08-27-karate-trainer-ios-design.md` を参照。
+
+### ビルド手順
+
+WSL 側（Mac 不要):
+1. `npm run build:karate` — web 資産を `dist/` に生成
+2. `npx cap add ios` — iOS プロジェクトを生成（WSL では末尾の pod install が
+   失敗しうるが想定内。`ios/App/App/Info.plist` ができていれば OK）
+
+> **注意:** `npx cap add ios`（iOS プロジェクト生成）には **Node.js 22 以上** が
+> 必要です。この開発環境（Node 20）では実行できなかったため、`ios/` プロジェクトは
+> まだ生成されていません。**Mac 側（Node 22+ / Xcode）で `npx cap add ios` を1回
+> 実行して生成してください。** 生成後、`ios/App/App/Info.plist` に以下のカメラ／
+> マイク権限文を追記します（下記「Info.plist 権限文」参照）。
+
+Mac 側（必須):
+3. `npm run cap:sync` — `dist` を iOS へ同期し `pod install` 実行
+4. `npm run cap:open` — Xcode で `ios/App/App.xcworkspace` を開く
+5. 署名（Apple Developer 登録が必要, $99/年）→ 実機ビルド → App Store 提出
+   - **Xcode 26 + iOS 26 SDK 必須**（2026/4/28 以降の提出要件）
+
+#### Info.plist 権限文
+
+`npx cap add ios` 実行後、Mac 上で `ios/App/App/Info.plist` に以下を追記してください
+（カメラ・マイクの利用目的を端末内保存に限定する旨を明記）:
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>稽古の様子を録画するためにカメラを使用します。動画はこの端末内にのみ保存されます。</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>稽古の音声とかけ声を録音するためにマイクを使用します。音声はこの端末内にのみ保存されます。</string>
+```
+
+（`NSPhotoLibraryAddUsageDescription` は不要です。共有は OS の共有シート経由で
+行われ、フォトライブラリへの書き込み権限を必要としないため。）
+
+### App Store 提出前チェック（審査で落ちないために）
+
+- [ ] プライバシーポリシー (`privacy-policy.md`) の連絡先メールを埋め、
+      GitHub Pages 等で**公開 URL** にして App Store Connect に登録
+      （`privacy-policy.md` 内の `<入力してください: 連絡先メールアドレス>` /
+      `<FILL IN: contact email>` は未入力のプレースホルダのままです。公開前に
+      必ず実際の連絡先メールアドレスに置き換えてください）
+- [ ] サポート URL を用意
+- [ ] App Privacy 質問票は **"Data Not Collected"**（端末内処理のみ）
+- [ ] 年齢レーティング質問票: 社会性機能=なし / UGC 配信=なし → 4+ を維持
+- [ ] アプリ名・説明文・スクショで **"For Kids" / "子ども向け" を使わない**
+      （Guideline 2.3.8。「親子で」「空手の自主練習」等に）
+- [ ] **審査ノート**に記載:「録画動画は端末外に送信されない。カメラ録画・
+      画面スリープ防止・共有シートなどネイティブ機能を使用」
+- [ ] 本番アイコン画像を差し替え
+
+### 実機テスト（Mac + iPhone 必須、既存チェックリストに追加）
+
+- [ ] カメラ/マイク権限プロンプトが起動時に出る（Info.plist の説明文が表示される）
+- [ ] 画面が稽古中スリープしない（keep-awake が効く）
+- [ ] 「動画を保存」→ 保護者ゲート（足し算）→ 正解でシェアシートが開く
+- [ ] シェアシートから写真アプリ/ファイル/AirDrop に動画を渡せる
+- [ ] 保護者ゲートをキャンセルすると done 画面に戻る
