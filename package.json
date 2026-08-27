@@ -5,7 +5,9 @@
   "scripts": {
     "test": "vitest run",
     "dev:server": "tsx watch src/backend/server.ts",
-    "dev:game": "vite --config src/game/vite.config.ts"
+    "dev:game": "vite --config src/game/vite.config.ts",
+    "dev:karate": "vite --config karate-trainer/vite.config.ts",
+    "build:karate": "vite build --config karate-trainer/vite.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
