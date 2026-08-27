@@ -110,6 +110,27 @@ button {
   width: 80px;
 }
 
+.row-move {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: rgba(201, 164, 92, 0.15);
+  border: 1px solid rgba(201, 164, 92, 0.4);
+  color: var(--tatami);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.row-move:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .row-del {
   padding: 0.6rem 0.85rem;
   background: rgba(200, 64, 47, 0.2);

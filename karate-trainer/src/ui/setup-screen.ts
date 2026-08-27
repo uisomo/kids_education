@@ -43,11 +43,35 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       deps.onChange(menu.map((d, j) => j === i ? { ...d, seconds: n } : d));
     });
 
+    const up = document.createElement("button");
+    up.textContent = "↑"; up.className = "row-move"; up.dataset.up = "";
+    if (i === 0) {
+      up.disabled = true;
+    } else {
+      up.addEventListener("click", () => {
+        const next = menu.slice();
+        [next[i - 1], next[i]] = [next[i], next[i - 1]];
+        deps.onChange(next);
+      });
+    }
+
+    const down = document.createElement("button");
+    down.textContent = "↓"; down.className = "row-move"; down.dataset.down = "";
+    if (i === menu.length - 1) {
+      down.disabled = true;
+    } else {
+      down.addEventListener("click", () => {
+        const next = menu.slice();
+        [next[i], next[i + 1]] = [next[i + 1], next[i]];
+        deps.onChange(next);
+      });
+    }
+
     const del = document.createElement("button");
     del.textContent = "✕"; del.className = "row-del";
     del.addEventListener("click", () => deps.onChange(menu.filter((_, j) => j !== i)));
 
-    row.append(name, secs, del);
+    row.append(name, secs, up, down, del);
     rows.append(row);
   });
 
