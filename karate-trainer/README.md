@@ -80,8 +80,9 @@ realistically on-device.
 - [ ] The screen stays awake for the whole session (no auto-lock/dimming).
 - [ ] Tapping 終了 (or reaching the end of the menu) stops the session and
       shows the Done screen with a working video preview.
-- [ ] `動画を保存` downloads a `.mp4` (or `.webm`, depending on codec
-      support) file to the device.
+- [ ] `動画を保存` opens the parental gate (an addition problem); after
+      solving it, the recording is shared via the OS share sheet on iOS
+      (or downloaded as `.mp4`/`.webm` in a desktop browser).
 - [ ] Recording a voice clip (Setup → 声を録音 → 🎙 録音):
   - [ ] The clip plays back during the *next* training session as a cue.
   - [ ] The clip survives a full page reload (stored in IndexedDB, not
