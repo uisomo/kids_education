@@ -1,9 +1,13 @@
+import { renderParentalGate } from "../parental-gate";
+import type { GateChallenge } from "../parental-gate";
+
 export interface DoneDeps {
   videoUrl: string;
   ext: string;
   stats: { time: string; drills: number; cues: number };
-  onDownload(): void;
+  onShare(): void;
   onAgain(): void;
+  gateChallenge?: GateChallenge;
 }
 
 export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
@@ -29,7 +33,14 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   const dl = document.createElement("button");
   dl.dataset.download = ""; dl.className = "btn-dl";
   dl.textContent = `⬇ 動画を保存 (.${deps.ext})`;
-  dl.addEventListener("click", () => deps.onDownload());
+  dl.addEventListener("click", () => {
+    // 共有の前に保護者ゲート。通過で onShare、キャンセルで done 画面へ戻す。
+    renderParentalGate(root, {
+      challenge: deps.gateChallenge,
+      onPass: () => deps.onShare(),
+      onCancel: () => renderDoneScreen(root, deps),
+    });
+  });
 
   const again = document.createElement("button");
   again.dataset.again = ""; again.className = "btn-again"; again.textContent = "もう一度 稽古する";
