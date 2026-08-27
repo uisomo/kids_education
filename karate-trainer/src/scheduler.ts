@@ -19,6 +19,7 @@ export class SessionScheduler {
   private remainingMs = 0;
   private lastWholeSecond = -1;
   private nextEncourageMs = 0;
+  private pendingEntryCountdown = 0;
   private paused = false;
   private done = false;
   private readonly everyMs: number;
@@ -35,7 +36,7 @@ export class SessionScheduler {
   pause(): void { this.paused = true; }
   resume(): void { this.paused = false; }
   stop(): void { this.done = true; }
-  skip(): void { if (!this.done) this.finishDrill(); }
+  skip(): void { if (!this.done && this.idx >= 0) this.finishDrill(); }
 
   private scheduleEncourage(): void {
     this.nextEncourageMs = this.everyMs + (this.rng() * 2 - 1) * this.jitterMs;
@@ -48,6 +49,12 @@ export class SessionScheduler {
     this.remainingMs = drill.seconds * 1000;
     this.lastWholeSecond = drill.seconds;
     this.scheduleEncourage();
+    // A drill that starts already inside the final-3s window must still emit
+    // its entry-second countdown. tick() skips that second because
+    // lastWholeSecond is set to the entry second here, so remember it as
+    // pending and let the next tick emit it (deferring keeps it out of the
+    // pump() call that merely advanced into this drill at a boundary).
+    this.pendingEntryCountdown = drill.seconds >= 1 && drill.seconds <= 3 ? drill.seconds : 0;
     this.h.onDrillStart(drill, i, this.menu.length);
     this.h.onTick(drill.seconds);
   }
@@ -61,6 +68,17 @@ export class SessionScheduler {
   tick(deltaMs: number): void {
     if (this.done || this.paused || this.idx < 0) return;
     const drill = this.menu[this.idx];
+
+    // Emit the entry-second countdown (for drills that begin inside the
+    // final-3s window) on the first tick of the drill, before decrementing.
+    // Deferring to here — rather than firing it in enter() — keeps it out of
+    // the same tick that merely advanced across a drill boundary, so a drill
+    // that has only just been entered does not emit a spurious countdown.
+    if (this.pendingEntryCountdown > 0) {
+      this.h.onCountdown(this.pendingEntryCountdown);
+      this.pendingEntryCountdown = 0;
+    }
+
     this.remainingMs -= deltaMs;
 
     const secondsLeft = Math.max(0, Math.ceil(this.remainingMs / 1000));

@@ -63,4 +63,29 @@ describe("SessionScheduler", () => {
     pump(s, 2000);
     expect(h.onTick).not.toHaveBeenCalled();
   });
+
+  it("fires 3-2-1 for a 3-second drill that starts inside the countdown window", () => {
+    const h = handlers();
+    const short: Menu = [{ id: "a", name: "x", seconds: 3, kind: "drill" }];
+    const s = new SessionScheduler(short, h);
+    s.start();
+    pump(s, 3000, 1000);
+    expect(h.onCountdown.mock.calls.map((c) => c[0])).toEqual([3, 2, 1]);
+  });
+
+  it("fires a single countdown for a 1-second drill", () => {
+    const h = handlers();
+    const short: Menu = [{ id: "a", name: "x", seconds: 1, kind: "drill" }];
+    const s = new SessionScheduler(short, h);
+    s.start();
+    pump(s, 1000, 1000);
+    expect(h.onCountdown.mock.calls.map((c) => c[0])).toEqual([1]);
+  });
+
+  it("skip before start does not fire onDrillEnd and does not crash", () => {
+    const h = handlers();
+    const s = new SessionScheduler(menu, h);
+    s.skip();
+    expect(h.onDrillEnd).not.toHaveBeenCalled();
+  });
 });
