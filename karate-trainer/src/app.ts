@@ -15,6 +15,9 @@ import { bumpDrills } from "./progress-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
+import { scopedStorage } from "./scoped-storage";
+import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
+import { renderParentalGate } from "./parental-gate";
 import {
   loadCharacterState,
   saveCharacterState,
@@ -102,8 +105,21 @@ export class KarateApp {
   private activeTab: NavTab = "train";
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
-    this.menu = deps.menuOverride ?? loadMenu(deps.storage);
-    this.characterState = loadCharacterState(deps.storage);
+    // Family-shared base storage (member list + classes/presets live here).
+    // Per-member data is read/written through mem() (scoped by active member).
+    this.menu = deps.menuOverride ?? loadMenu(this.mem());
+    this.characterState = loadCharacterState(this.mem());
+  }
+
+  // Base storage for family-shared data (member list, presets/classes).
+  private base(): Storage {
+    return this.deps.storage ?? localStorage;
+  }
+
+  // Storage scoped to the active member (menu / kufu / progress / character).
+  private mem(): Storage {
+    const base = this.base();
+    return scopedStorage(base, getActiveId(base));
   }
 
   async start(): Promise<void> {
@@ -115,12 +131,12 @@ export class KarateApp {
       menu: this.menu,
       onChange: (menu) => {
         this.menu = menu;
-        saveMenu(menu, this.deps.storage);
+        saveMenu(menu, this.mem());
         this.showSetup();
       },
       onEdit: (menu) => {
         this.menu = menu;
-        saveMenu(menu, this.deps.storage);
+        saveMenu(menu, this.mem());
       },
       onStart: () => {
         // Unlock BGM synchronously inside the tap gesture (autoplay policy).
@@ -128,30 +144,31 @@ export class KarateApp {
         void this.beginTraining();
       },
       onOpenVoice: () => this.showVoice(),
-      presets: loadPresets(this.deps.storage),
+      // Presets = classes, family-shared → base storage.
+      presets: loadPresets(this.base()),
       onSavePreset: () => {
         const ask = this.deps.promptName
           ?? ((d: string) => (typeof window !== "undefined" ? window.prompt("メニュー名", d) : null));
         const name = ask("新しいメニュー")?.trim();
         if (!name) return;
-        savePreset(name, this.menu, this.deps.storage);
+        savePreset(name, this.menu, this.base());
         this.showSetup();
       },
       onLoadPreset: (id) => {
-        const preset = loadPresets(this.deps.storage).find((p) => p.id === id);
+        const preset = loadPresets(this.base()).find((p) => p.id === id);
         if (!preset) return;
         this.menu = structuredClone(preset.menu);
-        saveMenu(this.menu, this.deps.storage);
+        saveMenu(this.menu, this.mem());
         this.showSetup();
       },
       onDeletePreset: (id) => {
-        deletePreset(id, this.deps.storage);
+        deletePreset(id, this.base());
         this.showSetup();
       },
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
-        saveCharacterState(this.characterState, this.deps.storage);
+        saveCharacterState(this.characterState, this.mem());
         this.showSetup();
       },
       characterState: this.characterState,
@@ -188,13 +205,40 @@ export class KarateApp {
   }
 
   private showStrength(): void {
-    renderStrengthScreen(this.root, { storage: this.deps.storage });
+    renderStrengthScreen(this.root, { storage: this.mem() });
     this.mountTabNav("strength");
   }
 
+  private familyUnlocked = false;
+
   private showFamily(): void {
-    renderFamilyScreen(this.root, { storage: this.deps.storage });
+    // Gate the 家族 tab once per session so kids can't change members/plans.
+    if (!this.familyUnlocked) {
+      renderParentalGate(this.root, {
+        onPass: () => { this.familyUnlocked = true; this.showFamily(); },
+        onCancel: () => this.showSetup(),
+      });
+      return;
+    }
+    this.renderFamily();
     this.mountTabNav("family");
+  }
+
+  private renderFamily(): void {
+    const base = this.base();
+    renderFamilyScreen(this.root, {
+      members: loadMembers(base),
+      activeId: getActiveId(base),
+      onAddMember: (name) => { addMember(name, base); this.reloadForActiveMember(); this.showFamily(); },
+      onRemoveMember: (id) => { removeMember(id, base); this.reloadForActiveMember(); this.showFamily(); },
+      onSelectMember: (id) => { setActive(id, base); this.reloadForActiveMember(); this.showFamily(); },
+    });
+  }
+
+  // Re-read the active member's per-member state after a member switch.
+  private reloadForActiveMember(): void {
+    this.menu = loadMenu(this.mem());
+    this.characterState = loadCharacterState(this.mem());
   }
 
   private showVoice(): void {
@@ -328,7 +372,7 @@ export class KarateApp {
   // 工夫 caption for a drill: the child's latest saved note for this 種目,
   // shown on-screen and burned into the recording.
   private captionFor(drill: Drill): string {
-    return latestKufu(drill.name, this.deps.storage);
+    return latestKufu(drill.name, this.mem());
   }
 
   private startRecTimer(view: TrainingView): void {
@@ -372,17 +416,17 @@ export class KarateApp {
     const xpEarned = 50 + this.drillCount * 10;
     this.characterState.totalXp += xpEarned;
     this.characterState.completedCount += 1;
-    saveCharacterState(this.characterState, this.deps.storage);
+    saveCharacterState(this.characterState, this.mem());
 
     // Deduped list of the drills practiced this session (rest excluded), each
     // with its latest saved 工夫 pre-filled for editing.
     const seen = new Set<string>();
     const kufuDrills = this.menu
       .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
-      .map((d) => ({ name: d.name, current: latestKufu(d.name, this.deps.storage) }));
+      .map((d) => ({ name: d.name, current: latestKufu(d.name, this.mem()) }));
 
     // Count each practiced drill toward its 強さ level (+1 per session).
-    bumpDrills(kufuDrills.map((d) => d.name), this.deps.storage);
+    bumpDrills(kufuDrills.map((d) => d.name), this.mem());
 
     const blobForShare = blob;
     renderDoneScreen(this.root, {
@@ -396,7 +440,7 @@ export class KarateApp {
       characterId: this.characterState.selectedId,
       xpEarned,
       kufuDrills,
-      onSaveKufu: (name, text) => { addKufu(name, text, this.deps.storage); },
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem()); },
       onShare: () => {
         void this.deps.shareRecording(blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);
