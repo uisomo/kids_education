@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  iOS Info.plist additions for 空手稽古 (Karate Trainer).
+
+  These keys are REQUIRED — App Store review rejects the build without them,
+  and iOS crashes the app the moment it calls getUserMedia if they are missing.
+
+  The native ios/ project is generated on the Mac with `npx cap add ios` and is
+  NOT committed to this repo, so these keys cannot be pre-baked here. After
+  `cap add ios`, open ios/App/App/Info.plist and paste the <key>/<string> pairs
+  below INTO the top-level <dict> (not as a nested dict). See PUBLISHING.md.
+
+  Reason strings are kid-facing and explain WHY each permission is used:
+  the app records the child's karate practice as a video (camera + its audio).
+-->
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>空手のれんしゅうをビデオでさつえいするためにカメラをつかいます。</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>れんしゅうのビデオに音（かけ声）をいれるためにマイクをつかいます。</string>
+</dict>
+</plist>
