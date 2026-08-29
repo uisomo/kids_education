@@ -19,6 +19,7 @@ import { scopedStorage } from "./scoped-storage";
 import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
 import { type Plan, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
 import { getAssignedClass, setAssignedClass } from "./class-store";
+import { loadComments, saveComment } from "./comment-store";
 import { renderParentalGate } from "./parental-gate";
 import {
   loadCharacterState,
@@ -105,6 +106,9 @@ export class KarateApp {
   private characterState: CharacterState;
   private compositor: CompositorLike | null = null;
   private activeTab: NavTab = "train";
+  // E4: the active member's ファイト コメント, snapshotted at session start so it's
+  // stable for the whole practice. "" → fall back to the generic encourage toast.
+  private fightComment = "";
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     // Family-shared base storage (member list + classes/presets live here).
@@ -224,6 +228,8 @@ export class KarateApp {
       characterState: this.characterState,
       // E3: the active member's assigned くらす name (read-only label).
       className: this.activeClassName(),
+      // E4: the parent's 感想コメント for the active member (top banner).
+      kansou: loadComments(this.mem()).kansou,
     });
 
     if (message) {
@@ -292,6 +298,10 @@ export class KarateApp {
       classes: loadPresets(base),
       assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
       onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
+      // E4: 応援コメント for the active member (per-member via mem()). Free on
+      // every plan. Saving re-renders so the input reflects the trimmed value.
+      comments: loadComments(this.mem()),
+      onSaveComment: (kind, text) => { saveComment(kind, text, this.mem()); this.showFamily(); },
     });
   }
 
@@ -334,6 +344,10 @@ export class KarateApp {
   }
 
   private async beginTraining(): Promise<void> {
+    // Snapshot the active member's ファイト コメント for this session (E4). Used in
+    // place of the generic encourage toast when the parent has written one.
+    this.fightComment = loadComments(this.mem()).fight;
+
     // Show a loading screen while the camera warms up (can take a moment).
     renderLoadingScreen(this.root);
 
@@ -415,8 +429,12 @@ export class KarateApp {
       },
       onEncourage: () => {
         this.cueCount++;
-        view.showCue(ENCOURAGE_TOAST);
-        this.compositor?.setState({ cue: ENCOURAGE_TOAST });
+        // E4: show the parent's ファイト コメント when set, else the generic toast.
+        // The parent's words take priority (not shown alongside). Burned into the
+        // recording via the compositor's cue field, same as the generic toast.
+        const cue = this.fightComment || ENCOURAGE_TOAST;
+        view.showCue(cue);
+        this.compositor?.setState({ cue });
         setTimeout(() => this.compositor?.setState({ cue: "" }), 1800);
         void cuePlayer.encourage();
       },

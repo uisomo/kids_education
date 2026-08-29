@@ -1522,6 +1522,76 @@ input[data-label] {
   margin: 0.1rem 0 0.3rem;
 }
 
+/* E4: 感想コメント banner at the very top of the 特訓 screen (parent message). */
+.setup-kansou-banner {
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.4;
+  color: #1a162b;
+  background: linear-gradient(135deg, #ffe6a1, #ffd166);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 0.7rem;
+  box-shadow: 0 4px 14px rgba(255, 209, 102, 0.35);
+  word-break: break-word;
+}
+
+/* E4: 応援コメント editor (家族 screen, parent). */
+.family-comment-note {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-dim, #b0a8c8);
+  margin: -0.2rem 0 0.4rem;
+}
+
+.family-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.family-comment-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(26, 22, 43, 0.5);
+  border-radius: 14px;
+  padding: 0.5rem 0.7rem;
+}
+
+.family-comment-label {
+  flex: 0 0 3.4rem;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.family-comment-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 209, 102, 0.5);
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a162b;
+}
+
+.family-comment-save {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 900;
+  padding: 0.5rem 0.8rem;
+  border-radius: 12px;
+  border: none;
+  background: #ffd166;
+  color: #1a162b;
+  cursor: pointer;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   [data-rec]::before { animation: none; }

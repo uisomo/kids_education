@@ -2,6 +2,9 @@
 import { it, expect, vi, beforeEach } from "vitest";
 import { KarateApp } from "../../karate-trainer/src/app";
 import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store";
+import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
+import { getActiveId } from "../../karate-trainer/src/member-store";
+import { saveComment } from "../../karate-trainer/src/comment-store";
 
 function memKv(): KvAdapter {
   const m = new Map<string, unknown>();
@@ -312,6 +315,64 @@ function memStorage(): Storage {
     clear: () => m.clear(), key: () => null, length: 0,
   } as Storage;
 }
+
+// E4: when the parent has written a ファイト コメント for the active member, the
+// in-practice encourage cue uses it (and burns it into the recording) instead
+// of the generic "ファイト！" toast.
+it("uses the parent's ファイト comment as the practice cue and burns it in", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const storage = memStorage();
+  // Seed the comment on the active member's scoped storage (as the app would).
+  saveComment("fight", "まけるな たろう", scopedStorage(storage, getActiveId(storage)));
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const compositor = {
+    setState: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    captureStream: vi.fn(() => ({ composited: true } as unknown as MediaStream)),
+  };
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    makeCompositor: () => compositor,
+    storage,
+    introStepMs: 0,
+    // A drill long enough for the ~8.5s encourage cadence to fire once.
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 20, kind: "drill" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));   // camera
+  await new Promise((r) => setTimeout(r, 0));   // intro
+
+  // Drive ~10s of drill time (past the first encourage, before the final-3s window).
+  for (let t = 0; t < 10000; t += 250) loopCb!(250);
+
+  // The encourage cue pushed to the compositor (→ burned into the recording) is
+  // the parent's ファイト comment, and the on-screen cue toast shows it too. The
+  // toast's textContent is set on showCue and not cleared, so it's stable to read.
+  expect(compositor.setState.mock.calls.some((c) => c[0].cue === "まけるな たろう")).toBe(true);
+  expect(root.querySelector<HTMLElement>("[data-cue]")!.textContent).toBe("まけるな たろう");
+  // The generic toast is NOT used when a comment exists.
+  expect(compositor.setState.mock.calls.some((c) => c[0].cue === "ファイト！")).toBe(false);
+});
 
 it("bumps 強さ counts on session complete and the 強さ tab shows them", async () => {
   const root = document.createElement("div");

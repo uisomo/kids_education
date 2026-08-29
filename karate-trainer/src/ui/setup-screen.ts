@@ -30,6 +30,9 @@ export interface SetupDeps {
   characterState?: CharacterState;
   // E3: the active member's assigned くらす name (read-only label), or null.
   className?: string | null;
+  // E4: the parent's 感想コメント for the active member, shown as a banner at the
+  // very top of the screen. Empty / absent → no banner.
+  kansou?: string;
 }
 
 let idc = 0;
@@ -181,6 +184,16 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   const start = document.createElement("button");
   start.dataset.start = ""; start.className = "btn-start"; start.textContent = "稽古 開始 ▶";
   start.addEventListener("click", () => deps.onStart());
+
+  // --- 感想コメント banner (E4, parent message) at the very top ---
+  const kansou = deps.kansou?.trim();
+  if (kansou) {
+    const banner = document.createElement("div");
+    banner.className = "setup-kansou-banner";
+    banner.dataset.kansouBanner = "";
+    banner.textContent = `💛 ${kansou}`;
+    root.append(banner);
+  }
 
   root.append(header, beltCard);
   if (classLabel) root.append(classLabel);

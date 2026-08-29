@@ -164,3 +164,21 @@ it("omits the class label when className is null/absent", () => {
   renderSetupScreen(root, deps());
   expect(root.querySelector("[data-class-label]")).toBeNull();
 });
+
+// --- E4: 感想コメント banner (top of screen) ---
+it("shows the 感想 comment banner at the very top when provided", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ kansou: "いつも がんばってるね" }));
+  const banner = root.querySelector<HTMLElement>("[data-kansou-banner]");
+  expect(banner).not.toBeNull();
+  expect(banner!.textContent).toContain("いつも がんばってるね");
+  expect(root.firstElementChild).toBe(banner);   // above the belt card / header
+});
+
+it("omits the 感想 banner when kansou is empty/absent", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ kansou: "" }));
+  expect(root.querySelector("[data-kansou-banner]")).toBeNull();
+  renderSetupScreen(root, deps());
+  expect(root.querySelector("[data-kansou-banner]")).toBeNull();
+});

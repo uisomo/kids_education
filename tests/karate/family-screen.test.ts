@@ -131,3 +131,48 @@ it("omits the class section entirely for pre-E3 callers", () => {
   expect(root.querySelector("[data-class-list]")).toBeNull();
   expect(root.querySelector("[data-class-hint]")).toBeNull();
 });
+
+// --- E4: 応援コメント section (per active member) ---
+function commentDeps(over: Record<string, unknown> = {}) {
+  return deps({
+    comments: { kansou: "がんばってるね", fight: "あと ちょっと" },
+    onSaveComment: vi.fn(),
+    ...over,
+  });
+}
+
+it("renders 感想 / ファイト inputs prefilled with the active member's comments", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, commentDeps());
+  const kansou = root.querySelector<HTMLInputElement>("[data-comment-kansou]")!;
+  const fight = root.querySelector<HTMLInputElement>("[data-comment-fight]")!;
+  expect(kansou.value).toBe("がんばってるね");
+  expect(fight.value).toBe("あと ちょっと");
+});
+
+it("saving 感想 fires onSaveComment with kind and text", () => {
+  const root = document.createElement("div");
+  const onSaveComment = vi.fn();
+  renderFamilyScreen(root, commentDeps({ onSaveComment }));
+  const kansou = root.querySelector<HTMLInputElement>("[data-comment-kansou]")!;
+  kansou.value = "だいすき";
+  root.querySelector<HTMLButtonElement>("[data-comment-save-kansou]")!.click();
+  expect(onSaveComment).toHaveBeenCalledWith("kansou", "だいすき");
+});
+
+it("saving ファイト fires onSaveComment with kind and text", () => {
+  const root = document.createElement("div");
+  const onSaveComment = vi.fn();
+  renderFamilyScreen(root, commentDeps({ onSaveComment }));
+  const fight = root.querySelector<HTMLInputElement>("[data-comment-fight]")!;
+  fight.value = "まけるな";
+  root.querySelector<HTMLButtonElement>("[data-comment-save-fight]")!.click();
+  expect(onSaveComment).toHaveBeenCalledWith("fight", "まけるな");
+});
+
+it("omits the comment section for callers without comment wiring", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());   // no comments/onSaveComment
+  expect(root.querySelector("[data-comment-kansou]")).toBeNull();
+  expect(root.querySelector("[data-comment-fight]")).toBeNull();
+});

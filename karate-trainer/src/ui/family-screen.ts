@@ -20,6 +20,11 @@ export interface FamilyDeps {
   classes?: Preset[];
   assignments?: Record<string, string | null>;
   onAssignClass?(memberId: string, presetId: string | null): void;
+  // E4 応援コメント (parent, for the active member). `comments` = the active
+  // member's saved 感想 / ファイト messages. Optional so pre-E4 callers/tests keep
+  // working (section is hidden if either is absent). Free on every plan.
+  comments?: { kansou: string; fight: string };
+  onSaveComment?(kind: "kansou" | "fight", text: string): void;
 }
 
 const PLAN_ORDER: Plan[] = ["free", "standard", "max"];
@@ -159,7 +164,66 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- くらす assignment section (E3) ---
   const classNodes = buildClassSection(deps);
 
-  root.append(title, activeCard, listTitle, list, addRow, ...classNodes, planTitle, planNote, planCards);
+  // --- 応援コメント section (E4, active member) ---
+  const commentNodes = buildCommentSection(deps);
+
+  root.append(title, activeCard, listTitle, list, addRow, ...classNodes, ...commentNodes, planTitle, planNote, planCards);
+}
+
+// Per-active-member 応援コメント: two labelled inputs (感想 / ファイト) each with a
+// save button. Returns the nodes to append, or [] when E4 wiring is absent.
+function buildCommentSection(deps: FamilyDeps): Node[] {
+  if (!deps.onSaveComment || !deps.comments) return [];
+  const onSave = deps.onSaveComment;
+  const comments = deps.comments;
+  const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "応援コメント";
+
+  const note = document.createElement("div");
+  note.className = "family-comment-note";
+  note.textContent = `${activeName} へのメッセージ`;
+
+  const wrap = document.createElement("div");
+  wrap.className = "family-comment-list";
+  wrap.dataset.commentList = "";
+
+  const makeRow = (
+    kind: "kansou" | "fight",
+    label: string,
+    placeholder: string,
+  ): HTMLElement => {
+    const row = document.createElement("div");
+    row.className = "family-comment-row";
+
+    const lab = document.createElement("label");
+    lab.className = "family-comment-label";
+    lab.textContent = label;
+
+    const input = document.createElement("input");
+    input.className = "family-comment-input";
+    input.dataset[kind === "kansou" ? "commentKansou" : "commentFight"] = "";
+    input.value = comments[kind];
+    input.placeholder = placeholder;
+
+    const save = document.createElement("button");
+    save.className = "family-comment-save";
+    save.dataset[kind === "kansou" ? "commentSaveKansou" : "commentSaveFight"] = "";
+    save.textContent = "保存";
+    save.addEventListener("click", () => onSave(kind, input.value));
+
+    row.append(lab, input, save);
+    return row;
+  };
+
+  wrap.append(
+    makeRow("kansou", "感想", "いつも がんばってるね"),
+    makeRow("fight", "ファイト", "あと ちょっと！"),
+  );
+
+  return [sectionTitle, note, wrap];
 }
 
 // Per-member くらす (class) assignment: each member gets a <select> of the
