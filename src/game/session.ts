@@ -41,6 +41,7 @@ export class SessionController {
   private lesson!: Awaited<ReturnType<typeof startSession>>["lesson"];
   private rec!: ReturnType<SessionDeps["makeRec"]>;
   private lastCoachLine = "";
+  private lastQuestion = "";
   private silenceCount = 0;
   private aizuchiIdx = 0;
 
@@ -68,13 +69,33 @@ export class SessionController {
     });
     if (lesson.lang === "en") this.rec.setLang("en-US");
 
+    const opener = lesson.check_questions[0];
     for (const beat of lesson.teach) this.d.audio.prefetch(beat, TUTOR_SPEAKER);
+    if (opener) this.d.audio.prefetch(opener, TUTOR_SPEAKER);
     for (const a of TUTOR_AIZUCHI) this.d.audio.prefetch(a, TUTOR_SPEAKER);
     for (const a of ENEMY_AIZUCHI) this.d.audio.prefetch(a, lesson.enemy.voice);
     for (const beat of lesson.teach) {
       this.d.hud.caption("coach", beat);
       await this.d.audio.speak(beat, TUTOR_SPEAKER);
     }
+    // Always pose a concrete question before opening the mic, so the kid knows
+    // what to answer instead of facing dead air. The model sees it in history.
+    if (opener) {
+      this.lastQuestion = opener;
+      this.history.push({ role: "coach", text: opener });
+      this.d.hud.caption("coach", opener);
+      await this.d.audio.speak(opener, TUTOR_SPEAKER);
+    }
+    this.listen();
+  }
+
+  // On a transient turn failure, re-pose the last real question instead of a
+  // bare "say it again" — a stuck kid needs to hear what to answer, not a nudge.
+  private async recover(): Promise<void> {
+    const line = this.lastQuestion
+      ? `いま ちょっと きこえなかったよ。${this.lastQuestion}`
+      : "いま ちょっと きこえなかったよ。もういちど、ゆっくり おしえてくれる？";
+    await this.d.audio.speak(line, TUTOR_SPEAKER);
     this.listen();
   }
 
@@ -112,8 +133,7 @@ export class SessionController {
         phase: this.phase, history: this.history,
       })).turn;
     } catch {
-      await this.d.audio.speak("ちょっとかんがえちゅう…もういちどいってみて！", TUTOR_SPEAKER);
-      this.listen();
+      await this.recover();
       return;
     }
 
@@ -150,8 +170,7 @@ export class SessionController {
     try {
       res = await followP;
     } catch {
-      await this.d.audio.speak("ちょっとかんがえちゅう…もういちどいってみて！", TUTOR_SPEAKER);
-      this.listen();
+      await this.recover();
       return;
     }
 
@@ -167,6 +186,7 @@ export class SessionController {
     await this.d.audio.speak(follow.coach_line, TUTOR_SPEAKER);
 
     if (follow.deep_question) {
+      this.lastQuestion = follow.deep_question;
       this.d.hud.caption("coach", follow.deep_question);
       this.d.hud.journalAdd(follow.deep_question);
       await this.d.audio.speak(follow.deep_question, TUTOR_SPEAKER);

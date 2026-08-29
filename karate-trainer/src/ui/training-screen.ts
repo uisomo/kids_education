@@ -1,4 +1,5 @@
 import type { Drill } from "../types";
+import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
 
 export interface TrainingView {
   videoEl: HTMLVideoElement;
@@ -13,9 +14,17 @@ export interface TrainingView {
   onStop(cb: () => void): void;
 }
 
-export function renderTrainingScreen(root: HTMLElement): TrainingView {
+export function renderTrainingScreen(
+  root: HTMLElement,
+  characterId: CharacterId = "alan"
+): TrainingView {
   root.textContent = "";
   root.className = "screen training";
+
+  // Dojo backdrop behind the camera feed (shows around/behind the mirrored video).
+  const dojoBg = document.createElement("div");
+  dojoBg.className = "training-dojo-bg";
+  dojoBg.setAttribute("aria-hidden", "true");
 
   // Video element (mirrored)
   const videoEl = document.createElement("video");
@@ -38,6 +47,26 @@ export function renderTrainingScreen(root: HTMLElement): TrainingView {
   progEl.textContent = "";
 
   topBar.append(recEl, progEl);
+
+  // Companion cheer overlay: a transparent (green-screen removed) character
+  // video that pops up in a corner on each cue, then hides. A random
+  // character cheers each time — no partner selection anymore.
+  const companionOverlay = document.createElement("div");
+  companionOverlay.className = "companion-training-overlay";
+  companionOverlay.dataset.companion = "";
+
+  const cheerVideo = document.createElement("video");
+  cheerVideo.className = "companion-cheer-video";
+  cheerVideo.muted = true;
+  cheerVideo.setAttribute("playsinline", "");
+  cheerVideo.loop = true;
+
+  const speechBubble = document.createElement("div");
+  speechBubble.className = "companion-speech-bubble";
+  speechBubble.dataset.speech = "";
+  speechBubble.textContent = "がんばれ！";
+
+  companionOverlay.append(cheerVideo, speechBubble);
 
   // Center content
   const centerContent = document.createElement("div");
@@ -91,7 +120,7 @@ export function renderTrainingScreen(root: HTMLElement): TrainingView {
   controls.append(pauseBtn, skipBtn, stopBtn);
 
   // Assemble the screen
-  root.append(videoEl, topBar, centerContent, cueEl, nextEl, controls);
+  root.append(dojoBg, videoEl, topBar, companionOverlay, centerContent, cueEl, nextEl, controls);
 
   // Setup state handlers
   let cueTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -108,11 +137,30 @@ export function renderTrainingScreen(root: HTMLElement): TrainingView {
     showCue(text: string) {
       cueEl.textContent = text;
       cueEl.classList.add("show");
+
+      // Pick a random companion to cheer this time, load & play its
+      // transparent clip, and show one of its quotes in the bubble.
+      const cheerId = CHARACTER_IDS[Math.floor(Math.random() * CHARACTER_IDS.length)];
+      const cheerInfo = CHARACTERS[cheerId] ?? CHARACTERS.alan;
+      if (!cheerVideo.src.endsWith(cheerInfo.cheerVideo)) {
+        cheerVideo.src = cheerInfo.cheerVideo;
+      }
+      try { cheerVideo.currentTime = 0; } catch { /* jsdom / not ready */ }
+      try {
+        // jsdom's play() returns undefined and logs "not implemented"; guard it.
+        void Promise.resolve(cheerVideo.play?.()).catch(() => { /* autoplay blocked */ });
+      } catch { /* ignore synchronously throwing play() */ }
+      const randomQuote = cheerInfo.quotes[Math.floor(Math.random() * cheerInfo.quotes.length)];
+      speechBubble.textContent = `${cheerInfo.name}: ${randomQuote}`;
+      companionOverlay.classList.add("cheering");
+
       if (cueTimeout) clearTimeout(cueTimeout);
       cueTimeout = setTimeout(() => {
         cueEl.classList.remove("show");
+        companionOverlay.classList.remove("cheering");
+        cheerVideo.pause?.();
         cueTimeout = null;
-      }, 1600);
+      }, 2200);
     },
     setNext(text: string | null) {
       if (text === null) {

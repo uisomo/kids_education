@@ -134,3 +134,16 @@ it("preset delete button fires onDeletePreset with the id", () => {
   root.querySelector<HTMLButtonElement>('[data-preset-del="p1"]')!.click();
   expect(onDeletePreset).toHaveBeenCalledWith("p1");
 });
+
+// --- Removed UI: voice-record entry, partner carousel, top banner image ---
+it("no longer renders the voice-record button, partner carousel, or top banner image", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps());
+  expect(root.querySelector("[data-voice]")).toBeNull();
+  expect(root.querySelector(".character-selector-grid")).toBeNull();
+  expect(root.querySelector(".character-card-btn")).toBeNull();
+  expect(root.querySelector(".toybox-banner-img")).toBeNull();
+  // start button + belt card still present
+  expect(root.querySelector("[data-start]")).not.toBeNull();
+  expect(root.querySelector(".belt-status-card")).not.toBeNull();
+});

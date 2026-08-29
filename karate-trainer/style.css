@@ -1,17 +1,28 @@
 /* ===========================================================
-   Karate Trainer — Dojo Dark Theme
+   Karate Trainer — 「アランのおもちゃ箱」 Kids Theme
    Portrait-only, iPhone Safari (front camera, thumb-zone UI).
-   Tokens ported from the mockup.
 =========================================================== */
 
 :root {
-  --ground: #14110f;   /* dojo-dark background */
-  --tatami: #c9a45c;   /* straw / accent */
-  --obi: #c8402f;      /* obi-red / alert-accent */
-  --ink: #f3ede3;      /* off-white ink (text) */
-  --ink-dim: rgba(243, 237, 227, 0.65);
-  --panel: #1d1815;    /* slightly lifted panel over ground */
-  --panel-line: rgba(201, 164, 92, 0.25);
+  --ground: #1a162b;      /* Toy-box space indigo background */
+  --tatami: #ffd166;      /* Bright toy star yellow */
+  --obi: #ff4757;         /* Alan vibrant red / obi accent */
+  --ink: #ffffff;         /* Pure white text */
+  --ink-dim: rgba(255, 255, 255, 0.75);
+  --panel: #251f3d;       /* Toy container card */
+  --panel-line: rgba(255, 209, 102, 0.3);
+
+  /* 「アランのおもちゃ箱」 Special Colors */
+  --toy-red: #ff4757;
+  --toy-red-dark: #d63031;
+  --toy-blue: #1e90ff;
+  --toy-blue-dark: #0984e3;
+  --toy-yellow: #ffa502;
+  --toy-yellow-dark: #e1b12c;
+  --toy-green: #2ed573;
+  --toy-green-dark: #26af5f;
+  --toy-purple: #70a1ff;
+  --toy-card-bg: #2d264a;
 }
 
 * {
@@ -22,8 +33,15 @@ html, body {
   margin: 0;
   padding: 0;
   background: var(--ground);
+  background-image: 
+    linear-gradient(180deg, rgba(26, 22, 43, 0.85) 0%, rgba(26, 22, 43, 0.93) 100%),
+    url('/vertical_toybox_bg.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--ink);
-  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, -apple-system, sans-serif;
+  font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, -apple-system, sans-serif;
   height: 100%;
   overscroll-behavior: none;
 }
@@ -35,10 +53,239 @@ html, body {
 
 button {
   font-family: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---------------------------------------------------------
-   Setup Screen
+   「アランのおもちゃ箱」 Top Banner & Branding Header
+--------------------------------------------------------- */
+.toybox-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.toybox-banner-img {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  border-radius: 18px;
+  border: 3px solid rgba(255, 209, 102, 0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  object-fit: cover;
+}
+
+.toybox-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 1rem;
+  background: linear-gradient(135deg, #ff4757, #ffa502);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.screen-title {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 900;
+  text-align: center;
+  color: #ffd166;
+  text-shadow: 0 3px 0 #d63031, 0 5px 12px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------
+   Character Companion Selector Carousel
+--------------------------------------------------------- */
+.character-carousel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--toy-card-bg);
+  border: 3px solid var(--panel-line);
+  border-radius: 20px;
+  padding: 0.85rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.section-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ffd166;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.character-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.character-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.4rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.character-card-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.character-card-btn.active {
+  border-color: #ffd166;
+  background: linear-gradient(180deg, rgba(255, 209, 102, 0.25) 0%, rgba(255, 71, 87, 0.15) 100%);
+  box-shadow: 0 6px 16px rgba(255, 209, 102, 0.3);
+  transform: scale(1.04);
+}
+
+.character-card-btn.active::after {
+  content: "✓";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: #ffd166;
+  color: #1a162b;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.char-card-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.char-card-title {
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+/* ---------------------------------------------------------
+   Toy Box Avatar Component (.toybox-avatar)
+--------------------------------------------------------- */
+.toybox-avatar {
+  position: relative;
+  border-radius: 50%;
+  padding: 4px;
+  background: var(--theme-color, #ff4757);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: inline-block;
+}
+
+.toybox-avatar.avatar-small { width: 56px; height: 56px; }
+.toybox-avatar.avatar-medium { width: 84px; height: 84px; }
+.toybox-avatar.avatar-large { width: 110px; height: 110px; }
+
+.toybox-avatar .avatar-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  background: #111;
+  border: 3px solid #fff;
+}
+
+.toybox-avatar .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  filter: brightness(1.03) contrast(1.05);
+}
+
+.toybox-avatar .avatar-img.hidden {
+  display: none;
+}
+
+.toybox-avatar.is-cheering {
+  animation: toy-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes toy-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15) rotate(-3deg); }
+}
+
+.avatar-star-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 1.1rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+/* ---------------------------------------------------------
+   Belt Status Bar & XP
+--------------------------------------------------------- */
+.belt-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #2d264a 0%, #1a162b 100%);
+  border: 2px solid var(--panel-line);
+  border-radius: 16px;
+  padding: 0.6rem 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.belt-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.belt-badge {
+  font-size: 1.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.belt-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffd166;
+}
+
+.belt-xp {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+/* ---------------------------------------------------------
+   Setup Screen UI Rules
 --------------------------------------------------------- */
 .screen.setup {
   display: flex;
@@ -47,20 +294,18 @@ button {
   padding: 1.25rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
   padding-top: calc(1.25rem + env(safe-area-inset-top));
   min-height: 100dvh;
-  background: var(--ground);
+  /* Selection page background = play.jpg (meadow), with a dark scrim so the
+     cards/text stay legible over the bright illustration. */
+  background-image:
+    linear-gradient(180deg, rgba(26, 22, 43, 0.55) 0%, rgba(26, 22, 43, 0.82) 100%),
+    url('/characters/play.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--ink);
 }
 
-.screen-title {
-  margin: 0 0 0.25rem;
-  font-size: 1.6rem;
-  font-weight: 700;
-  text-align: center;
-  color: var(--tatami);
-  letter-spacing: 0.04em;
-}
-
-/* Preset band: saved named menus, horizontally scrollable */
 .preset-band {
   display: flex;
   gap: 0.5rem;
@@ -73,7 +318,7 @@ button {
   display: inline-flex;
   align-items: stretch;
   flex: 0 0 auto;
-  border: 1px solid var(--panel-line);
+  border: 2px solid var(--panel-line);
   border-radius: 999px;
   overflow: hidden;
   background: var(--panel);
@@ -83,6 +328,7 @@ button {
   border: none;
   color: var(--tatami);
   font: inherit;
+  font-weight: 700;
   padding: 0.4rem 0.5rem 0.4rem 0.85rem;
   white-space: nowrap;
   cursor: pointer;
@@ -91,7 +337,7 @@ button {
   background: transparent;
   border: none;
   border-left: 1px solid var(--panel-line);
-  color: rgba(243, 237, 227, 0.5);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 0.75rem;
   padding: 0 0.6rem;
   cursor: pointer;
@@ -99,55 +345,58 @@ button {
 .preset-del:hover { color: var(--obi); }
 .preset-save {
   flex: 0 0 auto;
-  background: transparent;
-  border: 1px dashed var(--panel-line);
+  background: rgba(255, 209, 102, 0.15);
+  border: 2px dashed #ffd166;
   border-radius: 999px;
-  color: var(--tatami);
+  color: #ffd166;
   font: inherit;
-  padding: 0.4rem 0.85rem;
+  font-weight: 700;
+  padding: 0.45rem 0.95rem;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .setup-status {
-  background: rgba(200, 64, 47, 0.15);
-  border: 1px solid var(--obi);
-  color: var(--obi);
-  border-radius: 8px;
-  padding: 0.6rem 0.9rem;
+  background: rgba(255, 71, 87, 0.2);
+  border: 2px solid var(--toy-red);
+  color: #ff6b81;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
   margin-bottom: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 800;
   text-align: center;
 }
 
 [data-rows] {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 
 .row {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
-  border-radius: 10px;
-  padding: 0.4rem;
+  background: var(--toy-card-bg);
+  border: 2px solid var(--panel-line);
+  border-radius: 16px;
+  padding: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 .row.rest {
-  opacity: 0.65;
+  opacity: 0.75;
 }
 
 .drill-name,
 .drill-secs {
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--panel-line);
-  border-radius: 6px;
-  font-size: 1rem;
-  background: var(--ground);
+  padding: 0.65rem 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  background: #1a162b;
   color: var(--ink);
 }
 
@@ -157,19 +406,20 @@ button {
 
 .drill-secs {
   width: 80px;
+  text-align: center;
 }
 
 .row-move {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   padding: 0;
-  background: rgba(201, 164, 92, 0.15);
-  border: 1px solid rgba(201, 164, 92, 0.4);
-  color: var(--tatami);
-  border-radius: 6px;
+  background: rgba(255, 209, 102, 0.2);
+  border: 2px solid #ffd166;
+  color: #ffd166;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
+  font-size: 1.1rem;
+  font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -182,56 +432,81 @@ button {
 
 .row-del {
   padding: 0.6rem 0.85rem;
-  background: rgba(200, 64, 47, 0.2);
-  border: 1px solid var(--obi);
-  color: var(--obi);
-  border-radius: 6px;
+  background: rgba(255, 71, 87, 0.2);
+  border: 2px solid var(--toy-red);
+  color: #ff6b81;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .add {
-  padding: 0.85rem 1rem;
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
-  color: var(--ink);
-  border-radius: 8px;
+  padding: 0.95rem 1rem;
+  background: var(--toy-card-bg);
+  border: 2px dashed #ffd166;
+  color: #ffd166;
+  border-radius: 16px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
 
 .total {
   padding: 0.5rem;
   text-align: center;
-  font-size: 0.9rem;
-  color: var(--ink-dim);
+  font-size: 1rem;
+  font-weight: 800;
+  color: #ffd166;
 }
 
+/* ---------------------------------------------------------
+   Kids Chunky 3D Toy Buttons
+--------------------------------------------------------- */
 .btn-ghost,
 .btn-start {
   padding: 0.95rem 1rem;
   border: none;
-  border-radius: 10px;
+  border-radius: 18px;
   cursor: pointer;
-  font-size: 1.05rem;
-  min-height: 48px; /* thumb-zone tap target */
+  font-size: 1.15rem;
+  font-weight: 900;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
 .btn-ghost {
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
-  color: var(--ink);
+  background: linear-gradient(180deg, #70a1ff 0%, #1e90ff 100%);
+  color: #fff;
+  box-shadow: 0 6px 0 #0984e3, 0 8px 15px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 2px 0 #0984e3;
+}
+
+.btn-ghost:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #0984e3, 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
 .btn-start {
-  background: var(--obi);
-  color: var(--ink);
-  font-weight: bold;
-  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #ff6b81 0%, #ff4757 100%);
+  color: #fff;
+  box-shadow: 0 6px 0 #d63031, 0 8px 20px rgba(255, 71, 87, 0.5);
+  text-shadow: 0 2px 0 #d63031;
+  letter-spacing: 0.04em;
+}
+
+.btn-start:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #d63031, 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* ---------------------------------------------------------
-   Training Screen — full-bleed mirrored camera, oversized timer
+   Training Screen — Mirrored Camera & Companion Cheer Overlay
 --------------------------------------------------------- */
 .screen.training {
   position: relative;
@@ -244,6 +519,18 @@ button {
   overflow: hidden;
 }
 
+/* Dojo backdrop behind the camera feed. Sits under the mirrored video so it
+   frames the shot (visible around a contained/letterboxed feed). */
+.training-dojo-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url('/characters/Dojo.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
 .screen.training video.mirror {
   transform: scaleX(-1);
   width: 100%;
@@ -252,6 +539,7 @@ button {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
 }
 
 .training-top-bar {
@@ -261,48 +549,98 @@ button {
   right: 0;
   display: flex;
   justify-content: space-between;
-  padding: calc(0.6rem + env(safe-area-inset-top)) 1rem 0.6rem;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent);
+  align-items: center;
+  padding: calc(0.8rem + env(safe-area-inset-top)) 1rem 0.8rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: 1rem;
   z-index: 10;
 }
 
 [data-rec] {
-  font-weight: bold;
-  color: var(--obi);
+  font-weight: 900;
+  color: #ff4757;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1.5px solid #ff4757;
 }
 
 @keyframes rec-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+  50% { opacity: 0.3; }
 }
 
 [data-rec]::before {
   content: "";
   display: inline-block;
-  width: 0.55em;
-  height: 0.55em;
-  margin-right: 0.4em;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.45em;
   border-radius: 50%;
-  background: var(--obi);
-  animation: rec-pulse 1.4s ease-in-out infinite;
+  background: #ff4757;
+  animation: rec-pulse 1.2s ease-in-out infinite;
 }
 
 [data-prog] {
-  text-align: right;
-  color: var(--ink);
+  font-weight: 800;
+  color: #ffd166;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+}
+
+/* Companion cheer overlay on Training Screen — a transparent character clip
+   that pops into a bottom corner on each cue, then fades away. Random
+   character each time (no partner selection). */
+.companion-training-overlay {
+  position: absolute;
+  right: 0.6rem;
+  bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  z-index: 15;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(12px) scale(0.9);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.companion-training-overlay.cheering {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.companion-cheer-video {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+
+.companion-speech-bubble {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: #ffd166;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  max-width: 60vw;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .training-center {
   position: absolute;
-  top: 50%;
+  top: 48%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 0.8rem;
   z-index: 10;
   text-align: center;
   width: 100%;
@@ -310,53 +648,62 @@ button {
 }
 
 [data-drill] {
-  color: var(--ink);
-  font-size: 1.5rem;
-  font-weight: bold;
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 900;
   text-align: center;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
+  padding: 0.5rem 1.2rem;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
 }
 
 [data-timer] {
-  color: var(--ink);
-  font-size: 6rem;
-  font-weight: 800;
+  color: #ffd166;
+  font-size: 6.5rem;
+  font-weight: 900;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 4px 0 #d63031, 0 8px 24px rgba(0, 0, 0, 0.9);
 }
 
 [data-cue] {
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--tatami);
-  color: var(--ground);
-  padding: 1rem 2rem;
-  border-radius: 10px;
-  font-size: 1.3rem;
-  font-weight: bold;
+  transform: translate(-50%, -50%) scale(0.8);
+  background: linear-gradient(135deg, #ffd166 0%, #ff8811 100%);
+  color: #1a162b;
+  padding: 1.2rem 2.4rem;
+  border-radius: 24px;
+  font-size: 1.8rem;
+  font-weight: 900;
   text-align: center;
   z-index: 20;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease-in-out;
+  box-shadow: 0 12px 30px rgba(255, 209, 102, 0.6);
+  border: 4px solid #fff;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 [data-cue].show {
   opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 [data-next] {
   position: absolute;
-  bottom: calc(90px + env(safe-area-inset-bottom));
+  bottom: calc(100px + env(safe-area-inset-bottom));
   right: 1rem;
-  color: var(--ink-dim);
-  font-size: 0.9rem;
-  font-weight: bold;
-  text-align: right;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
 }
 
 .training-controls {
@@ -365,42 +712,45 @@ button {
   left: 0;
   right: 0;
   display: flex;
-  gap: 0.5rem;
-  padding: 0.6rem 0.6rem calc(0.6rem + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  gap: 0.6rem;
+  padding: 0.8rem 0.8rem calc(0.8rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
   z-index: 10;
 }
 
 .ctrl-btn {
   flex: 1;
   padding: 0.9rem 0.5rem;
-  border: 1px solid rgba(243, 237, 227, 0.3);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.15);
   color: var(--ink);
-  font-size: 0.9rem;
-  font-weight: bold;
+  font-size: 1rem;
+  font-weight: 900;
   cursor: pointer;
-  transition: background 0.2s;
-  min-height: 48px; /* thumb-zone tap target */
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, background 0.2s;
+  min-height: 52px;
 }
 
 .ctrl-btn:active {
-  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
 
 .stop-btn {
-  border-color: var(--obi);
-  color: var(--obi);
+  background: #ff4757;
+  color: #fff;
+  box-shadow: 0 4px 0 #d63031;
 }
 
 /* ---------------------------------------------------------
-   Done Screen
+   Done Screen — Celebration & Belt Level Progress
 --------------------------------------------------------- */
 .screen.done {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.2rem;
   padding: 1.25rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
   padding-top: calc(1.25rem + env(safe-area-inset-top));
   align-items: center;
@@ -409,65 +759,110 @@ button {
   color: var(--ink);
 }
 
+.done-celebration-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--toy-card-bg);
+  border: 3px solid #ffd166;
+  border-radius: 24px;
+  padding: 1.2rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  text-align: center;
+}
+
+.done-trophy-img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  border-radius: 20px;
+  filter: drop-shadow(0 6px 16px rgba(255, 209, 102, 0.5));
+  animation: toy-bounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.done-stars {
+  font-size: 2rem;
+  letter-spacing: 0.2em;
+  animation: toy-bounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.done-title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #ffd166;
+  margin: 0;
+}
+
 .screen.done video {
   width: 100%;
   max-width: 400px;
-  border-radius: 10px;
+  border-radius: 16px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
   background: #000;
 }
 
 .stats {
   display: flex;
-  gap: 1rem;
+  gap: 0.8rem;
   justify-content: center;
+  width: 100%;
+  max-width: 400px;
 }
 
 .stat {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
-  border-radius: 10px;
-  padding: 0.6rem 1rem;
-  min-width: 84px;
+  gap: 0.3rem;
+  background: var(--toy-card-bg);
+  border: 2px solid var(--panel-line);
+  border-radius: 16px;
+  padding: 0.7rem 0.5rem;
 }
 
 .stat .v {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: var(--tatami);
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #ffd166;
 }
 
 .stat .k {
   font-size: 0.85rem;
+  font-weight: 700;
   color: var(--ink-dim);
 }
 
 .btn-dl,
 .btn-again {
-  padding: 0.95rem 1rem;
+  padding: 1rem 1rem;
   border: none;
-  border-radius: 10px;
+  border-radius: 18px;
   cursor: pointer;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
+  font-weight: 900;
   width: 100%;
-  max-width: 340px;
-  min-height: 48px;
+  max-width: 360px;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .btn-dl {
-  background: var(--obi);
-  color: var(--ink);
-  font-weight: bold;
+  background: linear-gradient(180deg, #ff6b81 0%, #ff4757 100%);
+  color: #fff;
+  box-shadow: 0 6px 0 #d63031, 0 8px 20px rgba(255, 71, 87, 0.4);
 }
 
 .btn-again {
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
-  color: var(--ink);
-  font-weight: bold;
+  background: linear-gradient(180deg, #70a1ff 0%, #1e90ff 100%);
+  color: #fff;
+  box-shadow: 0 6px 0 #0984e3, 0 8px 20px rgba(30, 144, 255, 0.4);
 }
 
 /* ---------------------------------------------------------
@@ -488,35 +883,38 @@ button {
 
 .btn-back {
   align-self: flex-start;
-  padding: 0.6rem 0.9rem;
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
+  padding: 0.6rem 1rem;
+  background: var(--toy-card-bg);
+  border: 2px solid var(--panel-line);
   color: var(--ink);
-  border-radius: 8px;
+  font-weight: 800;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 0.95rem;
 }
 
 select[data-role],
 input[data-label] {
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--panel-line);
-  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  border: 2px solid var(--panel-line);
+  border-radius: 12px;
   font-size: 1rem;
-  background: var(--panel);
+  font-weight: 700;
+  background: var(--toy-card-bg);
   color: var(--ink);
 }
 
 .btn-record {
   padding: 0.95rem 1rem;
-  background: var(--obi);
-  color: var(--ink);
-  font-weight: bold;
+  background: linear-gradient(180deg, #ff6b81 0%, #ff4757 100%);
+  color: #fff;
+  font-weight: 900;
   border: none;
-  border-radius: 10px;
+  border-radius: 16px;
   cursor: pointer;
-  font-size: 1rem;
-  min-height: 48px;
+  font-size: 1.05rem;
+  min-height: 52px;
+  box-shadow: 0 6px 0 #d63031;
 }
 
 [data-list] {
@@ -527,8 +925,9 @@ input[data-label] {
 
 .clip-section h3 {
   margin: 0.5rem 0;
-  font-size: 0.9rem;
-  color: var(--tatami);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffd166;
 }
 
 .clip-section ul {
@@ -544,75 +943,150 @@ input[data-label] {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  padding: 0.5rem;
-  border: 1px solid var(--panel-line);
-  border-radius: 8px;
-  background: var(--panel);
+  padding: 0.6rem;
+  border: 2px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--toy-card-bg);
 }
 
 .clip-label {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--ink);
 }
 
 .btn-play, .btn-delete {
-  padding: 0.4rem 0.6rem;
-  font-size: 0.8rem;
-  border: 1px solid var(--panel-line);
-  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border-radius: 8px;
   cursor: pointer;
-  color: var(--ink);
-  background: transparent;
+  border: none;
 }
 
 .btn-play {
-  border-color: var(--tatami);
-  color: var(--tatami);
+  background: #ffd166;
+  color: #1a162b;
 }
 
 .btn-delete {
-  border-color: var(--obi);
-  color: var(--obi);
+  background: #ff4757;
+  color: #fff;
 }
 
 .btn-export, .btn-import {
   padding: 0.85rem 1rem;
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
+  background: var(--toy-card-bg);
+  border: 2px solid var(--panel-line);
   color: var(--ink);
-  border-radius: 8px;
+  font-weight: 800;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 1rem;
 }
 
 .caveat {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--ink-dim);
   text-align: center;
 }
 
 .voice-status {
-  font-size: 0.85rem;
-  color: var(--obi);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ff6b81;
   text-align: center;
   min-height: 1em;
 }
 
-.btn-play:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+/* ---------------------------------------------------------
+   Loading Screen (camera warm-up) — Front.jpg backdrop
+--------------------------------------------------------- */
+.screen.loading {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  background-image:
+    linear-gradient(180deg, rgba(26, 22, 43, 0.35) 0%, rgba(26, 22, 43, 0.7) 100%),
+    url('/characters/Front.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.loading-spinner {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 6px solid rgba(255, 209, 102, 0.35);
+  border-top-color: #ffd166;
+  animation: loading-spin 0.9s linear infinite;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-message {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  background: rgba(26, 22, 43, 0.6);
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
 }
 
 /* ---------------------------------------------------------
-   Reduced motion
+   Ready → 3 → 2 → 1 → Go!! start intro overlay
 --------------------------------------------------------- */
-@media (prefers-reduced-motion: reduce) {
-  [data-rec]::before {
-    animation: none;
-  }
+.countdown-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
 
-  [data-cue] {
-    transition: none;
-  }
+.countdown-intro-label {
+  font-size: 8rem;
+  font-weight: 900;
+  color: #ffd166;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.75);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.countdown-intro-label.go {
+  color: #4ade80;
+  font-size: 6.5rem;
+}
+
+.countdown-intro-label.pop {
+  animation: intro-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes intro-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [data-rec]::before { animation: none; }
+  [data-cue] { transition: none; }
+  .toybox-avatar.is-cheering { animation: none; }
+  .loading-spinner { animation: none; }
+  .countdown-intro-label.pop { animation: none; }
 }

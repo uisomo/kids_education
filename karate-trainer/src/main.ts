@@ -1,4 +1,4 @@
-import { KarateApp } from "./app";
+import { KarateApp, type BgmPlayer } from "./app";
 import { VideoRecorder } from "./recorder";
 import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
@@ -7,6 +7,24 @@ import { makeWakeGuard, shareRecording } from "./platform";
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
+
+// Background music played during a session (loops from Go!! to session end).
+// The filename is Japanese, so encode it for the URL.
+function makeBgm(): BgmPlayer {
+  const audio = new Audio(`/characters/${encodeURIComponent("君ならできる")}.wav`);
+  audio.loop = true;
+  audio.preload = "auto";
+  return {
+    play() {
+      audio.currentTime = 0;
+      void audio.play().catch(() => { /* autoplay blocked — ignore */ });
+    },
+    stop() {
+      audio.pause();
+      audio.currentTime = 0;
+    },
+  };
+}
 
 const rafLoop = (() => {
   let raf = 0, last = 0;
@@ -29,5 +47,6 @@ const app = new KarateApp(root, {
   wakeGuard: makeWakeGuard(),
   rafLoop,
   shareRecording,
+  bgm: makeBgm(),
 });
 await app.start();

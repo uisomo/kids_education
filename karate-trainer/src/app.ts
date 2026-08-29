@@ -8,6 +8,14 @@ import { renderSetupScreen } from "./ui/setup-screen";
 import { renderTrainingScreen, type TrainingView } from "./ui/training-screen";
 import { renderDoneScreen } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
+import { playCountdownIntro } from "./ui/countdown-intro";
+import { renderLoadingScreen } from "./ui/loading-screen";
+import {
+  loadCharacterState,
+  saveCharacterState,
+  type CharacterId,
+  type CharacterState,
+} from "./character-store";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
@@ -31,6 +39,12 @@ export interface RafLoop {
   stop(): void;
 }
 
+// Background music controller. Kept minimal so it's trivial to inject/mock.
+export interface BgmPlayer {
+  play(): void;
+  stop(): void;
+}
+
 export interface KarateAppDeps {
   voiceStore: VoiceStore & ClipSource;
   audioSink: CueSink;
@@ -40,20 +54,15 @@ export interface KarateAppDeps {
   rafLoop: RafLoop;
   menuOverride?: Menu;
   storage?: Storage;
-  // How to ask the user for a preset name (defaults to window.prompt).
-  // Injectable so the save flow is testable. Returns null to cancel.
   promptName?(defaultName: string): string | null;
-  // 録画の共有（native → シェアシート / web → <a download>）。
-  // platform.ts から注入される。
   shareRecording(blob: Blob, ext: string): Promise<void>;
+  // Optional background music played during the session (Go!! → session end).
+  bgm?: BgmPlayer;
+  // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
+  // Pass 0 to disable the visible delay (used by tests).
+  introStepMs?: number;
 }
 
-// Generic on-screen toast for encouragement. The actual spoken/played cue is
-// owned entirely by CuePlayer (a recorded clip if the user has any, otherwise a
-// TTS phrase it picks itself). We deliberately do NOT echo a specific phrase
-// here — a hardcoded phrase would contradict the audio (wrong TTS pick, or a
-// recorded clip whose words we can't know). One neutral toast keeps the UI
-// honest and avoids maintaining a second, divergent phrase list.
 const ENCOURAGE_TOAST = "ファイト！";
 
 export class KarateApp {
@@ -64,9 +73,11 @@ export class KarateApp {
   private drillCount = 0;
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
+  private characterState: CharacterState;
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     this.menu = deps.menuOverride ?? loadMenu(deps.storage);
+    this.characterState = loadCharacterState(deps.storage);
   }
 
   async start(): Promise<void> {
@@ -81,8 +92,6 @@ export class KarateApp {
         saveMenu(menu, this.deps.storage);
         this.showSetup();
       },
-      // Field edits (name / seconds): persist without re-rendering, so the
-      // focused input and the iOS IME composition survive each keystroke.
       onEdit: (menu) => {
         this.menu = menu;
         saveMenu(menu, this.deps.storage);
@@ -94,14 +103,13 @@ export class KarateApp {
         const ask = this.deps.promptName
           ?? ((d: string) => (typeof window !== "undefined" ? window.prompt("メニュー名", d) : null));
         const name = ask("新しいメニュー")?.trim();
-        if (!name) return; // cancelled or empty → do nothing
+        if (!name) return;
         savePreset(name, this.menu, this.deps.storage);
         this.showSetup();
       },
       onLoadPreset: (id) => {
         const preset = loadPresets(this.deps.storage).find((p) => p.id === id);
         if (!preset) return;
-        // Load a copy so later edits don't mutate the stored preset.
         this.menu = structuredClone(preset.menu);
         saveMenu(this.menu, this.deps.storage);
         this.showSetup();
@@ -110,14 +118,21 @@ export class KarateApp {
         deletePreset(id, this.deps.storage);
         this.showSetup();
       },
+      characterId: this.characterState.selectedId,
+      onSelectCharacter: (id: CharacterId) => {
+        this.characterState.selectedId = id;
+        saveCharacterState(this.characterState, this.deps.storage);
+        this.showSetup();
+      },
+      characterState: this.characterState,
     });
+
     if (message) {
       const note = document.createElement("div");
       note.dataset.setupStatus = "";
       note.className = "setup-status";
       note.setAttribute("role", "alert");
       note.textContent = message;
-      // Show it above the drill list so it's immediately visible.
       this.root.prepend(note);
     }
   }
@@ -131,11 +146,9 @@ export class KarateApp {
   }
 
   private async beginTraining(): Promise<void> {
-    // Acquire the camera/recorder/wake lock BEFORE mounting the training
-    // screen. If the camera is denied (a guaranteed first-launch scenario on
-    // iOS) we must not leave a broken, buttonless training screen mounted —
-    // instead we land the user back on setup with a message and a clean state
-    // for retry.
+    // Show a loading screen while the camera warms up (can take a moment).
+    renderLoadingScreen(this.root);
+
     const recorder = this.deps.makeVideoRecorder();
     let stream: MediaStream;
     try {
@@ -143,8 +156,6 @@ export class KarateApp {
       recorder.startRecording();
       await this.deps.wakeGuard.acquire();
     } catch {
-      // Camera denied/unavailable, or recording failed to start. Release any
-      // partially-acquired wake lock and return to setup with a message.
       await this.deps.wakeGuard.release();
       this.videoRecorder = null;
       this.showSetup("カメラを開始できませんでした。権限を確認してください");
@@ -152,17 +163,17 @@ export class KarateApp {
     }
     this.videoRecorder = recorder;
 
-    const view = renderTrainingScreen(this.root);
+    const view = renderTrainingScreen(this.root, this.characterState.selectedId);
     try {
       view.videoEl.srcObject = stream;
     } catch {
-      // jsdom or older browsers may not support srcObject assignment cleanly.
+      /* ignore srcObject errors */
     }
     try {
       const playResult = view.videoEl.play();
-      void Promise.resolve(playResult).catch(() => { /* autoplay may be rejected — ignore */ });
+      void Promise.resolve(playResult).catch(() => { /* autoplay rejected — ignore */ });
     } catch {
-      // jsdom's play() is unimplemented and may throw synchronously — ignore.
+      /* ignore synchronously throwing play() in jsdom */
     }
 
     this.recElapsedMs = 0;
@@ -170,6 +181,19 @@ export class KarateApp {
     this.drillCount = 0;
     this.paused = false;
     view.setPaused(false);
+
+    // Ready → 3 → 2 → 1 → Go!! intro. Numbers beep, Ready/Go are spoken.
+    // BGM and the drill timer both start on "Go!!".
+    await playCountdownIntro(this.root, {
+      stepMs: this.deps.introStepMs,
+      onBeat: (cue) => {
+        if (cue === "Ready") void this.deps.audioSink.speak("よーい");
+        else if (cue === "Go!!") void this.deps.audioSink.speak("はじめ");
+        else void this.deps.audioSink.beep();
+      },
+    });
+
+    this.deps.bgm?.play();
     this.startRecTimer(view);
 
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
@@ -194,15 +218,13 @@ export class KarateApp {
         this.cueCount++;
         void cuePlayer.countdown(n);
       },
-      onDrillEnd: () => { /* no-op: next drill start (or session end) follows immediately */ },
+      onDrillEnd: () => { /* no-op */ },
       onSessionEnd: () => { void this.finishSession(); },
     };
 
     const scheduler = new SessionScheduler(this.menu, handlers);
 
     view.onPause(() => {
-      // Toggle: freeze both the scheduler and the REC elapsed timer so the
-      // recorded stat matches wall-clock training time, then resume both.
       if (!this.paused) {
         this.paused = true;
         scheduler.pause();
@@ -249,6 +271,7 @@ export class KarateApp {
     this.scheduler?.stop();
     this.deps.rafLoop.stop();
     this.stopRecTimer();
+    this.deps.bgm?.stop();
 
     const recorder = this.videoRecorder;
     const blob = recorder ? await recorder.stop() : new Blob();
@@ -259,6 +282,12 @@ export class KarateApp {
 
     const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
+    // Award XP points to student & save
+    const xpEarned = 50 + this.drillCount * 10;
+    this.characterState.totalXp += xpEarned;
+    this.characterState.completedCount += 1;
+    saveCharacterState(this.characterState, this.deps.storage);
+
     const blobForShare = blob;
     renderDoneScreen(this.root, {
       videoUrl,
@@ -268,6 +297,8 @@ export class KarateApp {
         drills: this.drillCount,
         cues: this.cueCount,
       },
+      characterId: this.characterState.selectedId,
+      xpEarned,
       onShare: () => {
         void this.deps.shareRecording(blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);

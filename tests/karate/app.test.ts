@@ -34,6 +34,7 @@ it("runs setup → training → done when Start is pressed", async () => {
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording: vi.fn().mockResolvedValue(undefined),
+    introStepMs: 0,   // skip the Ready→Go intro delay in tests
     // tiny menu so the test is fast
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
@@ -41,6 +42,7 @@ it("runs setup → training → done when Start is pressed", async () => {
 
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
   await new Promise((r) => setTimeout(r, 0));       // camera promise
+  await new Promise((r) => setTimeout(r, 0));       // intro promise
   expect(loopCb).toBeTypeOf("function");
 
   // pump 2s to finish the single drill → session end
@@ -120,6 +122,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording: vi.fn().mockResolvedValue(undefined),
+    introStepMs: 0,   // skip the Ready→Go intro delay in tests
     // a longer drill so we can pause mid-way without ending the session
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 10, kind: "drill" }],
   });
@@ -127,6 +130,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
 
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
   await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));   // intro promise
 
   const timer = () => root.querySelector<HTMLElement>("[data-timer]")!.textContent;
   const pauseBtn = () => root.querySelector<HTMLButtonElement>("[data-pause]")!;
@@ -174,12 +178,14 @@ it("passes the recorded blob to shareRecording after the parental gate", async (
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording,
+    introStepMs: 0,   // skip the Ready→Go intro delay in tests
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
   await app.start();
 
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
   await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));   // intro promise
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
 
@@ -196,4 +202,46 @@ it("passes the recorded blob to shareRecording after the parental gate", async (
   expect(shareRecording).toHaveBeenCalledOnce();
   expect(shareRecording.mock.calls[0][0]).toBe(recordedBlob);
   expect(shareRecording.mock.calls[0][1]).toBe("mp4");
+});
+
+it("plays BGM after the intro and stops it when the session ends", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const bgm = { play: vi.fn(), stop: vi.fn() };
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    bgm,
+    introStepMs: 0,
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
+  });
+  await app.start();
+
+  // BGM must not start before the intro finishes.
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));   // camera
+  await new Promise((r) => setTimeout(r, 0));   // intro → Go!! → bgm.play
+  expect(bgm.play).toHaveBeenCalledOnce();
+  expect(bgm.stop).not.toHaveBeenCalled();
+
+  // run the drill to completion → session end → bgm stops
+  for (let t = 0; t < 2500; t += 250) loopCb!(250);
+  await new Promise((r) => setTimeout(r, 0));
+  expect(bgm.stop).toHaveBeenCalled();
 });

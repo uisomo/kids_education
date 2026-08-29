@@ -51,6 +51,20 @@ function makeDeps(turnQueue: object[]) {
   };
 }
 
+// Override the mocked lesson so it carries a concrete opening check question.
+function withCheckQuestion(deps: ReturnType<typeof makeDeps>["deps"], q: string) {
+  (deps.api.startSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+    lesson: {
+      id: "unit-01", subject: "negotiation", title: "T",
+      teach: ["beat1"], check_questions: [q],
+      enemy: { name: "ゴルド", persona: "p", voice: 13, sprite: "yellow", hp: 100, win_criteria: "w" },
+      reward: { stat: "charisma", xp: 50 }, lang: "ja",
+    },
+    profile: { name: "yuta", age: 8, interests: [], recentLessons: [] },
+    carriedMs: 0,
+  });
+}
+
 // each game turn = one quick entry then one followup entry in the queue
 const battleTurn = [
   { quick: { turn: { enemy_line: "ぐぬ", enemy_action: "shock", damage: 40 } } },
@@ -117,6 +131,28 @@ describe("SessionController", () => {
     expect(deps.hud.journalAdd).toHaveBeenCalled();       // deep question journaled
   });
 
+  it("voices a concrete check question after teaching, before opening the mic", async () => {
+    const { deps } = makeDeps([]);
+    withCheckQuestion(deps, "りゆうを ひとつ 言ってみて？");
+    const s = new SessionController(deps as never);
+    await s.start("negotiation", "unit-01");
+    expect(deps.audio.speak).toHaveBeenCalledWith("りゆうを ひとつ 言ってみて？", expect.anything());
+  });
+
+  it("re-poses the last question (not a bare retry) when a turn fails", async () => {
+    const { deps, say } = makeDeps([]);
+    withCheckQuestion(deps, "りゆうを ひとつ 言ってみて？");
+    (deps.api.postQuickTurn as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("502"));
+    const s = new SessionController(deps as never);
+    await s.start("negotiation", "unit-01");
+    say("あ");
+    await vi.waitFor(() =>
+      expect(deps.audio.speak).toHaveBeenCalledWith(
+        expect.stringContaining("りゆうを ひとつ 言ってみて？"), expect.anything(),
+      ),
+    );
+  });
+
   it("tutor apologises and keeps listening when the quick turn fails", async () => {
     const { deps, say } = makeDeps([]);
     (deps.api.postQuickTurn as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("502"));
@@ -124,7 +160,7 @@ describe("SessionController", () => {
     await s.start("negotiation", "unit-01");
     say("あ");
     await vi.waitFor(() =>
-      expect(deps.audio.speak).toHaveBeenCalledWith(expect.stringContaining("かんがえちゅう"), expect.anything()),
+      expect(deps.audio.speak).toHaveBeenCalledWith(expect.stringContaining("きこえなかった"), expect.anything()),
     );
   });
 });

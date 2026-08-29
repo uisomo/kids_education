@@ -1,6 +1,11 @@
 import type { Menu } from "../types";
 import { totalSeconds, formatMMSS } from "../menu-store";
 import type { Preset } from "../preset-store";
+import {
+  getCurrentBelt,
+  type CharacterId,
+  type CharacterState,
+} from "../character-store";
 
 export interface SetupDeps {
   menu: Menu;
@@ -11,12 +16,18 @@ export interface SetupDeps {
   // the iOS IME composition (かな入力 drops out after one character).
   onEdit(menu: Menu): void;
   onStart(): void;
-  onOpenVoice(): void;
+  // Voice recording entry & partner selection were removed from this screen.
+  // Props kept optional so existing callers/tests stay compatible.
+  onOpenVoice?(): void;
   // Saved named menus (presets) shown in the top band.
   presets: Preset[];
   onSavePreset(): void;      // "＋ 保存": name + snapshot the current menu
   onLoadPreset(id: string): void;   // tap a preset chip → load it now
   onDeletePreset(id: string): void; // remove a preset
+  // Companion belt/XP state (drives the belt status card).
+  characterId?: CharacterId;
+  onSelectCharacter?(id: CharacterId): void;
+  characterState?: CharacterState;
 }
 
 let idc = 0;
@@ -27,9 +38,32 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   root.textContent = "";
   root.className = "screen setup";
 
+  // --- Screen title (top image / logo badge removed) ---
+  const header = document.createElement("div");
+  header.className = "toybox-header";
+
   const title = document.createElement("h1");
   title.className = "screen-title";
   title.textContent = "今日の稽古";
+
+  header.append(title);
+
+  // --- Belt Status Card ---
+  const totalXp = deps.characterState?.totalXp ?? 0;
+  const beltInfo = getCurrentBelt(totalXp);
+  const beltCard = document.createElement("div");
+  beltCard.className = "belt-status-card";
+  beltCard.innerHTML = `
+    <div class="belt-info">
+      <div class="belt-badge" style="background-color: ${beltInfo.current.bgHex}; color: #111;">
+        ${beltInfo.current.icon} ${beltInfo.current.kanji}
+      </div>
+      <div>
+        <div class="belt-title">${beltInfo.current.name}</div>
+        <div class="belt-xp">通算 XP: ${totalXp} PT</div>
+      </div>
+    </div>
+  `;
 
   // --- Preset band: saved named menus + "save current" ---
   const presetBand = document.createElement("div");
@@ -133,13 +167,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   }
   updateTotal();
 
-  const voice = document.createElement("button");
-  voice.dataset.voice = ""; voice.className = "btn-ghost"; voice.textContent = "声を録音";
-  voice.addEventListener("click", () => deps.onOpenVoice());
-
   const start = document.createElement("button");
   start.dataset.start = ""; start.className = "btn-start"; start.textContent = "稽古 開始 ▶";
   start.addEventListener("click", () => deps.onStart());
 
-  root.append(title, presetBand, rows, add, total, voice, start);
+  root.append(header, beltCard, presetBand, rows, add, total, start);
 }
