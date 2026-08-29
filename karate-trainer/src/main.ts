@@ -4,6 +4,7 @@ import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
 import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
+import { CanvasCompositor } from "./canvas-compositor";
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
@@ -14,7 +15,23 @@ function makeBgm(): BgmPlayer {
   const audio = new Audio(`/characters/${encodeURIComponent("君ならできる")}.mp3`);
   audio.loop = true;
   audio.preload = "auto";
+  let unlocked = false;
   return {
+    unlock() {
+      if (unlocked) return;
+      unlocked = true;
+      // Play muted for a tick inside the user gesture, then reset. This marks
+      // the element as user-activated so the real play() at Go!! is allowed.
+      const wasMuted = audio.muted;
+      audio.muted = true;
+      void audio.play()
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.muted = wasMuted;
+        })
+        .catch(() => { audio.muted = wasMuted; });
+    },
     play() {
       audio.currentTime = 0;
       void audio.play().catch(() => { /* autoplay blocked — ignore */ });
@@ -48,5 +65,10 @@ const app = new KarateApp(root, {
   rafLoop,
   shareRecording,
   bgm: makeBgm(),
+  // Burn overlays into the recording when the browser supports canvas capture;
+  // otherwise omit so recording falls back to the raw camera feed.
+  makeCompositor: CanvasCompositor.isSupported()
+    ? (video) => new CanvasCompositor(video)
+    : undefined,
 });
 await app.start();

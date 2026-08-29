@@ -51,3 +51,47 @@ it("cancelling the gate returns to the done screen", () => {
   expect(root.querySelector("[data-download]")).not.toBeNull();
   expect(onShare).not.toHaveBeenCalled();
 });
+
+// --- 工夫 inputs ---
+it("renders a 工夫 input per drill with the current value and 15-char cap", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 2, cues: 5 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    kufuDrills: [
+      { name: "前蹴り", current: "腰を落とす" },
+      { name: "回し蹴り", current: "" },
+    ],
+  });
+  const inputs = root.querySelectorAll<HTMLInputElement>("[data-kufu-input]");
+  expect(inputs).toHaveLength(2);
+  expect(inputs[0].value).toBe("腰を落とす");
+  expect(inputs[0].maxLength).toBe(15);
+});
+
+it("saving a 工夫 fires onSaveKufu with the drill name and text", () => {
+  const root = document.createElement("div");
+  const onSaveKufu = vi.fn();
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 1, cues: 5 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    kufuDrills: [{ name: "前蹴り", current: "" }],
+    onSaveKufu,
+  });
+  const input = root.querySelector<HTMLInputElement>('[data-kufu-input="前蹴り"]')!;
+  input.value = "軸足まっすぐ";
+  root.querySelector<HTMLButtonElement>('[data-kufu-save="前蹴り"]')!.click();
+  expect(onSaveKufu).toHaveBeenCalledWith("前蹴り", "軸足まっすぐ");
+});
+
+it("omits the 工夫 section when no drills are given", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+  });
+  expect(root.querySelector("[data-kufu-section]")).toBeNull();
+});

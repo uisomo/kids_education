@@ -7,6 +7,7 @@ export interface TrainingView {
   setTime(secondsLeft: number): void;
   showCue(text: string): void;
   setNext(text: string | null): void;
+  setCaption(text: string): void;   // 工夫 reminder at the bottom
   setRecElapsed(text: string): void;
   setPaused(paused: boolean): void;
   onPause(cb: () => void): void;
@@ -96,6 +97,12 @@ export function renderTrainingScreen(
   nextEl.className = "next-hint";
   nextEl.textContent = "";
 
+  // 工夫 reminder (bottom) — the child's saved note for this drill.
+  const captionEl = document.createElement("div");
+  captionEl.dataset.caption = "";
+  captionEl.className = "kufu-caption";
+  captionEl.textContent = "";
+
   // Control buttons (thumb-zone)
   const controls = document.createElement("div");
   controls.className = "training-controls";
@@ -120,7 +127,7 @@ export function renderTrainingScreen(
   controls.append(pauseBtn, skipBtn, stopBtn);
 
   // Assemble the screen
-  root.append(dojoBg, videoEl, topBar, companionOverlay, centerContent, cueEl, nextEl, controls);
+  root.append(dojoBg, videoEl, topBar, companionOverlay, centerContent, cueEl, nextEl, captionEl, controls);
 
   // Setup state handlers
   let cueTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -168,6 +175,10 @@ export function renderTrainingScreen(
       } else {
         nextEl.textContent = text;
       }
+    },
+    setCaption(text: string) {
+      captionEl.textContent = text ? `工夫: ${text}` : "";
+      captionEl.classList.toggle("show", !!text);
     },
     setRecElapsed(text: string) {
       recEl.textContent = text;

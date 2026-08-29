@@ -212,7 +212,7 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   const store = new VoiceStore(memKv());
   await store.init();
 
-  const bgm = { play: vi.fn(), stop: vi.fn() };
+  const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn() };
 
   const app = new KarateApp(root, {
     voiceStore: store,
@@ -233,8 +233,10 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   });
   await app.start();
 
-  // BGM must not start before the intro finishes.
+  // BGM must not start before the intro finishes, but IS unlocked on the tap.
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  expect(bgm.unlock).toHaveBeenCalledOnce();   // synchronous, inside the gesture
+  expect(bgm.play).not.toHaveBeenCalled();     // not yet — intro still running
   await new Promise((r) => setTimeout(r, 0));   // camera
   await new Promise((r) => setTimeout(r, 0));   // intro → Go!! → bgm.play
   expect(bgm.play).toHaveBeenCalledOnce();
@@ -244,4 +246,116 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
   expect(bgm.stop).toHaveBeenCalled();
+});
+
+it("records the composited stream and feeds drill/countdown state to the compositor", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const composited = { composited: true } as unknown as MediaStream;
+  const compositor = {
+    setState: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    captureStream: vi.fn(() => composited),
+  };
+  const startRecording = vi.fn();
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording,
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    makeCompositor: () => compositor,
+    introStepMs: 0,
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));   // camera
+  await new Promise((r) => setTimeout(r, 0));   // intro
+
+  // compositor started and its composited stream is what gets recorded
+  expect(compositor.start).toHaveBeenCalledOnce();
+  expect(startRecording).toHaveBeenCalledWith(composited);
+
+  // first drill pushed its name into the compositor
+  const drillCall = compositor.setState.mock.calls.find((c) => c[0].drill === "前蹴り");
+  expect(drillCall).toBeTruthy();
+
+  // countdown ticks push seconds; run to completion → compositor stops
+  for (let t = 0; t < 2500; t += 250) loopCb!(250);
+  await new Promise((r) => setTimeout(r, 0));
+  expect(compositor.setState.mock.calls.some((c) => typeof c[0].seconds === "number")).toBe(true);
+  expect(compositor.stop).toHaveBeenCalled();
+});
+
+function memStorage(): Storage {
+  const m = new Map<string, string>();
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k)! : null),
+    setItem: (k, v) => void m.set(k, String(v)),
+    removeItem: (k) => void m.delete(k),
+    clear: () => m.clear(), key: () => null, length: 0,
+  } as Storage;
+}
+
+it("bumps 強さ counts on session complete and the 強さ tab shows them", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const storage = memStorage();
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    storage,
+    introStepMs: 0,
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
+  });
+  await app.start();
+
+  // setup shows the bottom nav
+  expect(root.querySelector("[data-bottom-nav]")).not.toBeNull();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  for (let t = 0; t < 2500; t += 250) loopCb!(250);
+  await new Promise((r) => setTimeout(r, 0));
+
+  // back to setup via もう一度, then open 強さ
+  root.querySelector<HTMLButtonElement>("[data-again]")!.click();
+  root.querySelector<HTMLButtonElement>('[data-navtab="strength"]')!.click();
+
+  const row = root.querySelector('[data-strength-row="前蹴り"]');
+  expect(row).not.toBeNull();
+  expect(root.querySelector('[data-strength-level="前蹴り"]')!.textContent).toBe("Lv.0");
+  expect(row!.querySelectorAll(".strength-bar.lit").length).toBe(1);
 });

@@ -10,6 +10,11 @@ import { renderDoneScreen } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
 import { playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
+import { latestKufu, addKufu } from "./kufu-store";
+import { bumpDrills } from "./progress-store";
+import { renderStrengthScreen } from "./ui/strength-screen";
+import { renderFamilyScreen } from "./ui/family-screen";
+import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import {
   loadCharacterState,
   saveCharacterState,
@@ -19,9 +24,18 @@ import {
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
-  startRecording(): void;
+  startRecording(streamOverride?: MediaStream): void;
   stop(): Promise<Blob>;
   fileExtension(): string;
+}
+
+// Factory for the canvas compositor, injected so app.ts stays testable and the
+// heavy DOM/canvas dependency lives at the composition root (main.ts).
+export interface CompositorLike {
+  setState(patch: Partial<{ drill: string; seconds: number; cue: string; caption: string }>): void;
+  start(): void;
+  stop(): void;
+  captureStream(cameraStream: MediaStream, fps?: number): MediaStream;
 }
 
 export interface VoiceRecorderLike {
@@ -41,6 +55,11 @@ export interface RafLoop {
 
 // Background music controller. Kept minimal so it's trivial to inject/mock.
 export interface BgmPlayer {
+  // Prime the audio element inside a user-gesture handler (e.g. the Start tap)
+  // so a later play() isn't blocked by the browser's autoplay policy. Without
+  // this the FIRST session's BGM silently fails (the intro delays play() past
+  // the gesture); subsequent sessions work because the element is unlocked.
+  unlock(): void;
   play(): void;
   stop(): void;
 }
@@ -58,6 +77,11 @@ export interface KarateAppDeps {
   shareRecording(blob: Blob, ext: string): Promise<void>;
   // Optional background music played during the session (Go!! → session end).
   bgm?: BgmPlayer;
+  // Optional canvas compositor factory: builds a compositor bound to the given
+  // camera <video>, used to burn 種目名/countdown/cue/工夫 into the recording.
+  // When omitted (or captureStream unsupported), recording falls back to the
+  // raw camera feed with no burned-in text.
+  makeCompositor?(video: HTMLVideoElement): CompositorLike;
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
   introStepMs?: number;
@@ -74,6 +98,8 @@ export class KarateApp {
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
   private characterState: CharacterState;
+  private compositor: CompositorLike | null = null;
+  private activeTab: NavTab = "train";
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     this.menu = deps.menuOverride ?? loadMenu(deps.storage);
@@ -96,7 +122,11 @@ export class KarateApp {
         this.menu = menu;
         saveMenu(menu, this.deps.storage);
       },
-      onStart: () => { void this.beginTraining(); },
+      onStart: () => {
+        // Unlock BGM synchronously inside the tap gesture (autoplay policy).
+        this.deps.bgm?.unlock();
+        void this.beginTraining();
+      },
       onOpenVoice: () => this.showVoice(),
       presets: loadPresets(this.deps.storage),
       onSavePreset: () => {
@@ -135,6 +165,36 @@ export class KarateApp {
       note.textContent = message;
       this.root.prepend(note);
     }
+
+    this.mountTabNav("train");
+  }
+
+  // Append the bottom tab bar after a tab screen has rendered (the screen's
+  // root.textContent reset would otherwise wipe it). Tapping a tab switches
+  // screens. Full-screen flows (training/loading/intro/done) never call this.
+  private mountTabNav(active: NavTab): void {
+    this.activeTab = active;
+    this.root.classList.add("has-bottom-nav");
+    const nav = createBottomNav({
+      active,
+      onSelect: (tab) => {
+        if (tab === this.activeTab) return;
+        if (tab === "train") this.showSetup();
+        else if (tab === "strength") this.showStrength();
+        else this.showFamily();
+      },
+    });
+    this.root.append(nav);
+  }
+
+  private showStrength(): void {
+    renderStrengthScreen(this.root, { storage: this.deps.storage });
+    this.mountTabNav("strength");
+  }
+
+  private showFamily(): void {
+    renderFamilyScreen(this.root, { storage: this.deps.storage });
+    this.mountTabNav("family");
   }
 
   private showVoice(): void {
@@ -153,7 +213,6 @@ export class KarateApp {
     let stream: MediaStream;
     try {
       stream = await recorder.startCamera();
-      recorder.startRecording();
       await this.deps.wakeGuard.acquire();
     } catch {
       await this.deps.wakeGuard.release();
@@ -174,6 +233,18 @@ export class KarateApp {
       void Promise.resolve(playResult).catch(() => { /* autoplay rejected — ignore */ });
     } catch {
       /* ignore synchronously throwing play() in jsdom */
+    }
+
+    // Build the compositor (burns text into the recording) now that the camera
+    // <video> exists. Record the composited stream when available, else the raw
+    // camera feed. startRecording() runs here — after the video is wired up —
+    // so the very first recorded frames already carry the overlay.
+    this.compositor = this.deps.makeCompositor?.(view.videoEl) ?? null;
+    if (this.compositor) {
+      this.compositor.start();
+      recorder.startRecording(this.compositor.captureStream(stream));
+    } else {
+      recorder.startRecording();
     }
 
     this.recElapsedMs = 0;
@@ -202,16 +273,23 @@ export class KarateApp {
       onDrillStart: (drill: Drill, index: number, total: number) => {
         this.drillCount = index + 1;
         view.setDrill(drill, index + 1, total);
+        // Show + burn the drill name and its saved 工夫 reminder.
+        const caption = this.captionFor(drill);
+        view.setCaption(caption);
+        this.compositor?.setState({ drill: drill.name, caption });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
         view.setNext(next ? next.name : null);
       },
       onTick: (secondsLeft: number) => {
         view.setTime(secondsLeft);
+        this.compositor?.setState({ seconds: secondsLeft });
       },
       onEncourage: () => {
         this.cueCount++;
         view.showCue(ENCOURAGE_TOAST);
+        this.compositor?.setState({ cue: ENCOURAGE_TOAST });
+        setTimeout(() => this.compositor?.setState({ cue: "" }), 1800);
         void cuePlayer.encourage();
       },
       onCountdown: (n: number) => {
@@ -247,6 +325,12 @@ export class KarateApp {
 
   private scheduler: SessionScheduler | null = null;
 
+  // 工夫 caption for a drill: the child's latest saved note for this 種目,
+  // shown on-screen and burned into the recording.
+  private captionFor(drill: Drill): string {
+    return latestKufu(drill.name, this.deps.storage);
+  }
+
   private startRecTimer(view: TrainingView): void {
     this.stopRecTimer();
     this.recTimerHandle = setInterval(() => {
@@ -272,6 +356,8 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
+    this.compositor?.stop();
+    this.compositor = null;
 
     const recorder = this.videoRecorder;
     const blob = recorder ? await recorder.stop() : new Blob();
@@ -288,6 +374,16 @@ export class KarateApp {
     this.characterState.completedCount += 1;
     saveCharacterState(this.characterState, this.deps.storage);
 
+    // Deduped list of the drills practiced this session (rest excluded), each
+    // with its latest saved 工夫 pre-filled for editing.
+    const seen = new Set<string>();
+    const kufuDrills = this.menu
+      .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
+      .map((d) => ({ name: d.name, current: latestKufu(d.name, this.deps.storage) }));
+
+    // Count each practiced drill toward its 強さ level (+1 per session).
+    bumpDrills(kufuDrills.map((d) => d.name), this.deps.storage);
+
     const blobForShare = blob;
     renderDoneScreen(this.root, {
       videoUrl,
@@ -299,6 +395,8 @@ export class KarateApp {
       },
       characterId: this.characterState.selectedId,
       xpEarned,
+      kufuDrills,
+      onSaveKufu: (name, text) => { addKufu(name, text, this.deps.storage); },
       onShare: () => {
         void this.deps.shareRecording(blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);

@@ -33,11 +33,15 @@ export class VideoRecorder {
     return this.stream;
   }
 
-  startRecording(): void {
+  // Record `streamOverride` (e.g. a canvas-composited stream carrying burned-in
+  // text) when provided; otherwise record the raw camera stream. The camera
+  // stream is still stopped in stop() either way, so its tracks are released.
+  startRecording(streamOverride?: MediaStream): void {
     if (!this.stream) throw new Error("camera not started");
+    const recordStream = streamOverride ?? this.stream;
     this.mime = this.pickMime();
     this.chunks = [];
-    this.recorder = this.makeRecorder(this.stream, this.mime);
+    this.recorder = this.makeRecorder(recordStream, this.mime);
     this.recorder.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
     this.recorder.start();
   }
