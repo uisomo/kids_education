@@ -147,3 +147,20 @@ it("no longer renders the voice-record button, partner carousel, or top banner i
   expect(root.querySelector("[data-start]")).not.toBeNull();
   expect(root.querySelector(".belt-status-card")).not.toBeNull();
 });
+
+// --- E3: assigned くらす label ---
+it("shows the assigned class name when className is provided", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ className: "基礎" }));
+  const label = root.querySelector<HTMLElement>("[data-class-label]");
+  expect(label).not.toBeNull();
+  expect(label!.textContent).toContain("基礎");
+});
+
+it("omits the class label when className is null/absent", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ className: null }));
+  expect(root.querySelector("[data-class-label]")).toBeNull();
+  renderSetupScreen(root, deps());
+  expect(root.querySelector("[data-class-label]")).toBeNull();
+});

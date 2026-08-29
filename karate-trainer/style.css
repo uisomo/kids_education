@@ -1474,6 +1474,54 @@ input[data-label] {
   padding: 0.1rem 0.45rem;
 }
 
+/* --- くらす assignment (E3) --- */
+.family-class-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.family-class-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  background: rgba(26, 22, 43, 0.5);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 0.5rem 0.7rem;
+}
+
+.family-class-member {
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.family-class-select {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 209, 102, 0.5);
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a162b;
+}
+
+.family-class-hint {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-dim, #b0a8c8);
+  padding: 0.4rem 0.2rem;
+}
+
+.setup-class-label {
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #ffd166;
+  margin: 0.1rem 0 0.3rem;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   [data-rec]::before { animation: none; }

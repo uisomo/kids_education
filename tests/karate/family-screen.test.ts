@@ -71,3 +71,63 @@ it("tapping a plan card fires onSelectPlan with that plan", () => {
   root.querySelector<HTMLButtonElement>('[data-plan-card="max"]')!.click();
   expect(onSelectPlan).toHaveBeenCalledWith("max");
 });
+
+// --- E3: くらす assignment section ---
+const classes = [
+  { id: "p1", name: "基礎", menu: [] },
+  { id: "p2", name: "応用", menu: [] },
+];
+
+function classDeps(over: Record<string, unknown> = {}) {
+  return deps({
+    classes,
+    assignments: { m1: "p1", m2: null },
+    onAssignClass: vi.fn(),
+    ...over,
+  });
+}
+
+it("renders a class select per member with the assigned class selected", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, classDeps());
+  const rows = root.querySelectorAll("[data-class-row]");
+  expect(rows).toHaveLength(2);
+  const m1 = root.querySelector<HTMLSelectElement>('[data-class-select="m1"]')!;
+  expect(m1.value).toBe("p1");
+  const m2 = root.querySelector<HTMLSelectElement>('[data-class-select="m2"]')!;
+  expect(m2.value).toBe("");   // なし (unassigned)
+});
+
+it("changing a member's class fires onAssignClass with the preset id", () => {
+  const root = document.createElement("div");
+  const onAssignClass = vi.fn();
+  renderFamilyScreen(root, classDeps({ onAssignClass }));
+  const m2 = root.querySelector<HTMLSelectElement>('[data-class-select="m2"]')!;
+  m2.value = "p2";
+  m2.dispatchEvent(new Event("change"));
+  expect(onAssignClass).toHaveBeenCalledWith("m2", "p2");
+});
+
+it("selecting なし fires onAssignClass with null", () => {
+  const root = document.createElement("div");
+  const onAssignClass = vi.fn();
+  renderFamilyScreen(root, classDeps({ onAssignClass }));
+  const m1 = root.querySelector<HTMLSelectElement>('[data-class-select="m1"]')!;
+  m1.value = "";
+  m1.dispatchEvent(new Event("change"));
+  expect(onAssignClass).toHaveBeenCalledWith("m1", null);
+});
+
+it("shows a hint instead of selects when there are no saved menus", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, classDeps({ classes: [], assignments: {} }));
+  expect(root.querySelector("[data-class-hint]")).not.toBeNull();
+  expect(root.querySelectorAll("[data-class-select]")).toHaveLength(0);
+});
+
+it("omits the class section entirely for pre-E3 callers", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());   // no classes/assignments/onAssignClass
+  expect(root.querySelector("[data-class-list]")).toBeNull();
+  expect(root.querySelector("[data-class-hint]")).toBeNull();
+});

@@ -28,6 +28,8 @@ export interface SetupDeps {
   characterId?: CharacterId;
   onSelectCharacter?(id: CharacterId): void;
   characterState?: CharacterState;
+  // E3: the active member's assigned くらす name (read-only label), or null.
+  className?: string | null;
 }
 
 let idc = 0;
@@ -64,6 +66,15 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       </div>
     </div>
   `;
+
+  // --- Assigned くらす label (E3, read-only) ---
+  let classLabel: HTMLDivElement | null = null;
+  if (deps.className) {
+    classLabel = document.createElement("div");
+    classLabel.className = "setup-class-label";
+    classLabel.dataset.classLabel = "";
+    classLabel.textContent = `くらす: ${deps.className}`;
+  }
 
   // --- Preset band: saved named menus + "save current" ---
   const presetBand = document.createElement("div");
@@ -171,5 +182,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   start.dataset.start = ""; start.className = "btn-start"; start.textContent = "稽古 開始 ▶";
   start.addEventListener("click", () => deps.onStart());
 
-  root.append(header, beltCard, presetBand, rows, add, total, start);
+  root.append(header, beltCard);
+  if (classLabel) root.append(classLabel);
+  root.append(presetBand, rows, add, total, start);
 }

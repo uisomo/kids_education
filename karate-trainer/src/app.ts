@@ -18,6 +18,7 @@ import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
 import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
 import { type Plan, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
+import { getAssignedClass, setAssignedClass } from "./class-store";
 import { renderParentalGate } from "./parental-gate";
 import {
   loadCharacterState,
@@ -140,6 +141,37 @@ export class KarateApp {
     }, 0);
   }
 
+  // The assigned class (preset) id for a member, or null if unassigned or the
+  // assigned preset was deleted family-wide. Validated against the shared
+  // preset list so a dangling record never drives a menu.
+  private assignedClassFor(memberId: string): string | null {
+    const base = this.base();
+    return getAssignedClass(loadPresets(base), scopedStorage(base, memberId));
+  }
+
+  // The active member's assigned class name (for the setup-screen label), or
+  // null when unassigned.
+  private activeClassName(): string | null {
+    const id = this.assignedClassFor(getActiveId(this.base()));
+    if (!id) return null;
+    return loadPresets(this.base()).find((p) => p.id === id)?.name ?? null;
+  }
+
+  // Assign (or clear, when id is null) a member's class. Assigning also copies
+  // the class's menu into that member's working menu as a starting point — the
+  // kid can still edit/save it afterward. Clearing leaves the menu untouched.
+  private assignClass(memberId: string, presetId: string | null): void {
+    const base = this.base();
+    const memStorage = scopedStorage(base, memberId);
+    setAssignedClass(presetId, memStorage);
+    if (presetId !== null) {
+      const preset = loadPresets(base).find((p) => p.id === presetId);
+      if (preset) saveMenu(structuredClone(preset.menu), memStorage);
+    }
+    // If the class was assigned to the active member, refresh the working menu.
+    if (memberId === getActiveId(base)) this.menu = loadMenu(this.mem());
+  }
+
   async start(): Promise<void> {
     this.showSetup();
   }
@@ -190,6 +222,8 @@ export class KarateApp {
         this.showSetup();
       },
       characterState: this.characterState,
+      // E3: the active member's assigned くらす name (read-only label).
+      className: this.activeClassName(),
     });
 
     if (message) {
@@ -244,14 +278,20 @@ export class KarateApp {
 
   private renderFamily(): void {
     const base = this.base();
+    const members = loadMembers(base);
     renderFamilyScreen(this.root, {
-      members: loadMembers(base),
+      members,
       activeId: getActiveId(base),
       onAddMember: (name) => { addMember(name, base); this.reloadForActiveMember(); this.showFamily(); },
       onRemoveMember: (id) => { removeMember(id, base); this.reloadForActiveMember(); this.showFamily(); },
       onSelectMember: (id) => { setActive(id, base); this.reloadForActiveMember(); this.showFamily(); },
       activePlan: loadPlan(this.mem()),
       onSelectPlan: (plan) => { this.changePlan(plan); this.showFamily(); },
+      // E3: くらす assignment. Classes are the family-shared presets; each
+      // member's assignment maps memberId → presetId (or null when unassigned).
+      classes: loadPresets(base),
+      assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
+      onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
     });
   }
 

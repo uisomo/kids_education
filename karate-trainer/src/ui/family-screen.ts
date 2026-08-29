@@ -3,6 +3,7 @@
 // and E4 (応援コメント) build on this screen later.
 
 import type { Member } from "../member-store";
+import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 
 export interface FamilyDeps {
@@ -13,6 +14,12 @@ export interface FamilyDeps {
   onSelectMember(id: string): void;
   activePlan: Plan;             // the active member's current plan
   onSelectPlan(plan: Plan): void;
+  // E3 くらす assignment. `classes` = the family-shared presets that can be
+  // assigned; `assignments` maps memberId → assigned presetId (or null).
+  // Optional so pre-E3 callers/tests keep working (section is hidden if absent).
+  classes?: Preset[];
+  assignments?: Record<string, string | null>;
+  onAssignClass?(memberId: string, presetId: string | null): void;
 }
 
 const PLAN_ORDER: Plan[] = ["free", "standard", "max"];
@@ -149,5 +156,71 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     planCards.append(card);
   });
 
-  root.append(title, activeCard, listTitle, list, addRow, planTitle, planNote, planCards);
+  // --- くらす assignment section (E3) ---
+  const classNodes = buildClassSection(deps);
+
+  root.append(title, activeCard, listTitle, list, addRow, ...classNodes, planTitle, planNote, planCards);
+}
+
+// Per-member くらす (class) assignment: each member gets a <select> of the
+// family's saved menus (presets) plus a "なし" (unassigned) option. Returns the
+// nodes to append, or [] when E3 wiring is absent (pre-E3 callers).
+function buildClassSection(deps: FamilyDeps): Node[] {
+  if (!deps.onAssignClass || !deps.classes || !deps.assignments) return [];
+  const onAssign = deps.onAssignClass;
+  const assignments = deps.assignments;
+  const classes = deps.classes;
+
+  const classTitle = document.createElement("div");
+  classTitle.className = "family-section-label";
+  classTitle.textContent = "くらす";
+
+  // No saved menus yet → nothing to assign. Guide the parent to make one.
+  if (classes.length === 0) {
+    const hint = document.createElement("div");
+    hint.className = "family-class-hint";
+    hint.dataset.classHint = "";
+    hint.textContent = "メニューを保存してくらすにしてね";
+    return [classTitle, hint];
+  }
+
+  const classList = document.createElement("div");
+  classList.className = "family-class-list";
+  classList.dataset.classList = "";
+
+  deps.members.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "family-class-row";
+    row.dataset.classRow = m.id;
+
+    const name = document.createElement("span");
+    name.className = "family-class-member";
+    name.textContent = m.name;
+
+    const select = document.createElement("select");
+    select.className = "family-class-select";
+    select.dataset.classSelect = m.id;
+
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "なし";
+    select.append(none);
+
+    const assigned = assignments[m.id] ?? null;
+    classes.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name;
+      if (c.id === assigned) opt.selected = true;
+      select.append(opt);
+    });
+    if (assigned === null) none.selected = true;
+
+    select.addEventListener("change", () => onAssign(m.id, select.value || null));
+
+    row.append(name, select);
+    classList.append(row);
+  });
+
+  return [classTitle, classList];
 }
