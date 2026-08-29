@@ -20,6 +20,8 @@ export interface DoneDeps {
   // 工夫: drills practiced this session (deduped, rest excluded) + save callback.
   kufuDrills?: DoneKufuDrill[];
   onSaveKufu?(drillName: string, text: string): void;
+  // When false (Free plan, 工夫 cap 0) the 工夫 section is not rendered at all.
+  kufuEnabled?: boolean;
 }
 
 const KUFU_MAX_LEN = 15;
@@ -77,7 +79,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   // Saved notes reappear as reminders during the next practice.
   const kufuSection = document.createElement("div");
   kufuSection.className = "kufu-section";
-  if (deps.kufuDrills && deps.kufuDrills.length) {
+  if (deps.kufuEnabled !== false && deps.kufuDrills && deps.kufuDrills.length) {
     kufuSection.dataset.kufuSection = "";
     const kufuTitle = document.createElement("div");
     kufuTitle.className = "kufu-title";

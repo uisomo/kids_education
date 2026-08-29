@@ -5,7 +5,8 @@
 
 const KEY = "karate.kufu";
 export const KUFU_MAX_LEN = 15;
-const HISTORY_LIMIT = 10;
+// Default history cap when no plan limit is passed (Max plan / legacy callers).
+const DEFAULT_HISTORY_LIMIT = 10;
 
 type KufuMap = Record<string, string[]>;
 
@@ -40,22 +41,38 @@ export function loadKufu(drillName: string, storage: Storage = localStorage): st
   return load(storage)[drillName] ?? [];
 }
 
+// Trim every drill's history down to `limit` newest entries (0 clears all).
+// Used on a plan downgrade to enforce the new 工夫 cap immediately.
+export function trimKufuHistory(limit: number, storage: Storage = localStorage): void {
+  if (limit <= 0) {
+    write({}, storage);
+    return;
+  }
+  const map = load(storage);
+  for (const drill of Object.keys(map)) map[drill] = map[drill].slice(0, limit);
+  write(map, storage);
+}
+
 // The most recent note for a drill, or "" if none.
 export function latestKufu(drillName: string, storage: Storage = localStorage): string {
   return loadKufu(drillName, storage)[0] ?? "";
 }
 
 // Add a note (trimmed + capped to 15 chars) as the newest entry. Empty input is
-// ignored. Keeps at most 10 per drill. Returns the updated history.
+// ignored. `limit` is the plan's 工夫 cap (defaults to 10 for legacy callers):
+// a limit of 0 (Free plan) saves nothing, and any lower limit trims existing
+// over-limit history on this write (handles a plan downgrade). Returns history.
 export function addKufu(
   drillName: string,
   text: string,
   storage: Storage = localStorage,
+  limit: number = DEFAULT_HISTORY_LIMIT,
 ): string[] {
+  if (limit <= 0) return loadKufu(drillName, storage);
   const clean = text.trim().slice(0, KUFU_MAX_LEN);
   if (!clean) return loadKufu(drillName, storage);
   const map = load(storage);
-  const next = [clean, ...(map[drillName] ?? [])].slice(0, HISTORY_LIMIT);
+  const next = [clean, ...(map[drillName] ?? [])].slice(0, limit);
   map[drillName] = next;
   write(map, storage);
   return next;

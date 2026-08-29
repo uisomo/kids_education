@@ -24,7 +24,7 @@ describe("preset store", () => {
 
   it("saves a named preset and lists it back", () => {
     const s = fakeStorage();
-    const p = savePreset("基本稽古", menuA, s);
+    const p = savePreset("基本稽古", menuA, s)!;
     expect(p.name).toBe("基本稽古");
     const list = loadPresets(s);
     expect(list).toHaveLength(1);
@@ -51,7 +51,7 @@ describe("preset store", () => {
 
   it("deletes a preset by id", () => {
     const s = fakeStorage();
-    const a = savePreset("A", menuA, s);
+    const a = savePreset("A", menuA, s)!;
     savePreset("B", menuB, s);
     deletePreset(a.id, s);
     const list = loadPresets(s);
@@ -62,5 +62,19 @@ describe("preset store", () => {
     const s = fakeStorage();
     s.setItem("karate.presets", "{not json");
     expect(loadPresets(s)).toEqual([]);
+  });
+
+  it("refuses to save (returns null) when already at the plan cap", () => {
+    const s = fakeStorage();
+    expect(savePreset("A", menuA, s, 1)).not.toBeNull();
+    expect(savePreset("B", menuB, s, 1)).toBeNull();   // cap 1 reached
+    expect(loadPresets(s).map((p) => p.name)).toEqual(["A"]);
+  });
+
+  it("still saves when under the cap", () => {
+    const s = fakeStorage();
+    savePreset("A", menuA, s, 2);
+    expect(savePreset("B", menuB, s, 2)).not.toBeNull();
+    expect(loadPresets(s)).toHaveLength(2);
   });
 });

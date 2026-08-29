@@ -95,3 +95,16 @@ it("omits the 工夫 section when no drills are given", () => {
   });
   expect(root.querySelector("[data-kufu-section]")).toBeNull();
 });
+
+it("hides the 工夫 section when kufu is disabled (Free plan) even with drills", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 2, cues: 5 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    kufuDrills: [{ name: "前蹴り", current: "" }],
+    kufuEnabled: false,
+  });
+  expect(root.querySelector("[data-kufu-section]")).toBeNull();
+  expect(root.querySelector("[data-kufu-input]")).toBeNull();
+});

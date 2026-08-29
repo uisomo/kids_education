@@ -37,10 +37,19 @@ function writePresets(list: Preset[], storage: Storage): void {
 }
 
 // Save the current menu as a named preset (a deep copy — later edits to the
-// working menu must not mutate the stored snapshot). Returns the new preset.
-export function savePreset(name: string, menu: Menu, storage: Storage = localStorage): Preset {
-  const preset: Preset = { id: nextId(), name, menu: structuredClone(menu) };
+// working menu must not mutate the stored snapshot). `limit` is the plan's
+// menu-count cap (defaults to unlimited): if the list is already at/over the
+// cap the save is refused and null is returned. Returns the new preset on
+// success.
+export function savePreset(
+  name: string,
+  menu: Menu,
+  storage: Storage = localStorage,
+  limit: number = Infinity,
+): Preset | null {
   const list = loadPresets(storage);
+  if (list.length >= limit) return null;
+  const preset: Preset = { id: nextId(), name, menu: structuredClone(menu) };
   list.push(preset);
   writePresets(list, storage);
   return preset;

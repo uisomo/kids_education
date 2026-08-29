@@ -10,13 +10,14 @@ import { renderDoneScreen } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
 import { playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
-import { latestKufu, addKufu } from "./kufu-store";
+import { latestKufu, addKufu, trimKufuHistory } from "./kufu-store";
 import { bumpDrills } from "./progress-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
 import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
+import { type Plan, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
 import { renderParentalGate } from "./parental-gate";
 import {
   loadCharacterState,
@@ -122,6 +123,23 @@ export class KarateApp {
     return scopedStorage(base, getActiveId(base));
   }
 
+  // The active member's plan-derived 工夫 cap (0 = 工夫 disabled, Free plan).
+  private kufuLimit(): number {
+    return PLAN_LIMITS[loadPlan(this.mem())].kufu;
+  }
+
+  // The family's effective preset (menu) cap = the highest plan cap across all
+  // members. Presets are family-shared, so one member downgrading must never
+  // delete another member's saved menus — only trim when the count exceeds
+  // EVERY member's plan cap.
+  private familyPresetLimit(): number {
+    const base = this.base();
+    return loadMembers(base).reduce((max, m) => {
+      const cap = PLAN_LIMITS[loadPlan(scopedStorage(base, m.id))].presets;
+      return Math.max(max, cap);
+    }, 0);
+  }
+
   async start(): Promise<void> {
     this.showSetup();
   }
@@ -151,8 +169,8 @@ export class KarateApp {
           ?? ((d: string) => (typeof window !== "undefined" ? window.prompt("メニュー名", d) : null));
         const name = ask("新しいメニュー")?.trim();
         if (!name) return;
-        savePreset(name, this.menu, this.base());
-        this.showSetup();
+        const saved = savePreset(name, this.menu, this.base(), this.familyPresetLimit());
+        this.showSetup(saved ? undefined : "プランの上限です。アップグレードしてね");
       },
       onLoadPreset: (id) => {
         const preset = loadPresets(this.base()).find((p) => p.id === id);
@@ -232,7 +250,33 @@ export class KarateApp {
       onAddMember: (name) => { addMember(name, base); this.reloadForActiveMember(); this.showFamily(); },
       onRemoveMember: (id) => { removeMember(id, base); this.reloadForActiveMember(); this.showFamily(); },
       onSelectMember: (id) => { setActive(id, base); this.reloadForActiveMember(); this.showFamily(); },
+      activePlan: loadPlan(this.mem()),
+      onSelectPlan: (plan) => { this.changePlan(plan); this.showFamily(); },
     });
+  }
+
+  // Set the active member's plan and enforce the new caps immediately
+  // (delete-on-downgrade): trim this member's 工夫 history to the plan cap, and
+  // trim family-shared presets only if they now exceed EVERY member's cap.
+  private changePlan(plan: Plan): void {
+    setPlan(plan, this.mem());
+    this.trimKufuToLimit();
+    this.trimPresetsToFamilyLimit();
+  }
+
+  // Drop each drill's 工夫 history down to the current plan cap (0 clears all).
+  private trimKufuToLimit(): void {
+    trimKufuHistory(this.kufuLimit(), this.mem());
+  }
+
+  // Trim family-shared presets to the highest cap across all members.
+  private trimPresetsToFamilyLimit(): void {
+    const limit = this.familyPresetLimit();
+    const list = loadPresets(this.base());
+    if (list.length > limit) {
+      // Keep the oldest `limit` presets (stable, predictable for parents).
+      list.slice(limit).forEach((p) => deletePreset(p.id, this.base()));
+    }
   }
 
   // Re-read the active member's per-member state after a member switch.
@@ -440,7 +484,8 @@ export class KarateApp {
       characterId: this.characterState.selectedId,
       xpEarned,
       kufuDrills,
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem()); },
+      kufuEnabled: this.kufuLimit() > 0,
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
       onShare: () => {
         void this.deps.shareRecording(blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);

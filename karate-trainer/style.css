@@ -1409,6 +1409,71 @@ input[data-label] {
   color: #1a162b;
 }
 
+/* --- Plan / upgrade section (E2) --- */
+.family-plan-note {
+  font-size: 0.8rem;
+  color: var(--ink-dim, #b0a8c8);
+  margin: -0.15rem 0 0.15rem;
+}
+
+.family-plan-cards {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.family-plan-card {
+  flex: 1 1 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: center;
+  background: rgba(26, 22, 43, 0.5);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 0.7rem 0.4rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.family-plan-card:disabled {
+  cursor: default;
+}
+
+.family-plan-card.active {
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, 0.12);
+}
+
+.family-plan-name {
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.family-plan-price {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #ffd166;
+}
+
+.family-plan-feats {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--ink-dim, #b0a8c8);
+}
+
+.family-plan-badge {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.3rem;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: #ffd166;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   [data-rec]::before { animation: none; }

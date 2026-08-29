@@ -3,6 +3,7 @@
 // and E4 (応援コメント) build on this screen later.
 
 import type { Member } from "../member-store";
+import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 
 export interface FamilyDeps {
   members: Member[];
@@ -10,7 +11,11 @@ export interface FamilyDeps {
   onAddMember(name: string): void;
   onRemoveMember(id: string): void;
   onSelectMember(id: string): void;
+  activePlan: Plan;             // the active member's current plan
+  onSelectPlan(plan: Plan): void;
 }
+
+const PLAN_ORDER: Plan[] = ["free", "standard", "max"];
 
 const NAME_MAX_LEN = 12;
 
@@ -95,5 +100,54 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   addRow.append(nameInput, addBtn);
 
-  root.append(title, activeCard, listTitle, list, addRow);
+  // --- Plan / upgrade section (per active member) ---
+  const planTitle = document.createElement("div");
+  planTitle.className = "family-section-label";
+  planTitle.textContent = "プラン";
+
+  const planNote = document.createElement("div");
+  planNote.className = "family-plan-note";
+  const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
+  planNote.textContent = `${activeName} のプラン（1人ごと）`;
+
+  const planCards = document.createElement("div");
+  planCards.className = "family-plan-cards";
+  planCards.dataset.planCards = "";
+
+  PLAN_ORDER.forEach((plan) => {
+    const meta = PLAN_META[plan];
+    const limits = PLAN_LIMITS[plan];
+    const isActive = plan === deps.activePlan;
+
+    const card = document.createElement("button");
+    card.className = `family-plan-card${isActive ? " active" : ""}`;
+    card.dataset.planCard = plan;
+    card.disabled = isActive;
+
+    const name = document.createElement("div");
+    name.className = "family-plan-name";
+    name.textContent = meta.label;
+
+    const price = document.createElement("div");
+    price.className = "family-plan-price";
+    price.textContent = meta.price;
+
+    const feats = document.createElement("div");
+    feats.className = "family-plan-feats";
+    const kufuText = limits.kufu === 0 ? "工夫なし" : `工夫 ${limits.kufu}件`;
+    feats.textContent = `メニュー ${limits.presets}・${kufuText}`;
+
+    if (isActive) {
+      const badge = document.createElement("div");
+      badge.className = "family-plan-badge";
+      badge.textContent = "いま";
+      card.append(badge);
+    }
+
+    card.append(name, price, feats);
+    card.addEventListener("click", () => deps.onSelectPlan(plan));
+    planCards.append(card);
+  });
+
+  root.append(title, activeCard, listTitle, list, addRow, planTitle, planNote, planCards);
 }

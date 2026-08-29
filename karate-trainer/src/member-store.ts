@@ -61,13 +61,18 @@ function write(state: MemberState, storage: Storage): void {
 }
 
 // Move existing unprefixed data into the given member's namespace (once).
-function migrateInto(memberId: string, storage: Storage): void {
+// Returns true if any pre-member data was actually migrated (i.e. this was a
+// pre-E1 install with existing progress), false for a fresh install.
+function migrateInto(memberId: string, storage: Storage): boolean {
+  let migrated = false;
   for (const key of MIGRATE_KEYS) {
     const val = storage.getItem(key);
     if (val === null) continue;
     const scoped = scopeKey(memberId, key);
     if (storage.getItem(scoped) === null) storage.setItem(scoped, val);
+    migrated = true;
   }
+  return migrated;
 }
 
 // Ensure a member state exists; create a default member (+ migrate) if not.
@@ -75,7 +80,12 @@ function ensure(storage: Storage): MemberState {
   const existing = read(storage);
   if (existing && existing.members.length) return existing;
   const first: Member = { id: newId(), name: DEFAULT_NAME };
-  migrateInto(first.id, storage);
+  const migrated = migrateInto(first.id, storage);
+  // Grandfather pre-E2 users to the Max plan: before plans existed they had
+  // unlimited presets and 10 工夫, so a Free default would silently regress
+  // them. Only migrated (existing) installs are grandfathered; fresh installs
+  // are left unset and default to Free via plan-store.
+  if (migrated) storage.setItem(scopeKey(first.id, "karate.plan"), "max");
   const state: MemberState = { members: [first], activeId: first.id };
   write(state, storage);
   return state;

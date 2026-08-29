@@ -32,6 +32,18 @@ it("migrates pre-member data into the default member once", () => {
   expect(s.getItem(scopeKey(first.id, "karate_toybox_character_state"))).toBe("OLD-XP");
 });
 
+it("grandfathers a pre-E2 install (with existing data) to the Max plan", () => {
+  // Existing user: has old progress/XP but no plan stored yet.
+  s.setItem("karate.progress", "OLD-PROGRESS");
+  const first = loadMembers(s)[0];
+  expect(s.getItem(scopeKey(first.id, "karate.plan"))).toBe("max");
+});
+
+it("does not set a plan for a fresh install (defaults to Free later)", () => {
+  const first = loadMembers(s)[0];   // no pre-E2 data present
+  expect(s.getItem(scopeKey(first.id, "karate.plan"))).toBeNull();
+});
+
 it("adds a member and makes it active", () => {
   const first = loadMembers(s)[0];
   const kid = addMember("たろう", s);

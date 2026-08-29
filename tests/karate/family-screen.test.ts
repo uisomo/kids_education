@@ -8,6 +8,7 @@ function deps(over: Record<string, unknown> = {}) {
   return {
     members, activeId: "m1",
     onAddMember: vi.fn(), onRemoveMember: vi.fn(), onSelectMember: vi.fn(),
+    activePlan: "free" as const, onSelectPlan: vi.fn(),
     ...over,
   };
 }
@@ -52,4 +53,21 @@ it("removing a member fires onRemoveMember; last member's delete is disabled", (
   const root2 = document.createElement("div");
   renderFamilyScreen(root2, deps({ members: [{ id: "m1", name: "じぶん" }] }));
   expect(root2.querySelector<HTMLButtonElement>('[data-member-del="m1"]')!.disabled).toBe(true);
+});
+
+it("renders a plan card per plan with the active member's plan marked", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ activePlan: "standard" }));
+  const cards = root.querySelectorAll("[data-plan-card]");
+  expect(cards).toHaveLength(3);   // free / standard / max
+  expect(root.querySelector('[data-plan-card="standard"]')!.classList.contains("active")).toBe(true);
+  expect(root.querySelector('[data-plan-card="free"]')!.classList.contains("active")).toBe(false);
+});
+
+it("tapping a plan card fires onSelectPlan with that plan", () => {
+  const root = document.createElement("div");
+  const onSelectPlan = vi.fn();
+  renderFamilyScreen(root, deps({ activePlan: "free", onSelectPlan }));
+  root.querySelector<HTMLButtonElement>('[data-plan-card="max"]')!.click();
+  expect(onSelectPlan).toHaveBeenCalledWith("max");
 });
