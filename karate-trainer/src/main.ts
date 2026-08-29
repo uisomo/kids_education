@@ -11,7 +11,7 @@ const store = new VoiceStore(idbKv());
 // Background music played during a session (loops from Go!! to session end).
 // The filename is Japanese, so encode it for the URL.
 function makeBgm(): BgmPlayer {
-  const audio = new Audio(`/characters/${encodeURIComponent("君ならできる")}.wav`);
+  const audio = new Audio(`/characters/${encodeURIComponent("君ならできる")}.mp3`);
   audio.loop = true;
   audio.preload = "auto";
   return {
