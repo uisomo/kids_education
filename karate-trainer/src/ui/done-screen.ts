@@ -12,7 +12,7 @@ export interface DoneDeps {
   videoUrl: string;
   ext: string;
   stats: { time: string; drills: number; cues: number };
-  onShare(): void;
+  onShare(blob?: Blob): void;
   onAgain(): void;
   gateChallenge?: GateChallenge;
   characterId?: CharacterId;
@@ -22,6 +22,9 @@ export interface DoneDeps {
   onSaveKufu?(drillName: string, text: string): void;
   // When false (Free plan, 工夫 cap 0) the 工夫 section is not rendered at all.
   kufuEnabled?: boolean;
+  // Resolves to the burned-in video blob, or null if burn-in failed/was
+  // skipped — in which case the raw videoUrl remains the final result.
+  burnInPromise?: Promise<Blob | null>;
 }
 
 const KUFU_MAX_LEN = 15;
@@ -62,6 +65,24 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   video.setAttribute("src", deps.videoUrl);
   video.setAttribute("playsinline", "");
   video.controls = true;
+
+  let shareBlob: Blob | undefined;
+
+  const burninStatus = document.createElement("div");
+  burninStatus.dataset.burninStatus = "";
+  burninStatus.className = "burnin-status";
+  burninStatus.textContent = "動画を仕上げています…";
+  const showBurninStatus = !!deps.burnInPromise;
+
+  if (deps.burnInPromise) {
+    void deps.burnInPromise.then((burnedBlob) => {
+      burninStatus.remove();
+      if (burnedBlob) {
+        shareBlob = burnedBlob;
+        video.setAttribute("src", URL.createObjectURL(burnedBlob));
+      }
+    });
+  }
 
   // Stats Breakdown
   const stats = document.createElement("div");
@@ -128,7 +149,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     // 共有の前に保護者ゲート。通過で onShare、キャンセルで done 画面へ戻す。
     renderParentalGate(root, {
       challenge: deps.gateChallenge,
-      onPass: () => deps.onShare(),
+      onPass: () => deps.onShare(shareBlob),
       onCancel: () => renderDoneScreen(root, deps),
     });
   });
@@ -138,4 +159,5 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   again.addEventListener("click", () => deps.onAgain());
 
   root.append(celebCard, video, stats, kufuSection, dl, again);
+  if (showBurninStatus) root.insertBefore(burninStatus, dl);
 }

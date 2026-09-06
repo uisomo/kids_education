@@ -108,3 +108,78 @@ it("hides the 工夫 section when kufu is disabled (Free plan) even with drills"
   expect(root.querySelector("[data-kufu-section]")).toBeNull();
   expect(root.querySelector("[data-kufu-input]")).toBeNull();
 });
+
+// --- burn-in status swap ---
+it("shows a status note while burn-in is pending, then swaps in the burned-in video", async () => {
+  const root = document.createElement("div");
+  let resolveBurnIn!: (b: Blob | null) => void;
+  const burnInPromise = new Promise<Blob | null>((r) => { resolveBurnIn = r; });
+
+  (globalThis.URL as any).createObjectURL = vi.fn(() => "blob:burned");
+
+  renderDoneScreen(root, {
+    videoUrl: "blob:raw", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    burnInPromise,
+  });
+
+  // Raw video is immediately playable.
+  expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:raw");
+  expect(root.querySelector("[data-burnin-status]")).not.toBeNull();
+
+  resolveBurnIn(new Blob(["burned"], { type: "video/mp4" }));
+  await new Promise((r) => setTimeout(r, 0));
+
+  expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:burned");
+  expect(root.querySelector("[data-burnin-status]")).toBeNull();
+});
+
+it("keeps the raw video and hides the status note when burn-in resolves null", async () => {
+  const root = document.createElement("div");
+  const burnInPromise = Promise.resolve(null);
+
+  renderDoneScreen(root, {
+    videoUrl: "blob:raw", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    burnInPromise,
+  });
+
+  await new Promise((r) => setTimeout(r, 0));
+
+  expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:raw");
+  expect(root.querySelector("[data-burnin-status]")).toBeNull();
+});
+
+it("the share button uses the burned-in blob once ready", async () => {
+  const root = document.createElement("div");
+  const burnedBlob = new Blob(["burned"], { type: "video/mp4" });
+  const onShare = vi.fn();
+
+  renderDoneScreen(root, {
+    videoUrl: "blob:raw", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare, onAgain: vi.fn(),
+    burnInPromise: Promise.resolve(burnedBlob),
+    gateChallenge: { a: 2, b: 2, answer: 4 },
+  });
+
+  await new Promise((r) => setTimeout(r, 0));
+
+  root.querySelector<HTMLButtonElement>("[data-download]")!.click();
+  const input = root.querySelector<HTMLInputElement>("[data-gate-input]")!;
+  input.value = "4";
+  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
+  expect(onShare).toHaveBeenCalledWith(burnedBlob);
+});
+
+it("omits the status note entirely when no burnInPromise is given", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:raw", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+  });
+  expect(root.querySelector("[data-burnin-status]")).toBeNull();
+});
