@@ -29,3 +29,13 @@ it("defaults to performance.now() when no now() is injected", () => {
   expect(events).toHaveLength(1);
   expect(events[0].t).toBeGreaterThanOrEqual(0);
 });
+
+it("elapsedMs() returns time elapsed since start() on the same clock as event timestamps", () => {
+  let t = 1000;
+  const log = new OverlayEventLog({ now: () => t });
+  log.start();
+  t = 1500;
+  log.setState({ drill: "前蹴り" });
+  t = 4500;
+  expect(log.elapsedMs()).toBe(3500);
+});

@@ -79,7 +79,13 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       burninStatus.remove();
       if (burnedBlob) {
         shareBlob = burnedBlob;
+        // The raw video's object URL (deps.videoUrl, set as the initial src
+        // above) is only ever referenced by this <video> element. Once the
+        // burned-in blob takes over, revoke the old one so it isn't leaked
+        // for the rest of the page's life.
+        const oldSrc = video.getAttribute("src");
         video.setAttribute("src", URL.createObjectURL(burnedBlob));
+        if (oldSrc && oldSrc.startsWith("blob:")) URL.revokeObjectURL(oldSrc);
       }
     });
   }

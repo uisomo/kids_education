@@ -509,7 +509,16 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
+    // Capture events AND elapsed time from the same OverlayEventLog instance,
+    // on its own clock, before nulling it out. recElapsedMs (driven by
+    // startRecTimer(), which starts AFTER the Ready→Go intro) undercounts the
+    // true recording length by the intro's duration — using it here would
+    // anchor totalDurationMs on a different clock than the event timestamps
+    // (which start at overlayLog.start(), before the intro), silently
+    // dropping every trailing overlay segment during burn-in. See
+    // overlay-event-log.ts's elapsedMs() and overlay-burner.ts's toSegments().
     const events = this.overlayLog?.getEvents() ?? [];
+    const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
     this.overlayLog = null;
 
     const recorder = this.videoRecorder;
@@ -518,9 +527,8 @@ export class KarateApp {
 
     const ext = recorder ? recorder.fileExtension() : "webm";
     const videoUrl = URL.createObjectURL(blob);
-    const elapsedSecondsForBurn = Math.floor(this.recElapsedMs);
     const burnInPromise = this.deps.burnOverlay
-      ? this.deps.burnOverlay(blob, events, elapsedSecondsForBurn, ext)
+      ? this.deps.burnOverlay(blob, events, recordedDurationMs, ext)
       : Promise.resolve(null);
 
     const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);

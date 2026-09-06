@@ -39,4 +39,11 @@ export class OverlayEventLog {
   getEvents(): OverlayEvent[] {
     return this.events;
   }
+
+  // Elapsed time since start(), on the same clock as event timestamps (t).
+  // Used as the burn-in pass's totalDurationMs so segment windows are anchored
+  // to the same origin as the events they bound — see app.ts finishSession().
+  elapsedMs(): number {
+    return this.now() - this.startTime;
+  }
 }
