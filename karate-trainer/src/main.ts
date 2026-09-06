@@ -4,7 +4,7 @@ import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
 import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
-import { CanvasCompositor } from "./canvas-compositor";
+import { burnOverlay } from "./overlay-burner";
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
@@ -65,10 +65,11 @@ const app = new KarateApp(root, {
   rafLoop,
   shareRecording,
   bgm: makeBgm(),
-  // Burn overlays into the recording when the browser supports canvas capture;
-  // otherwise omit so recording falls back to the raw camera feed.
-  makeCompositor: CanvasCompositor.isSupported()
-    ? (video) => new CanvasCompositor(video)
-    : undefined,
+  // Burns overlay text into the saved recording as an offline post-process
+  // via ffmpeg.wasm, after the raw camera+audio recording has stopped.
+  // Falls back to the raw (un-burned) video on any failure — see
+  // overlay-burner.ts.
+  burnOverlay: (rawVideoBlob, events, totalDurationMs, ext) =>
+    burnOverlay(rawVideoBlob, events, totalDurationMs, ext),
 });
 await app.start();

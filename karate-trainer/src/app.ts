@@ -556,8 +556,8 @@ export class KarateApp {
       kufuDrills,
       kufuEnabled: this.kufuLimit() > 0,
       onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
-      onShare: () => {
-        void this.deps.shareRecording(blobForShare, ext).catch((e) => {
+      onShare: (burnedBlob) => {
+        void this.deps.shareRecording(burnedBlob ?? blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);
         });
       },

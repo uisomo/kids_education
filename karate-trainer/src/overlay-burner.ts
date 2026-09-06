@@ -49,7 +49,24 @@ const FFMPEG_BASE_URL = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
 
 async function defaultMakeFfmpeg(): Promise<FfmpegLike> {
   const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-  return new FFmpeg() as unknown as FfmpegLike;
+  const { toBlobURL } = await import("@ffmpeg/util");
+  const ffmpeg = new FFmpeg() as unknown as FfmpegLike;
+  // @ffmpeg/core-mt (the multi-threaded core, needed for the app's
+  // cross-origin-isolation setup) requires its worker/wasm files to be
+  // same-origin. burnOverlay() calls load() with the plain CDN URLs below;
+  // wrap load() here so it fetches those URLs and converts them to
+  // same-origin blob URLs before delegating to the real FFmpeg.load() —
+  // passing the bare cross-origin URLs straight through has a real chance
+  // of failing at runtime in actual browsers, even though it works fine in
+  // unit tests (which inject their own FfmpegLike and never call this
+  // function at all).
+  const realLoad = ffmpeg.load.bind(ffmpeg);
+  ffmpeg.load = async ({ coreURL, wasmURL }) => {
+    const blobCoreURL = await toBlobURL(coreURL, "text/javascript");
+    const blobWasmURL = await toBlobURL(wasmURL, "application/wasm");
+    await realLoad({ coreURL: blobCoreURL, wasmURL: blobWasmURL });
+  };
+  return ffmpeg;
 }
 
 export async function burnOverlay(
