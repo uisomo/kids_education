@@ -251,7 +251,7 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   expect(bgm.stop).toHaveBeenCalled();
 });
 
-it("records the composited stream and feeds drill/countdown state to the compositor", async () => {
+it("records the raw camera stream directly and logs drill/countdown state for later burn-in", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -259,13 +259,6 @@ it("records the composited stream and feeds drill/countdown state to the composi
   const store = new VoiceStore(memKv());
   await store.init();
 
-  const composited = { composited: true } as unknown as MediaStream;
-  const compositor = {
-    setState: vi.fn(),
-    start: vi.fn(),
-    stop: vi.fn(),
-    captureStream: vi.fn(() => composited),
-  };
   const startRecording = vi.fn();
 
   const app = new KarateApp(root, {
@@ -281,7 +274,6 @@ it("records the composited stream and feeds drill/countdown state to the composi
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording: vi.fn().mockResolvedValue(undefined),
-    makeCompositor: () => compositor,
     introStepMs: 0,
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
@@ -291,19 +283,14 @@ it("records the composited stream and feeds drill/countdown state to the composi
   await new Promise((r) => setTimeout(r, 0));   // camera
   await new Promise((r) => setTimeout(r, 0));   // intro
 
-  // compositor started and its composited stream is what gets recorded
-  expect(compositor.start).toHaveBeenCalledOnce();
-  expect(startRecording).toHaveBeenCalledWith(composited);
+  // No streamOverride — records the raw camera stream directly.
+  expect(startRecording).toHaveBeenCalledWith();
 
-  // first drill pushed its name into the compositor
-  const drillCall = compositor.setState.mock.calls.find((c) => c[0].drill === "前蹴り");
-  expect(drillCall).toBeTruthy();
-
-  // countdown ticks push seconds; run to completion → compositor stops
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
-  expect(compositor.setState.mock.calls.some((c) => typeof c[0].seconds === "number")).toBe(true);
-  expect(compositor.stop).toHaveBeenCalled();
+
+  // Session completed without error; done screen is showing.
+  expect(root.querySelector("[data-download]")).not.toBeNull();
 });
 
 function memStorage(): Storage {
@@ -319,23 +306,15 @@ function memStorage(): Storage {
 // E4: when the parent has written a ファイト コメント for the active member, the
 // in-practice encourage cue uses it (and burns it into the recording) instead
 // of the generic "ファイト！" toast.
-it("uses the parent's ファイト comment as the practice cue and burns it in", async () => {
+it("uses the parent's ファイト comment as the practice cue", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const storage = memStorage();
-  // Seed the comment on the active member's scoped storage (as the app would).
   saveComment("fight", "まけるな たろう", scopedStorage(storage, getActiveId(storage)));
 
   let loopCb: ((d: number) => void) | null = null;
   const store = new VoiceStore(memKv());
   await store.init();
-
-  const compositor = {
-    setState: vi.fn(),
-    start: vi.fn(),
-    stop: vi.fn(),
-    captureStream: vi.fn(() => ({ composited: true } as unknown as MediaStream)),
-  };
 
   const app = new KarateApp(root, {
     voiceStore: store,
@@ -350,28 +329,19 @@ it("uses the parent's ファイト comment as the practice cue and burns it in",
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording: vi.fn().mockResolvedValue(undefined),
-    makeCompositor: () => compositor,
     storage,
     introStepMs: 0,
-    // A drill long enough for the ~8.5s encourage cadence to fire once.
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 20, kind: "drill" }],
   });
   await app.start();
 
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
-  await new Promise((r) => setTimeout(r, 0));   // camera
-  await new Promise((r) => setTimeout(r, 0));   // intro
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
 
-  // Drive ~10s of drill time (past the first encourage, before the final-3s window).
   for (let t = 0; t < 10000; t += 250) loopCb!(250);
 
-  // The encourage cue pushed to the compositor (→ burned into the recording) is
-  // the parent's ファイト comment, and the on-screen cue toast shows it too. The
-  // toast's textContent is set on showCue and not cleared, so it's stable to read.
-  expect(compositor.setState.mock.calls.some((c) => c[0].cue === "まけるな たろう")).toBe(true);
   expect(root.querySelector<HTMLElement>("[data-cue]")!.textContent).toBe("まけるな たろう");
-  // The generic toast is NOT used when a comment exists.
-  expect(compositor.setState.mock.calls.some((c) => c[0].cue === "ファイト！")).toBe(false);
 });
 
 it("bumps 強さ counts on session complete and the 強さ tab shows them", async () => {

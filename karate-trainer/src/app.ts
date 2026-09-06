@@ -27,21 +27,13 @@ import {
   type CharacterId,
   type CharacterState,
 } from "./character-store";
+import { OverlayEventLog, type OverlayEvent } from "./overlay-event-log";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
   startRecording(streamOverride?: MediaStream): void;
   stop(): Promise<Blob>;
   fileExtension(): string;
-}
-
-// Factory for the canvas compositor, injected so app.ts stays testable and the
-// heavy DOM/canvas dependency lives at the composition root (main.ts).
-export interface CompositorLike {
-  setState(patch: Partial<{ drill: string; seconds: number; cue: string; caption: string }>): void;
-  start(): void;
-  stop(): void;
-  captureStream(cameraStream: MediaStream, fps?: number): MediaStream;
 }
 
 export interface VoiceRecorderLike {
@@ -83,11 +75,16 @@ export interface KarateAppDeps {
   shareRecording(blob: Blob, ext: string): Promise<void>;
   // Optional background music played during the session (Go!! → session end).
   bgm?: BgmPlayer;
-  // Optional canvas compositor factory: builds a compositor bound to the given
-  // camera <video>, used to burn 種目名/countdown/cue/工夫 into the recording.
-  // When omitted (or captureStream unsupported), recording falls back to the
-  // raw camera feed with no burned-in text.
-  makeCompositor?(video: HTMLVideoElement): CompositorLike;
+  // Burns overlay text (種目名/countdown/cue/工夫) into the saved recording as
+  // an offline post-process, after the raw camera+audio recording has already
+  // stopped. Returns null on any failure (unsupported browser, ffmpeg error)
+  // — the caller falls back to the raw video with no burned-in text.
+  burnOverlay?(
+    rawVideoBlob: Blob,
+    events: OverlayEvent[],
+    totalDurationMs: number,
+    ext: string,
+  ): Promise<Blob | null>;
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
   introStepMs?: number;
@@ -104,7 +101,7 @@ export class KarateApp {
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
   private characterState: CharacterState;
-  private compositor: CompositorLike | null = null;
+  private overlayLog: OverlayEventLog | null = null;
   private activeTab: NavTab = "train";
   // E4: the active member's ファイト コメント, snapshotted at session start so it's
   // stable for the whole practice. "" → fall back to the generic encourage toast.
@@ -391,17 +388,13 @@ export class KarateApp {
       /* ignore synchronously throwing play() in jsdom */
     }
 
-    // Build the compositor (burns text into the recording) now that the camera
-    // <video> exists. Record the composited stream when available, else the raw
-    // camera feed. startRecording() runs here — after the video is wired up —
-    // so the very first recorded frames already carry the overlay.
-    this.compositor = this.deps.makeCompositor?.(view.videoEl) ?? null;
-    if (this.compositor) {
-      this.compositor.start();
-      recorder.startRecording(this.compositor.captureStream(stream));
-    } else {
-      recorder.startRecording();
-    }
+    // Record the raw camera+audio stream directly — no live canvas
+    // compositing, so none of the iOS Safari canvas.captureStream()
+    // freeze/silent-audio bugs can occur. Overlay text is logged with
+    // timestamps here and burned into the file afterward (finishSession()).
+    this.overlayLog = new OverlayEventLog();
+    this.overlayLog.start();
+    recorder.startRecording();
 
     this.recElapsedMs = 0;
     this.cueCount = 0;
@@ -432,24 +425,24 @@ export class KarateApp {
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
         view.setCaption(caption);
-        this.compositor?.setState({ drill: drill.name, caption });
+        this.overlayLog?.setState({ drill: drill.name, caption });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
         view.setNext(next ? next.name : null);
       },
       onTick: (secondsLeft: number) => {
         view.setTime(secondsLeft);
-        this.compositor?.setState({ seconds: secondsLeft });
+        this.overlayLog?.setState({ seconds: secondsLeft });
       },
       onEncourage: () => {
         this.cueCount++;
         // E4: show the parent's ファイト コメント when set, else the generic toast.
-        // The parent's words take priority (not shown alongside). Burned into the
-        // recording via the compositor's cue field, same as the generic toast.
+        // The parent's words take priority (not shown alongside). Logged for the
+        // offline burn-in pass, same as the generic toast.
         const cue = this.fightComment || ENCOURAGE_TOAST;
         view.showCue(cue);
-        this.compositor?.setState({ cue });
-        setTimeout(() => this.compositor?.setState({ cue: "" }), 1800);
+        this.overlayLog?.setState({ cue });
+        setTimeout(() => this.overlayLog?.setState({ cue: "" }), 1800);
         void cuePlayer.encourage();
       },
       onCountdown: (n: number) => {
@@ -516,8 +509,8 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
-    this.compositor?.stop();
-    this.compositor = null;
+    const events = this.overlayLog?.getEvents() ?? [];
+    this.overlayLog = null;
 
     const recorder = this.videoRecorder;
     const blob = recorder ? await recorder.stop() : new Blob();
@@ -525,6 +518,10 @@ export class KarateApp {
 
     const ext = recorder ? recorder.fileExtension() : "webm";
     const videoUrl = URL.createObjectURL(blob);
+    const elapsedSecondsForBurn = Math.floor(this.recElapsedMs);
+    const burnInPromise = this.deps.burnOverlay
+      ? this.deps.burnOverlay(blob, events, elapsedSecondsForBurn, ext)
+      : Promise.resolve(null);
 
     const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
@@ -548,6 +545,7 @@ export class KarateApp {
     renderDoneScreen(this.root, {
       videoUrl,
       ext,
+      burnInPromise,
       stats: {
         time: formatMMSS(elapsedSeconds),
         drills: this.drillCount,
