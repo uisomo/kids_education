@@ -230,6 +230,20 @@ export class KarateApp {
       className: this.activeClassName(),
       // E4: the parent's 感想コメント for the active member (top banner).
       kansou: loadComments(this.mem()).kansou,
+      // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
+      // its parental gate for adding/removing members and changing plans.
+      members: loadMembers(this.base()),
+      activeMemberId: getActiveId(this.base()),
+      onSelectMember: (id) => {
+        setActive(id, this.base());
+        this.reloadForActiveMember();
+        this.showSetup();
+      },
+      // 工夫 written by the kid from the 💡 button on each row. Same store and
+      // plan cap as the done screen, so the caps apply identically.
+      kufuEnabled: this.kufuLimit() > 0,
+      latestKufuFor: (name) => latestKufu(name, this.mem()),
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
     });
 
     if (message) {

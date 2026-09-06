@@ -6,6 +6,13 @@ import {
   type CharacterId,
   type CharacterState,
 } from "../character-store";
+import { attachDragReorder, reorder } from "./drag-reorder";
+import { openKufuModal } from "./kufu-modal";
+
+export interface SetupMember {
+  id: string;
+  name: string;
+}
 
 export interface SetupDeps {
   menu: Menu;
@@ -33,6 +40,17 @@ export interface SetupDeps {
   // E4: the parent's 感想コメント for the active member, shown as a banner at the
   // very top of the screen. Empty / absent → no banner.
   kansou?: string;
+  // Member band: every registered kid, so whoever is about to practice can pick
+  // themselves. Ungated on purpose — the 家族 tab still gates add/remove/plans.
+  members?: SetupMember[];
+  activeMemberId?: string;
+  onSelectMember?(id: string): void;
+  // 工夫 written by the kids themselves, from the 💡 button on each row.
+  // kufuEnabled false (Free plan, cap 0) hides the buttons entirely, matching
+  // how the done screen hides its 工夫 section.
+  kufuEnabled?: boolean;
+  latestKufuFor?(drillName: string): string;
+  onSaveKufu?(drillName: string, text: string): void;
 }
 
 let idc = 0;
@@ -52,6 +70,26 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   title.textContent = "今日の稽古";
 
   header.append(title);
+
+  // --- Member band: who is practicing right now (tap to switch, no gate) ---
+  let memberBand: HTMLDivElement | null = null;
+  if (deps.members?.length) {
+    memberBand = document.createElement("div");
+    memberBand.className = "member-band";
+    memberBand.dataset.memberBand = "";
+    deps.members.forEach((m) => {
+      const chip = document.createElement("button");
+      chip.className = "member-chip" + (m.id === deps.activeMemberId ? " is-active" : "");
+      chip.dataset.member = m.id;
+      chip.textContent = m.name;
+      if (m.id === deps.activeMemberId) {
+        chip.setAttribute("aria-current", "true");
+      } else {
+        chip.addEventListener("click", () => deps.onSelectMember?.(m.id));
+      }
+      memberBand!.append(chip);
+    });
+  }
 
   // --- Belt Status Card ---
   const totalXp = deps.characterState?.totalXp ?? 0;
@@ -137,36 +175,52 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       updateTotal();
     });
 
-    const up = document.createElement("button");
-    up.textContent = "↑"; up.className = "row-move"; up.dataset.up = "";
-    if (i === 0) {
-      up.disabled = true;
-    } else {
-      up.addEventListener("click", () => {
-        const next = menu.slice();
-        [next[i - 1], next[i]] = [next[i], next[i - 1]];
-        deps.onChange(next);
-      });
-    }
-
-    const down = document.createElement("button");
-    down.textContent = "↓"; down.className = "row-move"; down.dataset.down = "";
-    if (i === menu.length - 1) {
-      down.disabled = true;
-    } else {
-      down.addEventListener("click", () => {
-        const next = menu.slice();
-        [next[i], next[i + 1]] = [next[i + 1], next[i]];
-        deps.onChange(next);
-      });
-    }
+    // Drag handle — grabbing anywhere else would fight the name input.
+    // Reordering itself is wired once, on the rows container, below.
+    const drag = document.createElement("button");
+    drag.textContent = "≡"; drag.className = "row-drag"; drag.dataset.drag = "";
+    drag.type = "button";
+    drag.setAttribute("aria-label", `${drill.name} を並べ替え`);
 
     const del = document.createElement("button");
     del.textContent = "✕"; del.className = "row-del";
     del.addEventListener("click", () => deps.onChange(menu.filter((_, j) => j !== i)));
 
-    row.append(name, secs, up, down, del);
+    row.append(drag, name, secs);
+
+    // 💡 工夫: the child writes their own idea for this 種目 in a centred card.
+    if (deps.kufuEnabled !== false && deps.latestKufuFor) {
+      const kufu = document.createElement("button");
+      kufu.className = "row-kufu";
+      kufu.dataset.kufuOpen = drill.name;
+      kufu.textContent = "💡";
+      const paint = (note: string) => {
+        kufu.classList.toggle("is-lit", !!note);
+        kufu.title = note || "工夫をかく";
+        kufu.setAttribute("aria-label", `${drill.name} の工夫`);
+      };
+      paint(deps.latestKufuFor(drill.name));
+      kufu.addEventListener("click", () => {
+        // Read the CURRENT name: the kid may have renamed the drill since render.
+        const drillName = menu[i].name;
+        openKufuModal(root, {
+          drillName,
+          current: deps.latestKufuFor!(drillName),
+          onSave: (text) => {
+            deps.onSaveKufu?.(drillName, text);
+            paint(text);   // light the bulb in place — no re-render, no lost focus
+          },
+        });
+      });
+      row.append(kufu);
+    }
+
+    row.append(del);
     rows.append(row);
+  });
+
+  attachDragReorder(rows, {
+    onReorder: (from, to) => deps.onChange(reorder(menu, from, to)),
   });
 
   const add = document.createElement("button");
@@ -195,7 +249,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     root.append(banner);
   }
 
-  root.append(header, beltCard);
+  root.append(header);
+  if (memberBand) root.append(memberBand);
+  root.append(beltCard);
   if (classLabel) root.append(classLabel);
   root.append(presetBand, rows, add, total, start);
 }

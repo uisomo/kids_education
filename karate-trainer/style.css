@@ -47,6 +47,10 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
+  /* Sits BELOW the setup meadow layer (which is z-index: -1) so the full anime
+     meadow shows on the setup screen instead of being blocked by this dark
+     toybox backdrop. Non-setup screens have no meadow layer, so this still
+     backs them. */
   z-index: -1;
   background-image:
     linear-gradient(180deg, rgba(26, 22, 43, 0.85) 0%, rgba(26, 22, 43, 0.93) 100%),
@@ -306,21 +310,47 @@ button {
   padding-top: calc(1.25rem + env(safe-area-inset-top));
   min-height: 100dvh;
   color: var(--ink);
-}
-
-/* Selection page background = play.jpg (meadow). Fixed full-viewport layer so
-   cover always fills the screen (see body::before note). */
-.screen.setup::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(180deg, rgba(26, 22, 43, 0.55) 0%, rgba(26, 22, 43, 0.82) 100%),
-    url('/characters/play.jpg');
+  /* Full anime meadow as the setup-screen backdrop, painted directly on the
+     element (NOT a negative-z-index body::before pseudo — that gets hidden
+     behind the body/canvas background and never paints). `fixed` pins the scene
+     so it fills the screen while content scrolls over it. */
+  background-image: url('/characters/play.jpg');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* The setup meadow backdrop is set directly on `.screen.setup` (above). */
+
+/* Member band: every registered kid, so whoever is about to practice taps
+   their own name first. Scrolls sideways once a family outgrows the width. */
+.member-band {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  overflow-x: auto;
+  padding: 0.15rem 0.1rem 0.4rem;
+  -webkit-overflow-scrolling: touch;
+}
+.member-chip {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--panel-line);
+  border-radius: 999px;
+  background: rgba(45, 38, 74, 0.72);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.member-chip.is-active {
+  background: #ffd166;
+  border-color: #ffd166;
+  color: #2d264a;
+  cursor: default;
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.55);
 }
 
 .preset-band {
@@ -393,13 +423,20 @@ button {
 
 .row {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.3rem;
   align-items: center;
-  background: var(--toy-card-bg);
+  /* Back layer of each training card — meadow shows through, but opaque enough
+     that the light text stays readable over the bright sky. The input boxes
+     (.drill-name / .drill-secs) stay fully opaque. */
+  background: rgba(45, 38, 74, 0.72);
   border: 2px solid var(--panel-line);
   border-radius: 16px;
-  padding: 0.5rem;
+  padding: 0.4rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  /* Keep every control inside the card — never let arrows/delete spill onto
+     the background image on narrow phones. */
+  min-width: 0;
+  overflow: hidden;
 }
 
 .row.rest {
@@ -408,10 +445,10 @@ button {
 
 .drill-name,
 .drill-secs {
-  padding: 0.65rem 0.8rem;
+  padding: 0.6rem 0.55rem;
   border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   background: #1a162b;
   color: var(--ink);
@@ -419,43 +456,110 @@ button {
 
 .drill-name {
   flex: 1;
+  min-width: 0; /* allow the name to shrink so controls always fit */
 }
 
 .drill-secs {
-  width: 80px;
+  /* Just wide enough for 3 digits — no dead space. */
+  width: 3.2rem;
+  flex: 0 0 auto;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
   text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* Hide the number-input spinners so the 3-digit box stays compact. */
+.drill-secs::-webkit-outer-spin-button,
+.drill-secs::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-.row-move {
-  width: 38px;
-  height: 38px;
+/* Drag handle (replaced the ↑/↓ buttons). `touch-action: none` is what lets a
+   touch-drag reorder the row instead of scrolling the page — without it iOS
+   claims the gesture before pointermove ever fires. */
+.row-drag {
+  width: 30px;
+  height: 34px;
+  flex: 0 0 auto;
   padding: 0;
   background: rgba(255, 209, 102, 0.2);
   border: 2px solid #ffd166;
   color: #ffd166;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1.1rem;
+  border-radius: 9px;
+  cursor: grab;
+  touch-action: none;
+  font-size: 1.15rem;
   font-weight: 900;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.row-move:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+/* Rows glide into their new slot — except the one under the finger, which must
+   track the pointer with no lag. */
+[data-rows].is-reordering .row {
+  transition: transform 140ms ease;
+}
+
+.row.is-dragging {
+  position: relative;
+  z-index: 5;
+  transition: none;
+  cursor: grabbing;
+  border-color: #ffd166;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
+}
+
+.row.is-dragging .row-drag {
+  cursor: grabbing;
+}
+
+/* 💡 工夫 button: greyed out until this 種目 has a saved note, then lit up so
+   kids can see at a glance which drills they've written an idea for. */
+.row-kufu {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: 0.55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.row-kufu.is-lit {
+  background: rgba(255, 209, 102, 0.22);
+  border-color: #ffd166;
+  filter: none;
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(255, 209, 102, 0.5);
 }
 
 .row-del {
-  padding: 0.6rem 0.85rem;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   background: rgba(255, 71, 87, 0.2);
   border: 2px solid var(--toy-red);
   color: #ff6b81;
-  border-radius: 10px;
+  border-radius: 9px;
   cursor: pointer;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .add {
@@ -483,13 +587,13 @@ button {
 --------------------------------------------------------- */
 .btn-ghost,
 .btn-start {
-  padding: 0.95rem 1rem;
+  padding: 0.8rem 1rem;
   border: none;
   border-radius: 18px;
   cursor: pointer;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 900;
-  min-height: 54px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1592,6 +1696,102 @@ input[data-label] {
   cursor: pointer;
 }
 
+/* ==========================================================================
+   工夫 popup card — opened from the 💡 on a 今日の稽古 row.
+   Fixed overlay so the card sits dead centre of the viewport regardless of
+   how far the drill list has been scrolled.
+   ========================================================================== */
+.kufu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(10, 8, 20, 0.72);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: kufu-fade 140ms ease;
+}
+
+.kufu-card {
+  width: min(22rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.2rem;
+  background: var(--toy-card-bg, #2d264a);
+  border: 3px solid #ffd166;
+  border-radius: 22px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  animation: kufu-pop 160ms cubic-bezier(0.2, 1.3, 0.5, 1);
+}
+
+.kufu-card-title {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #ffd166;
+  text-align: center;
+}
+
+.kufu-card-hint {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.kufu-card-input {
+  /* 16px minimum — anything smaller makes iOS Safari zoom on focus. */
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.75rem 0.7rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: #1a162b;
+  color: var(--ink);
+  text-align: center;
+}
+
+.kufu-card-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.kufu-card-save,
+.kufu-card-cancel {
+  flex: 1;
+  padding: 0.8rem 0.6rem;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.kufu-card-save {
+  border: none;
+  background: #ffd166;
+  color: #1a162b;
+}
+
+.kufu-card-cancel {
+  border: 2px solid var(--panel-line);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+@keyframes kufu-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes kufu-pop {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   [data-rec]::before { animation: none; }
@@ -1599,4 +1799,6 @@ input[data-label] {
   .toybox-avatar.is-cheering { animation: none; }
   .loading-spinner { animation: none; }
   .countdown-intro-label.pop { animation: none; }
+  .kufu-overlay, .kufu-card { animation: none; }
+  [data-rows].is-reordering .row { transition: none; }
 }

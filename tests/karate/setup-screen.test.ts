@@ -36,24 +36,38 @@ it("adding a drill fires onChange with a longer menu", () => {
   expect(onChange.mock.calls[0][0].length).toBe(DEFAULT_MENU.length + 1);
 });
 
-it("clicking down on first row swaps first two drills", () => {
+// --- Reorder: drag handles replaced the ↑/↓ buttons ---
+// The pointer gesture needs real layout, so it is covered by drag-reorder's own
+// unit tests; here we drive the keyboard fallback the same handle exposes.
+function pressKey(el: HTMLElement, key: string): void {
+  el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+}
+
+it("renders a drag handle per row and no ↑/↓ buttons", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps());
+  expect(root.querySelectorAll("[data-drag]")).toHaveLength(DEFAULT_MENU.length);
+  expect(root.querySelector("[data-up]")).toBeNull();
+  expect(root.querySelector("[data-down]")).toBeNull();
+});
+
+it("ArrowDown on the first row's drag handle swaps the first two drills", () => {
   const root = document.createElement("div");
   const onChange = vi.fn();
   const menu = structuredClone(DEFAULT_MENU);
   renderSetupScreen(root, deps({ menu, onChange }));
-  root.querySelector<HTMLButtonElement>("[data-down]")!.click();
+  pressKey(root.querySelectorAll<HTMLElement>("[data-drag]")[0], "ArrowDown");
   expect(onChange).toHaveBeenCalled();
   const result = onChange.mock.calls[0][0];
   expect(result[0].name).toBe(menu[1].name); // second becomes first
   expect(result[1].name).toBe(menu[0].name); // first becomes second
 });
 
-it("clicking up on first row does nothing (no-op)", () => {
+it("ArrowUp on the first row's drag handle does nothing (no-op)", () => {
   const root = document.createElement("div");
   const onChange = vi.fn();
-  const menu = structuredClone(DEFAULT_MENU);
-  renderSetupScreen(root, deps({ menu, onChange }));
-  root.querySelector<HTMLButtonElement>("[data-up]")!.click();
+  renderSetupScreen(root, deps({ onChange }));
+  pressKey(root.querySelectorAll<HTMLElement>("[data-drag]")[0], "ArrowUp");
   expect(onChange).not.toHaveBeenCalled();
 });
 
@@ -181,4 +195,87 @@ it("omits the 感想 banner when kansou is empty/absent", () => {
   expect(root.querySelector("[data-kansou-banner]")).toBeNull();
   renderSetupScreen(root, deps());
   expect(root.querySelector("[data-kansou-banner]")).toBeNull();
+});
+
+// --- Member band: kids pick who is practicing, no parental gate ---
+const MEMBERS = [
+  { id: "m1", name: "ゆうた" },
+  { id: "m2", name: "さくら" },
+];
+
+it("renders a chip per registered member with the active one marked", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ members: MEMBERS, activeMemberId: "m2" }));
+  const chips = root.querySelectorAll<HTMLElement>("[data-member]");
+  expect(chips).toHaveLength(2);
+  expect(chips[0].textContent).toContain("ゆうた");
+  expect(chips[1].classList.contains("is-active")).toBe(true);
+  expect(chips[0].classList.contains("is-active")).toBe(false);
+});
+
+it("tapping a member chip fires onSelectMember with that id", () => {
+  const root = document.createElement("div");
+  const onSelectMember = vi.fn();
+  renderSetupScreen(root, deps({ members: MEMBERS, activeMemberId: "m1", onSelectMember }));
+  root.querySelector<HTMLButtonElement>('[data-member="m2"]')!.click();
+  expect(onSelectMember).toHaveBeenCalledWith("m2");
+});
+
+it("tapping the already-active member does not re-fire onSelectMember", () => {
+  const root = document.createElement("div");
+  const onSelectMember = vi.fn();
+  renderSetupScreen(root, deps({ members: MEMBERS, activeMemberId: "m1", onSelectMember }));
+  root.querySelector<HTMLButtonElement>('[data-member="m1"]')!.click();
+  expect(onSelectMember).not.toHaveBeenCalled();
+});
+
+it("omits the member band when no members are provided", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps());
+  expect(root.querySelector("[data-member-band]")).toBeNull();
+});
+
+// --- 工夫 button per row (opens the centered popup card) ---
+it("renders a 工夫 button per row, lit only for drills that already have a note", () => {
+  const root = document.createElement("div");
+  const menu = structuredClone(DEFAULT_MENU);
+  renderSetupScreen(root, deps({
+    menu,
+    kufuEnabled: true,
+    latestKufuFor: (name: string) => (name === menu[0].name ? "こしをまわす" : ""),
+  }));
+  const buttons = root.querySelectorAll<HTMLElement>("[data-kufu-open]");
+  expect(buttons).toHaveLength(menu.length);
+  expect(buttons[0].classList.contains("is-lit")).toBe(true);
+  expect(buttons[1].classList.contains("is-lit")).toBe(false);
+});
+
+it("omits the 工夫 buttons when kufuEnabled is false (Free plan)", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ kufuEnabled: false, latestKufuFor: () => "" }));
+  expect(root.querySelector("[data-kufu-open]")).toBeNull();
+});
+
+it("tapping a 工夫 button opens the centered card for that drill", () => {
+  const root = document.createElement("div");
+  const menu = structuredClone(DEFAULT_MENU);
+  renderSetupScreen(root, deps({ menu, kufuEnabled: true, latestKufuFor: () => "" }));
+  root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]")[0].click();
+  const card = root.querySelector<HTMLElement>("[data-kufu-modal]");
+  expect(card).not.toBeNull();
+  expect(card!.textContent).toContain(menu[0].name);
+});
+
+it("saving from the card calls onSaveKufu and lights that row's button", () => {
+  const root = document.createElement("div");
+  const menu = structuredClone(DEFAULT_MENU);
+  const onSaveKufu = vi.fn();
+  renderSetupScreen(root, deps({ menu, kufuEnabled: true, latestKufuFor: () => "", onSaveKufu }));
+  const button = root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]")[0];
+  button.click();
+  root.querySelector<HTMLInputElement>("[data-kufu-modal-input]")!.value = "ひざを上げる";
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-save]")!.click();
+  expect(onSaveKufu).toHaveBeenCalledWith(menu[0].name, "ひざを上げる");
+  expect(button.classList.contains("is-lit")).toBe(true);
+  expect(root.querySelector("[data-kufu-modal]")).toBeNull();
 });
