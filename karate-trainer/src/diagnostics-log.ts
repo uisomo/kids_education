@@ -75,9 +75,17 @@ export class DiagnosticsLog {
   // again to report it.
   private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
   startHeartbeat(intervalMs = 1000, thresholdMs = 500): void {
+    // Baseline against "now", not this.startTime — lastTickMs is still null
+    // at this point (rafLoop's first callback hasn't landed yet, since rAF
+    // always fires on the next paint rather than synchronously), so measuring
+    // against this.startTime would count the entire time since the training
+    // session began (including the ~3.5s countdown intro) as "rAF silence"
+    // on the very first tick(s), even though rAF simply hasn't had a chance
+    // to run yet.
+    const heartbeatStartMs = this.now() - this.startTime;
     this.heartbeatHandle = setInterval(() => {
       const nowMs = this.now() - this.startTime;
-      const sinceLastTick = this.lastTickMs === null ? nowMs : nowMs - this.lastTickMs;
+      const sinceLastTick = this.lastTickMs === null ? nowMs - heartbeatStartMs : nowMs - this.lastTickMs;
       if (sinceLastTick > thresholdMs) {
         this.log(`heartbeat: rAF silent for ${Math.round(sinceLastTick)}ms`);
       }

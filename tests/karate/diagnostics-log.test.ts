@@ -117,6 +117,37 @@ it("startHeartbeat stays quiet when the most recent rAF tick is within the thres
   vi.useRealTimers();
 });
 
+it("startHeartbeat does not false-positive when started long after start(), before rAF's first tick lands", () => {
+  // Regression test: startHeartbeat() is called right after scheduler.start(),
+  // one line before rafLoop.start() — whose first callback only fires on the
+  // next paint, not synchronously. If the heartbeat measured "silence" against
+  // diagnostics start() (e.g. the moment the ~3.5s countdown intro began, as
+  // in app.ts), it would immediately misreport several seconds of "silence"
+  // that were actually just the countdown intro playing, before rAF ever had
+  // a chance to run.
+  vi.useFakeTimers();
+  let t = 0;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+
+  t = 3500; // countdown intro elapses before the heartbeat is armed
+  log.startHeartbeat(300, 500);
+  // No noteRafTick() call yet at this point — rafLoop.start() (called right
+  // after startHeartbeat() in app.ts) hasn't produced its first callback,
+  // since rAF always fires on the next paint rather than synchronously.
+
+  t = 3800;
+  vi.advanceTimersByTime(300); // heartbeat's first check, 300ms after being armed and still no tick
+
+  // Old (buggy) behavior measured "silence" as nowMs - startTime — i.e. the
+  // full 3800ms since diagnostics start() (including the countdown intro) —
+  // which blows past the 500ms threshold on the very first check. The fix
+  // measures from when the heartbeat itself was armed (300ms), which is
+  // under the threshold.
+  expect(log.stop()).toEqual([]);
+  vi.useRealTimers();
+});
+
 it("startHeartbeat is silenced once stop() clears the interval", () => {
   vi.useFakeTimers();
   let t = 0;
