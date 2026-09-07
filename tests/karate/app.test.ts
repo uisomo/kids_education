@@ -215,7 +215,7 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   const store = new VoiceStore(memKv());
   await store.init();
 
-  const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn() };
+  const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn(), setMuted: vi.fn(), isMuted: vi.fn(() => false) };
 
   const app = new KarateApp(root, {
     voiceStore: store,

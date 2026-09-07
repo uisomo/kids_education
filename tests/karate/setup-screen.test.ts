@@ -36,6 +36,26 @@ it("adding a drill fires onChange with a longer menu", () => {
   expect(onChange.mock.calls[0][0].length).toBe(DEFAULT_MENU.length + 1);
 });
 
+it("deleting a drill row asks for confirmation and fires onChange only when confirmed", () => {
+  const root = document.createElement("div");
+  const onChange = vi.fn();
+  const confirmDelete = vi.fn().mockReturnValue(true);
+  const menu = structuredClone(DEFAULT_MENU);
+  renderSetupScreen(root, deps({ menu, onChange, confirmDelete }));
+  root.querySelector<HTMLButtonElement>(".row-del")!.click();
+  expect(confirmDelete).toHaveBeenCalledWith(menu[0].name);
+  expect(onChange).toHaveBeenCalledWith(menu.slice(1));
+});
+
+it("deleting a drill row does nothing when the user cancels the confirmation", () => {
+  const root = document.createElement("div");
+  const onChange = vi.fn();
+  const confirmDelete = vi.fn().mockReturnValue(false);
+  renderSetupScreen(root, deps({ onChange, confirmDelete }));
+  root.querySelector<HTMLButtonElement>(".row-del")!.click();
+  expect(onChange).not.toHaveBeenCalled();
+});
+
 // --- Reorder: drag handles replaced the ↑/↓ buttons ---
 // The pointer gesture needs real layout, so it is covered by drag-reorder's own
 // unit tests; here we drive the keyboard fallback the same handle exposes.
@@ -118,8 +138,24 @@ it("editing seconds calls onEdit and updates the total in place", () => {
   expect(root.querySelector(".total")!.textContent).toContain("種目");
 });
 
-// --- Preset band ---
-it("renders a chip per preset and fires onLoadPreset when tapped", () => {
+// --- Preset dropdown ---
+it("renders a closed-by-default dropdown with one option per preset", () => {
+  const root = document.createElement("div");
+  const presets = [
+    { id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) },
+    { id: "p2", name: "型の日", menu: structuredClone(DEFAULT_MENU) },
+  ];
+  renderSetupScreen(root, deps({ presets }));
+  const select = root.querySelector<HTMLSelectElement>("[data-preset-select]")!;
+  expect(select).not.toBeNull();
+  // "未選択" placeholder + one <option> per preset, nothing pre-selected
+  expect(select.querySelectorAll("option")).toHaveLength(presets.length + 1);
+  expect(select.value).toBe("");
+  // no delete button until a preset is actually selected
+  expect(root.querySelector("[data-preset-del]")).toBeNull();
+});
+
+it("selecting a preset in the dropdown fires onLoadPreset and reveals its delete button", () => {
   const root = document.createElement("div");
   const onLoadPreset = vi.fn();
   const presets = [
@@ -127,8 +163,9 @@ it("renders a chip per preset and fires onLoadPreset when tapped", () => {
     { id: "p2", name: "型の日", menu: structuredClone(DEFAULT_MENU) },
   ];
   renderSetupScreen(root, deps({ presets, onLoadPreset }));
-  expect(root.querySelectorAll("[data-preset]")).toHaveLength(2);
-  root.querySelector<HTMLButtonElement>('[data-preset-load="p2"]')!.click();
+  const select = root.querySelector<HTMLSelectElement>("[data-preset-select]")!;
+  select.value = "p2";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
   expect(onLoadPreset).toHaveBeenCalledWith("p2");
 });
 
@@ -140,13 +177,25 @@ it("save button fires onSavePreset", () => {
   expect(onSavePreset).toHaveBeenCalledOnce();
 });
 
-it("preset delete button fires onDeletePreset with the id", () => {
+it("preset delete button asks for confirmation and fires onDeletePreset only when confirmed", () => {
   const root = document.createElement("div");
   const onDeletePreset = vi.fn();
+  const confirmDelete = vi.fn().mockReturnValue(true);
   const presets = [{ id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) }];
-  renderSetupScreen(root, deps({ presets, onDeletePreset }));
+  renderSetupScreen(root, deps({ presets, onDeletePreset, confirmDelete, selectedPresetId: "p1" }));
   root.querySelector<HTMLButtonElement>('[data-preset-del="p1"]')!.click();
+  expect(confirmDelete).toHaveBeenCalledWith("基本稽古");
   expect(onDeletePreset).toHaveBeenCalledWith("p1");
+});
+
+it("preset delete does nothing when the user cancels the confirmation", () => {
+  const root = document.createElement("div");
+  const onDeletePreset = vi.fn();
+  const confirmDelete = vi.fn().mockReturnValue(false);
+  const presets = [{ id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) }];
+  renderSetupScreen(root, deps({ presets, onDeletePreset, confirmDelete, selectedPresetId: "p1" }));
+  root.querySelector<HTMLButtonElement>('[data-preset-del="p1"]')!.click();
+  expect(onDeletePreset).not.toHaveBeenCalled();
 });
 
 // --- Removed UI: voice-record entry, partner carousel, top banner image ---
