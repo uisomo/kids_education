@@ -435,6 +435,11 @@ export class KarateApp {
     this.diagnostics = new DiagnosticsLog();
     this.diagnostics.start();
     this.diagnostics.watchStream(stream);
+    // track mute/ended and rAF stalls are both upstream of MediaRecorder's
+    // encoding — neither fires when the recorded video freezes but the raw
+    // track and preview loop stay healthy. Poll the live preview's
+    // currentTime instead, since that reflects real decoded-frame progress.
+    this.diagnostics.watchVideoElement(view.videoEl);
 
     this.recElapsedMs = 0;
     this.cueCount = 0;

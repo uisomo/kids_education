@@ -67,6 +67,32 @@ export class DiagnosticsLog {
     this.lastTickMs = nowMs;
   }
 
+  // rAF stalls and track mute/ended events only cover the on-screen preview
+  // loop and the raw MediaStreamTrack — neither can see the iPhone Safari
+  // freeze bug this file exists for, where the *recorded* video silently
+  // stops advancing while audio keeps going. The track stays live and rAF
+  // keeps ticking throughout, because both are upstream of MediaRecorder's
+  // actual encoding pipeline. Polling the preview <video>'s currentTime is
+  // the only signal here that reflects real decoded-frame progress; if it
+  // stops advancing while the recording is still running, that's the freeze.
+  private videoWatchHandle: ReturnType<typeof setInterval> | null = null;
+  watchVideoElement(video: HTMLVideoElement, intervalMs = 1000, thresholdMs = 1500): void {
+    let lastCurrentTime = video.currentTime;
+    let lastAdvanceMs = this.now() - this.startTime;
+    this.videoWatchHandle = setInterval(() => {
+      const nowMs = this.now() - this.startTime;
+      if (video.currentTime !== lastCurrentTime) {
+        lastCurrentTime = video.currentTime;
+        lastAdvanceMs = nowMs;
+        return;
+      }
+      const stalledFor = nowMs - lastAdvanceMs;
+      if (stalledFor > thresholdMs) {
+        this.log(`video element stalled: currentTime frozen at ${lastCurrentTime.toFixed(2)}s for ${Math.round(stalledFor)}ms`);
+      }
+    }, intervalMs);
+  }
+
   // noteRafTick() can only report a stall while rAF keeps firing at all — if
   // rAF stops entirely (e.g. iOS Safari throttling it independent of the rest
   // of the main thread), that path goes silent too. setInterval runs on a
@@ -98,6 +124,10 @@ export class DiagnosticsLog {
     if (this.heartbeatHandle !== null) {
       clearInterval(this.heartbeatHandle);
       this.heartbeatHandle = null;
+    }
+    if (this.videoWatchHandle !== null) {
+      clearInterval(this.videoWatchHandle);
+      this.videoWatchHandle = null;
     }
     return this.entries;
   }

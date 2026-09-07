@@ -162,3 +162,66 @@ it("startHeartbeat is silenced once stop() clears the interval", () => {
   expect(log.stop()).toEqual([]);
   vi.useRealTimers();
 });
+
+it("watchVideoElement logs when currentTime stops advancing past the threshold", () => {
+  // Regression coverage for the freeze bug this file exists to catch: track
+  // mute/ended and rAF stalls are both upstream of MediaRecorder's actual
+  // encoding, so neither fires when the recorded video freezes while the raw
+  // track and preview loop stay healthy. Polling currentTime is the one
+  // signal that reflects real decoded-frame progress.
+  vi.useFakeTimers();
+  let t = 0;
+  const video = { currentTime: 0 } as HTMLVideoElement;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+  log.watchVideoElement(video, 1000, 1500);
+
+  t = 1000;
+  video.currentTime = 1; // still advancing at the first check
+  vi.advanceTimersByTime(1000);
+
+  t = 2000; // currentTime frozen at 1 from here on — the video has stalled
+  vi.advanceTimersByTime(1000); // 1000ms stalled — under the 1500ms threshold, no log yet
+
+  t = 3000;
+  vi.advanceTimersByTime(1000); // 2000ms stalled — over threshold, logs
+
+  expect(log.stop()).toEqual([
+    { tMs: 3000, label: "video element stalled: currentTime frozen at 1.00s for 2000ms" },
+  ]);
+  vi.useRealTimers();
+});
+
+it("watchVideoElement stays quiet while currentTime keeps advancing", () => {
+  vi.useFakeTimers();
+  let t = 0;
+  const video = { currentTime: 0 } as HTMLVideoElement;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+  log.watchVideoElement(video, 1000, 1500);
+
+  for (let i = 1; i <= 5; i++) {
+    t = i * 1000;
+    video.currentTime = i; // playback keeps progressing every check
+    vi.advanceTimersByTime(1000);
+  }
+
+  expect(log.stop()).toEqual([]);
+  vi.useRealTimers();
+});
+
+it("watchVideoElement is silenced once stop() clears the interval", () => {
+  vi.useFakeTimers();
+  let t = 0;
+  const video = { currentTime: 0 } as HTMLVideoElement;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+  log.watchVideoElement(video, 1000, 1500);
+  log.stop();
+
+  t = 5000;
+  vi.advanceTimersByTime(5000); // currentTime never moves — would log if not stopped
+
+  expect(log.stop()).toEqual([]);
+  vi.useRealTimers();
+});
