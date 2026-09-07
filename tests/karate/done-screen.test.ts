@@ -155,3 +155,28 @@ it("omits the status note entirely when no burnInPromise is given", () => {
   });
   expect(root.querySelector("[data-burnin-status]")).toBeNull();
 });
+
+// --- diagnostics panel ---
+it("shows a collapsed debug panel with the diagnostics text when given", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    diagnosticsText: "[1.50s] track mute: video:camera1",
+  });
+  const details = root.querySelector<HTMLDetailsElement>("[data-diagnostics]")!;
+  expect(details).not.toBeNull();
+  expect(details.open).toBe(false);
+  expect(details.textContent).toContain("track mute: video:camera1");
+});
+
+it("omits the debug panel when there is no diagnostics text", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+  });
+  expect(root.querySelector("[data-diagnostics]")).toBeNull();
+});

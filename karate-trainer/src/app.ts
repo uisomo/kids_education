@@ -28,6 +28,7 @@ import {
   type CharacterState,
 } from "./character-store";
 import { OverlayEventLog, type OverlayEvent } from "./overlay-event-log";
+import { DiagnosticsLog } from "./diagnostics-log";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
@@ -102,6 +103,7 @@ export class KarateApp {
   private paused = false;
   private characterState: CharacterState;
   private overlayLog: OverlayEventLog | null = null;
+  private diagnostics: DiagnosticsLog | null = null;
   private activeTab: NavTab = "train";
   // E4: the active member's ファイト コメント, snapshotted at session start so it's
   // stable for the whole practice. "" → fall back to the generic encourage toast.
@@ -396,6 +398,15 @@ export class KarateApp {
     this.overlayLog.start();
     recorder.startRecording();
 
+    // Temporary on-device diagnostics for the iPhone Safari video-freeze bug
+    // (image stalls while audio keeps recording). No Mac is available for
+    // Safari's remote inspector, so this logs track mute/ended events, tab
+    // visibility changes, and rAF stalls as plain text shown on the done
+    // screen — readable directly off the phone.
+    this.diagnostics = new DiagnosticsLog();
+    this.diagnostics.start();
+    this.diagnostics.watchStream(stream);
+
     this.recElapsedMs = 0;
     this.cueCount = 0;
     this.drillCount = 0;
@@ -473,7 +484,10 @@ export class KarateApp {
 
     this.scheduler = scheduler;
     scheduler.start();
-    this.deps.rafLoop.start((deltaMs) => scheduler.tick(deltaMs));
+    this.deps.rafLoop.start((deltaMs) => {
+      this.diagnostics?.noteRafTick();
+      scheduler.tick(deltaMs);
+    });
   }
 
   private scheduler: SessionScheduler | null = null;
@@ -520,6 +534,9 @@ export class KarateApp {
     const events = this.overlayLog?.getEvents() ?? [];
     const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
     this.overlayLog = null;
+    this.diagnostics?.stop();
+    const diagnosticsText = this.diagnostics?.format() ?? "";
+    this.diagnostics = null;
 
     const recorder = this.videoRecorder;
     const blob = recorder ? await recorder.stop() : new Blob();
@@ -554,6 +571,7 @@ export class KarateApp {
       videoUrl,
       ext,
       burnInPromise,
+      diagnosticsText,
       stats: {
         time: formatMMSS(elapsedSeconds),
         drills: this.drillCount,

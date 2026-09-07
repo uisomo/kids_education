@@ -128,7 +128,12 @@ export async function burnOverlay(
 
     const outBytes = await ffmpeg.readFile(outputName);
     return new Blob([new Uint8Array(outBytes)], { type: rawVideoBlob.type || `video/${ext}` });
-  } catch {
+  } catch (e) {
+    // Falls back to the raw (un-burned) video — see the caller in
+    // app.ts's finishSession(). Logged rather than swallowed silently so a
+    // burn-in failure (e.g. ffmpeg.wasm not supported on this browser) is
+    // at least visible in the console instead of just quietly missing text.
+    console.error("burnOverlay failed, falling back to raw video", e);
     return null;
   }
 }

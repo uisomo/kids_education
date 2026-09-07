@@ -22,6 +22,11 @@ export interface DoneDeps {
   // Resolves to the burned-in video blob, or null if burn-in failed/was
   // skipped — in which case the raw videoUrl remains the final result.
   burnInPromise?: Promise<Blob | null>;
+  // Temporary on-device diagnostics (track mute/ended events, tab visibility
+  // changes, rAF stalls) for tracking down the iPhone Safari video-freeze
+  // bug. Shown collapsed since it's only useful for debugging. Omitted
+  // (undefined/empty) when nothing was logged.
+  diagnosticsText?: string;
 }
 
 const KUFU_MAX_LEN = 15;
@@ -156,4 +161,19 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
 
   root.append(celebCard, video, stats, kufuSection, dl, again);
   if (showBurninStatus) root.insertBefore(burninStatus, dl);
+
+  // Collapsed debug panel: readable directly on the phone, no devtools
+  // needed, for tracking down the iPhone Safari video-freeze bug.
+  if (deps.diagnosticsText) {
+    const details = document.createElement("details");
+    details.dataset.diagnostics = "";
+    details.style.cssText = "margin: 0.5rem 0; font-size: 0.75rem; color: #999;";
+    const summary = document.createElement("summary");
+    summary.textContent = "デバッグ情報";
+    const pre = document.createElement("pre");
+    pre.style.cssText = "white-space: pre-wrap; word-break: break-all;";
+    pre.textContent = deps.diagnosticsText;
+    details.append(summary, pre);
+    root.append(details);
+  }
 }
