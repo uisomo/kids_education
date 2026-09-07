@@ -26,11 +26,16 @@ export interface SetupDeps {
   // Voice recording entry & partner selection were removed from this screen.
   // Props kept optional so existing callers/tests stay compatible.
   onOpenVoice?(): void;
-  // Saved named menus (presets) shown in the top band.
+  // Saved named menus (presets), shown as a closed-by-default dropdown.
   presets: Preset[];
   onSavePreset(): void;      // "＋ 保存": name + snapshot the current menu
-  onLoadPreset(id: string): void;   // tap a preset chip → load it now
+  onLoadPreset(id: string): void;   // pick a preset from the dropdown → load it now
   onDeletePreset(id: string): void; // remove a preset
+  // Preset currently reflected in the dropdown (drives which delete button shows).
+  selectedPresetId?: string;
+  // Confirmation gate shared by preset delete and drill-row delete.
+  // Defaults to window.confirm. Return true to proceed with the delete.
+  confirmDelete?(label: string): boolean;
   // Companion belt/XP state (drives the belt status card).
   characterId?: CharacterId;
   onSelectCharacter?(id: CharacterId): void;
@@ -53,6 +58,10 @@ export interface SetupDeps {
   latestKufuFor?(drillName: string): string;
   canAddKufuFor?(drillName: string): boolean;
   onSaveKufu?(drillName: string, text: string): void;
+  // Practice BGM on/off, shown next to the drill total. Omit bgmMuted/onToggleBgm
+  // together to hide the button (e.g. no bgm player configured).
+  bgmMuted?: boolean;
+  onToggleBgm?(): void;
 }
 
 let idc = 0;
@@ -60,6 +69,8 @@ const uid = () => `d${Date.now()}-${idc++}`;
 
 export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   const menu = deps.menu;
+  const confirmDelete = deps.confirmDelete
+    ?? ((label: string) => (typeof window !== "undefined" ? window.confirm(`「${label}」を削除しますか？`) : true));
   root.textContent = "";
   root.className = "screen setup";
 
@@ -119,31 +130,48 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     classLabel.textContent = `くらす: ${deps.className}`;
   }
 
-  // --- Preset band: saved named menus + "save current" ---
+  // --- Preset dropdown: saved named menus, closed by default + "save current" ---
   const presetBand = document.createElement("div");
   presetBand.className = "preset-band";
   presetBand.dataset.presetBand = "";
+
+  const presetSelect = document.createElement("select");
+  presetSelect.className = "preset-select";
+  presetSelect.dataset.presetSelect = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "メニューを選ぶ…";
+  presetSelect.append(placeholder);
+
+  const selectedId = deps.selectedPresetId ?? "";
   deps.presets.forEach((p) => {
-    const chip = document.createElement("div");
-    chip.className = "preset-chip";
-    chip.dataset.preset = p.id;
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.name;
+    if (p.id === selectedId) opt.selected = true;
+    presetSelect.append(opt);
+  });
+  if (!selectedId) placeholder.selected = true;
 
-    const load = document.createElement("button");
-    load.className = "preset-load";
-    load.dataset.presetLoad = p.id;
-    load.textContent = p.name;
-    load.addEventListener("click", () => deps.onLoadPreset(p.id));
+  presetSelect.addEventListener("change", () => {
+    if (presetSelect.value) deps.onLoadPreset(presetSelect.value);
+  });
+  presetBand.append(presetSelect);
 
+  const selectedPreset = deps.presets.find((p) => p.id === selectedId);
+  if (selectedPreset) {
     const del = document.createElement("button");
     del.className = "preset-del";
-    del.dataset.presetDel = p.id;
-    del.textContent = "✕";
-    del.setAttribute("aria-label", `${p.name} を削除`);
-    del.addEventListener("click", () => deps.onDeletePreset(p.id));
+    del.dataset.presetDel = selectedPreset.id;
+    del.textContent = "✕ このメニューを削除";
+    del.setAttribute("aria-label", `${selectedPreset.name} を削除`);
+    del.addEventListener("click", () => {
+      if (confirmDelete(selectedPreset.name)) deps.onDeletePreset(selectedPreset.id);
+    });
+    presetBand.append(del);
+  }
 
-    chip.append(load, del);
-    presetBand.append(chip);
-  });
   const savePreset = document.createElement("button");
   savePreset.className = "preset-save";
   savePreset.dataset.presetSave = "";
@@ -186,7 +214,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
 
     const del = document.createElement("button");
     del.textContent = "✕"; del.className = "row-del";
-    del.addEventListener("click", () => deps.onChange(menu.filter((_, j) => j !== i)));
+    del.addEventListener("click", () => {
+      if (confirmDelete(menu[i].name)) deps.onChange(menu.filter((_, j) => j !== i));
+    });
 
     row.append(drag, name, secs);
 
@@ -233,12 +263,28 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   add.addEventListener("click", () =>
     deps.onChange([...menu, { id: uid(), name: "新しい種目", seconds: 30, kind: "drill" }]));
 
-  const total = document.createElement("div");
-  total.className = "total";
+  const totalRow = document.createElement("div");
+  totalRow.className = "total";
+
+  const total = document.createElement("span");
   function updateTotal(): void {
     total.textContent = `合計 ${menu.length} 種目 · ${formatMMSS(totalSeconds(menu))}`;
   }
   updateTotal();
+  totalRow.append(total);
+
+  if (deps.onToggleBgm) {
+    const BGM_ON_LABEL = "🎵 BGM";
+    const BGM_OFF_LABEL = "🔇 BGM";
+    const bgmBtn = document.createElement("button");
+    bgmBtn.type = "button";
+    bgmBtn.dataset.bgmToggle = "";
+    bgmBtn.className = "bgm-toggle-btn" + (deps.bgmMuted ? " muted" : "");
+    bgmBtn.textContent = deps.bgmMuted ? BGM_OFF_LABEL : BGM_ON_LABEL;
+    bgmBtn.setAttribute("aria-label", "練習BGM on/off");
+    bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
+    totalRow.append(bgmBtn);
+  }
 
   const start = document.createElement("button");
   start.dataset.start = ""; start.className = "btn-start"; start.textContent = "稽古 開始 ▶";
@@ -258,5 +304,5 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   if (memberBand) root.append(memberBand);
   root.append(beltCard);
   if (classLabel) root.append(classLabel);
-  root.append(presetBand, rows, add, total, start);
+  root.append(presetBand, rows, add, totalRow, start);
 }

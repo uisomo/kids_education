@@ -19,6 +19,7 @@ import { scopedStorage } from "./scoped-storage";
 import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
 import { type Plan, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
 import { getAssignedClass, setAssignedClass } from "./class-store";
+import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import { loadComments, saveComment } from "./comment-store";
 import { renderParentalGate } from "./parental-gate";
 import {
@@ -61,6 +62,11 @@ export interface BgmPlayer {
   unlock(): void;
   play(): void;
   stop(): void;
+  // User-facing mute toggle (練習BGM on/off), independent of play()/stop()'s
+  // session lifecycle. Muting during a session silences it immediately;
+  // unmuting resumes only if a session is currently playing.
+  setMuted(muted: boolean): void;
+  isMuted(): boolean;
 }
 
 export interface KarateAppDeps {
@@ -109,6 +115,8 @@ export class KarateApp {
   // E4: the active member's ファイト コメント, snapshotted at session start so it's
   // stable for the whole practice. "" → fall back to the generic encourage toast.
   private fightComment = "";
+  // Preset currently reflected in the setup screen's dropdown (undefined = none picked).
+  private selectedPresetId: string | undefined;
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     // Family-shared base storage (member list + classes/presets live here).
@@ -206,6 +214,7 @@ export class KarateApp {
       onOpenVoice: () => this.showVoice(),
       // Presets = classes, family-shared → base storage.
       presets: loadPresets(this.base()),
+      selectedPresetId: this.selectedPresetId,
       onSavePreset: () => {
         const ask = this.deps.promptName
           ?? ((d: string) => (typeof window !== "undefined" ? window.prompt("メニュー名", d) : null));
@@ -219,12 +228,23 @@ export class KarateApp {
         if (!preset) return;
         this.menu = structuredClone(preset.menu);
         saveMenu(this.menu, this.mem());
+        this.selectedPresetId = id;
         this.showSetup();
       },
       onDeletePreset: (id) => {
         deletePreset(id, this.base());
+        if (this.selectedPresetId === id) this.selectedPresetId = undefined;
         this.showSetup();
       },
+      bgmMuted: this.deps.bgm ? getBgmMuted(this.base()) : undefined,
+      onToggleBgm: this.deps.bgm
+        ? () => {
+            const next = !getBgmMuted(this.base());
+            setBgmMuted(next, this.base());
+            this.deps.bgm?.setMuted(next);
+            this.showSetup();
+          }
+        : undefined,
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
@@ -422,6 +442,8 @@ export class KarateApp {
     this.drillCount = 0;
     this.paused = false;
     view.setPaused(false);
+    this.deps.bgm?.setMuted(getBgmMuted(this.base()));
+    view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
 
     // Ready → 3 → 2 → 1 → Go!! intro. Numbers beep, Ready/Go are spoken.
     // BGM and the drill timer both start on "Go!!".
@@ -491,6 +513,12 @@ export class KarateApp {
     });
     view.onSkip(() => scheduler.skip());
     view.onStop(() => { void this.finishSession(); });
+    view.onToggleBgm(() => {
+      const next = !(this.deps.bgm?.isMuted() ?? false);
+      this.deps.bgm?.setMuted(next);
+      setBgmMuted(next, this.base());
+      view.setBgmMuted(next);
+    });
 
     this.scheduler = scheduler;
     scheduler.start();

@@ -4,10 +4,13 @@ import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
 import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
+import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
+
+mountInstallBanner(document.body, detectEnv());
 
 // Background music played during a session (loops from Go!! to session end).
 // The filename is Japanese, so encode it for the URL.
@@ -16,6 +19,11 @@ function makeBgm(): BgmPlayer {
   audio.loop = true;
   audio.preload = "auto";
   let unlocked = false;
+  let muted = false;
+  // Tracks whether a session wants BGM playing right now, independent of
+  // whether it's actually audible (muted pauses playback but keeps this true
+  // so unmuting mid-session resumes it).
+  let sessionActive = false;
   return {
     unlock() {
       if (unlocked) return;
@@ -33,12 +41,26 @@ function makeBgm(): BgmPlayer {
         .catch(() => { audio.muted = wasMuted; });
     },
     play() {
+      sessionActive = true;
       audio.currentTime = 0;
+      if (muted) return;
       void audio.play().catch(() => { /* autoplay blocked — ignore */ });
     },
     stop() {
+      sessionActive = false;
       audio.pause();
       audio.currentTime = 0;
+    },
+    setMuted(next: boolean) {
+      muted = next;
+      if (muted) {
+        audio.pause();
+      } else if (sessionActive) {
+        void audio.play().catch(() => { /* autoplay blocked — ignore */ });
+      }
+    },
+    isMuted() {
+      return muted;
     },
   };
 }

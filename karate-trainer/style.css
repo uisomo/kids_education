@@ -355,41 +355,36 @@ button {
 
 .preset-band {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
-  overflow-x: auto;
   padding: 0.25rem 0.1rem 0.5rem;
-  -webkit-overflow-scrolling: touch;
 }
-.preset-chip {
-  display: inline-flex;
-  align-items: stretch;
-  flex: 0 0 auto;
+.preset-select {
+  flex: 1 1 auto;
+  min-width: 8rem;
   border: 2px solid var(--panel-line);
   border-radius: 999px;
-  overflow: hidden;
   background: var(--panel);
-}
-.preset-load {
-  background: transparent;
-  border: none;
   color: var(--tatami);
   font: inherit;
   font-weight: 700;
-  padding: 0.4rem 0.5rem 0.4rem 0.85rem;
-  white-space: nowrap;
+  padding: 0.4rem 0.85rem;
   cursor: pointer;
 }
 .preset-del {
+  flex: 0 0 auto;
   background: transparent;
-  border: none;
-  border-left: 1px solid var(--panel-line);
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
-  padding: 0 0.6rem;
+  border: 2px solid var(--panel-line);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
   cursor: pointer;
 }
-.preset-del:hover { color: var(--obi); }
+.preset-del:hover { color: var(--obi); border-color: var(--obi); }
 .preset-save {
   flex: 0 0 auto;
   background: rgba(255, 209, 102, 0.15);
@@ -575,8 +570,11 @@ button {
 }
 
 .total {
-  padding: 0.5rem;
-  text-align: center;
+  padding: 0.5rem 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
   font-size: 1rem;
   font-weight: 800;
   color: #ffd166;
@@ -709,6 +707,22 @@ button {
   background: rgba(0, 0, 0, 0.6);
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
+}
+
+.bgm-toggle-btn {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.bgm-toggle-btn.muted {
+  color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Companion cheer overlay on Training Screen — a transparent character clip
@@ -1627,6 +1641,31 @@ input[data-label] {
 }
 
 /* E4: 感想コメント banner at the very top of the 特訓 screen (parent message). */
+.install-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a162b;
+  background: linear-gradient(135deg, #ffe6a1, #ffd166);
+  padding: 0.55rem 0.7rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.install-banner span { flex: 1 1 auto; }
+.install-banner-dismiss {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: #1a162b;
+  font-size: 1rem;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+}
+
 .setup-kansou-banner {
   font-size: 1rem;
   font-weight: 900;
