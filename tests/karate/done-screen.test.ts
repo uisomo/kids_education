@@ -15,41 +15,17 @@ it("shows stats and a save button", () => {
   expect(dl.textContent).toContain("mp4");
 });
 
-it("save opens a parental gate; passing it fires onShare", () => {
+it("save fires onShare directly with no parental gate", () => {
   const root = document.createElement("div");
   const onShare = vi.fn();
   renderDoneScreen(root, {
     videoUrl: "blob:v", ext: "mp4",
     stats: { time: "3:00", drills: 5, cues: 14 },
     onShare, onAgain: vi.fn(),
-    gateChallenge: { a: 2, b: 2, answer: 4 },
   });
 
   root.querySelector<HTMLButtonElement>("[data-download]")!.click();
-  // gate is now shown, share not yet called
-  expect(root.querySelector("[data-gate-submit]")).not.toBeNull();
-  expect(onShare).not.toHaveBeenCalled();
-
-  const input = root.querySelector<HTMLInputElement>("[data-gate-input]")!;
-  input.value = "4";
-  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
   expect(onShare).toHaveBeenCalledOnce();
-});
-
-it("cancelling the gate returns to the done screen", () => {
-  const root = document.createElement("div");
-  const onShare = vi.fn();
-  renderDoneScreen(root, {
-    videoUrl: "blob:v", ext: "mp4",
-    stats: { time: "3:00", drills: 5, cues: 14 },
-    onShare, onAgain: vi.fn(),
-    gateChallenge: { a: 2, b: 2, answer: 4 },
-  });
-  root.querySelector<HTMLButtonElement>("[data-download]")!.click();
-  root.querySelector<HTMLButtonElement>("[data-gate-cancel]")!.click();
-  // back on done screen (save button present again), share never called
-  expect(root.querySelector("[data-download]")).not.toBeNull();
-  expect(onShare).not.toHaveBeenCalled();
 });
 
 // --- 工夫 inputs ---
@@ -162,15 +138,11 @@ it("the share button uses the burned-in blob once ready", async () => {
     stats: { time: "3:00", drills: 5, cues: 14 },
     onShare, onAgain: vi.fn(),
     burnInPromise: Promise.resolve(burnedBlob),
-    gateChallenge: { a: 2, b: 2, answer: 4 },
   });
 
   await new Promise((r) => setTimeout(r, 0));
 
   root.querySelector<HTMLButtonElement>("[data-download]")!.click();
-  const input = root.querySelector<HTMLInputElement>("[data-gate-input]")!;
-  input.value = "4";
-  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
   expect(onShare).toHaveBeenCalledWith(burnedBlob);
 });
 

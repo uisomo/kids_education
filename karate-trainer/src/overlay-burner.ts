@@ -45,16 +45,19 @@ async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-const FFMPEG_BASE_URL = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
+// Single-threaded core: no SharedArrayBuffer, so no cross-origin-isolation
+// (COOP/COEP) headers are needed app-wide. The multi-threaded core-mt build
+// requires those headers on every page load, including during live camera
+// recording — a real destabilization risk for iOS Safari's getUserMedia
+// pipeline. Burn-in only runs after recording has already stopped, so the
+// slower single-threaded encode here is the right tradeoff.
+const FFMPEG_BASE_URL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
 
 async function defaultMakeFfmpeg(): Promise<FfmpegLike> {
   const { FFmpeg } = await import("@ffmpeg/ffmpeg");
   const { toBlobURL } = await import("@ffmpeg/util");
   const ffmpeg = new FFmpeg() as unknown as FfmpegLike;
-  // @ffmpeg/core-mt (the multi-threaded core, needed for the app's
-  // cross-origin-isolation setup) requires its worker/wasm files to be
-  // same-origin. burnOverlay() calls load() with the plain CDN URLs below;
-  // wrap load() here so it fetches those URLs and converts them to
+  // Wrap load() so it fetches the CDN core/wasm files and converts them to
   // same-origin blob URLs before delegating to the real FFmpeg.load() —
   // passing the bare cross-origin URLs straight through has a real chance
   // of failing at runtime in actual browsers, even though it works fine in

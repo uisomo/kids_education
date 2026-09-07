@@ -1,7 +1,0 @@
-# karate-trainer/public/_headers
-# Cross-origin isolation, required for ffmpeg.wasm's multi-threaded core
-# (SharedArrayBuffer). Safe app-wide: this app has zero cross-origin
-# resource references (fonts/scripts/images/manifest are all same-origin).
-/*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: require-corp

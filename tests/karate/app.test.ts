@@ -157,7 +157,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
 });
 
-it("passes the recorded blob to shareRecording after the parental gate", async () => {
+it("passes the recorded blob to shareRecording when save is pressed", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -192,15 +192,9 @@ it("passes the recorded blob to shareRecording after the parental gate", async (
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
 
-  // done screen shown → press save → clear the parental gate → share fires
+  // done screen shown → press save → share fires directly (kids save their own video)
   const save = root.querySelector<HTMLButtonElement>("[data-download]")!;
   save.click();
-  const input = root.querySelector<HTMLInputElement>("[data-gate-input]")!;
-  const q = root.querySelector<HTMLElement>("[data-gate-question]")!.textContent!;
-  // parse "a + b = ?" and answer correctly
-  const [a, b] = q.replace(/[^0-9+]/g, "").split("+").map(Number);
-  input.value = String(a + b);
-  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
 
   expect(shareRecording).toHaveBeenCalledOnce();
   expect(shareRecording.mock.calls[0][0]).toBe(recordedBlob);
