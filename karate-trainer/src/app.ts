@@ -435,7 +435,6 @@ export class KarateApp {
     this.diagnostics = new DiagnosticsLog();
     this.diagnostics.start();
     this.diagnostics.watchStream(stream);
-    this.diagnostics.startHeartbeat();
 
     this.recElapsedMs = 0;
     this.cueCount = 0;
@@ -522,6 +521,11 @@ export class KarateApp {
 
     this.scheduler = scheduler;
     scheduler.start();
+    // Started here, not alongside the rest of diagnostics setup above — the
+    // heartbeat has no way to distinguish "rAF hasn't started yet" from
+    // "rAF stalled," so starting it before the ~3.5s Ready→Go intro produced
+    // false-positive "rAF silent" warnings for the entire intro duration.
+    this.diagnostics?.startHeartbeat();
     this.deps.rafLoop.start((deltaMs) => {
       this.diagnostics?.noteRafTick();
       scheduler.tick(deltaMs);
