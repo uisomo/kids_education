@@ -384,3 +384,55 @@ it("bumps 強さ counts on session complete and the 強さ tab shows them", asyn
   expect(root.querySelector('[data-strength-level="前蹴り"]')!.textContent).toBe("Lv.0");
   expect(row!.querySelectorAll(".strength-bar.lit").length).toBe(1);
 });
+
+it("recovers to a visible screen instead of hanging when 終了 hits a recorder error", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  const unhandled = vi.fn();
+  process.on("unhandledRejection", unhandled);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      // Simulates MediaRecorder.stop() rejecting/throwing (e.g. an already-inactive
+      // recorder) — the failure mode that left 終了 doing nothing but freezing.
+      stop: vi.fn().mockRejectedValue(new Error("recorder already inactive")),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    introStepMs: 0,
+    // long drill so the session is still active (not near natural end) when 終了 is clicked
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 30, kind: "drill" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));   // intro promise
+  expect(loopCb).toBeTypeOf("function");
+
+  for (let t = 0; t < 3000; t += 250) loopCb!(250);   // some active recording time
+
+  root.querySelector<HTMLButtonElement>("[data-stop]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+
+  // Not stuck on the training screen — recovered to a visible screen.
+  expect(root.querySelector("[data-stop]")).toBeNull();
+  expect(root.querySelector("[data-setup-status]")).not.toBeNull();
+
+  await new Promise((r) => setTimeout(r, 0));
+  expect(unhandled).not.toHaveBeenCalled();
+  process.off("unhandledRejection", unhandled);
+});

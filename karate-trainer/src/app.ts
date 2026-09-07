@@ -565,87 +565,103 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
-    // Capture events AND elapsed time from the same OverlayEventLog instance,
-    // on its own clock, before nulling it out. recElapsedMs (driven by
-    // startRecTimer(), which starts AFTER the Ready→Go intro) undercounts the
-    // true recording length by the intro's duration — using it here would
-    // anchor totalDurationMs on a different clock than the event timestamps
-    // (which start at overlayLog.start(), before the intro), silently
-    // dropping every trailing overlay segment during burn-in. See
-    // overlay-event-log.ts's elapsedMs() and overlay-burner.ts's toSegments().
-    const events = this.overlayLog?.getEvents() ?? [];
-    const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
-    this.overlayLog = null;
-    this.diagnostics?.stop();
-    const diagnosticsText = this.diagnostics?.format() ?? "";
-    this.diagnostics = null;
 
-    const recorder = this.videoRecorder;
-    const blob = recorder ? await recorder.stop() : new Blob();
-    await this.deps.wakeGuard.release();
+    try {
+      // Capture events AND elapsed time from the same OverlayEventLog instance,
+      // on its own clock, before nulling it out. recElapsedMs (driven by
+      // startRecTimer(), which starts AFTER the Ready→Go intro) undercounts the
+      // true recording length by the intro's duration — using it here would
+      // anchor totalDurationMs on a different clock than the event timestamps
+      // (which start at overlayLog.start(), before the intro), silently
+      // dropping every trailing overlay segment during burn-in. See
+      // overlay-event-log.ts's elapsedMs() and overlay-burner.ts's toSegments().
+      const events = this.overlayLog?.getEvents() ?? [];
+      const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
+      this.overlayLog = null;
+      this.diagnostics?.stop();
+      const diagnosticsText = this.diagnostics?.format() ?? "";
+      this.diagnostics = null;
 
-    const ext = recorder ? recorder.fileExtension() : "webm";
-    const videoUrl = URL.createObjectURL(blob);
-    // burnOverlay() only calls onError on failure, so resolveBurnInError(null)
-    // covers both "succeeded" and "no burnOverlay dep at all" once the burn-in
-    // promise settles without having already reported a failure message.
-    let resolveBurnInError!: (message: string | null) => void;
-    const burnInErrorPromise = new Promise<string | null>((r) => { resolveBurnInError = r; });
-    const burnInPromise = this.deps.burnOverlay
-      ? this.deps.burnOverlay(blob, events, recordedDurationMs, ext, resolveBurnInError)
-      : Promise.resolve(null);
-    void burnInPromise.then(() => resolveBurnInError(null));
+      const recorder = this.videoRecorder;
+      const blob = recorder ? await recorder.stop() : new Blob();
+      await this.deps.wakeGuard.release();
 
-    const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
+      const ext = recorder ? recorder.fileExtension() : "webm";
+      const videoUrl = URL.createObjectURL(blob);
+      // burnOverlay() only calls onError on failure, so resolveBurnInError(null)
+      // covers both "succeeded" and "no burnOverlay dep at all" once the burn-in
+      // promise settles without having already reported a failure message.
+      let resolveBurnInError!: (message: string | null) => void;
+      const burnInErrorPromise = new Promise<string | null>((r) => { resolveBurnInError = r; });
+      const burnInPromise = this.deps.burnOverlay
+        ? this.deps.burnOverlay(blob, events, recordedDurationMs, ext, resolveBurnInError)
+        : Promise.resolve(null);
+      void burnInPromise.then(() => resolveBurnInError(null));
 
-    // Award XP points to student & save
-    const xpEarned = 50 + this.drillCount * 10;
-    this.characterState.totalXp += xpEarned;
-    this.characterState.completedCount += 1;
-    saveCharacterState(this.characterState, this.mem());
+      const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
-    // Deduped list of the drills practiced this session (rest excluded), each
-    // with its latest saved 工夫 pre-filled for editing.
-    const seen = new Set<string>();
-    const kufuDrills = this.menu
-      .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
-      .map((d) => ({
-        name: d.name,
-        current: latestKufu(d.name, this.mem()),
-        canAdd: canAddKufu(d.name, this.mem(), this.maxKufuDrills()),
-      }));
+      // Award XP points to student & save
+      const xpEarned = 50 + this.drillCount * 10;
+      this.characterState.totalXp += xpEarned;
+      this.characterState.completedCount += 1;
+      saveCharacterState(this.characterState, this.mem());
 
-    // Count each practiced drill toward its 強さ level (+1 per session).
-    bumpDrills(kufuDrills.map((d) => d.name), this.mem());
+      // Deduped list of the drills practiced this session (rest excluded), each
+      // with its latest saved 工夫 pre-filled for editing.
+      const seen = new Set<string>();
+      const kufuDrills = this.menu
+        .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
+        .map((d) => ({
+          name: d.name,
+          current: latestKufu(d.name, this.mem()),
+          canAdd: canAddKufu(d.name, this.mem(), this.maxKufuDrills()),
+        }));
 
-    const blobForShare = blob;
-    renderDoneScreen(this.root, {
-      videoUrl,
-      ext,
-      burnInPromise,
-      burnInErrorPromise,
-      diagnosticsText,
-      stats: {
-        time: formatMMSS(elapsedSeconds),
-        drills: this.drillCount,
-        cues: this.cueCount,
-      },
-      characterId: this.characterState.selectedId,
-      xpEarned,
-      kufuDrills,
-      kufuEnabled: this.kufuLimit() > 0,
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
-      onShare: (burnedBlob) => {
-        void this.deps.shareRecording(burnedBlob ?? blobForShare, ext).catch((e) => {
-          console.error("shareRecording failed", e);
-        });
-      },
-      onAgain: () => {
-        this.sessionEnding = false;
-        this.videoRecorder = null;
-        this.scheduler = null;
-        this.showSetup();
-      },
-    });
+      // Count each practiced drill toward its 強さ level (+1 per session).
+      bumpDrills(kufuDrills.map((d) => d.name), this.mem());
+
+      const blobForShare = blob;
+      renderDoneScreen(this.root, {
+        videoUrl,
+        ext,
+        burnInPromise,
+        burnInErrorPromise,
+        diagnosticsText,
+        stats: {
+          time: formatMMSS(elapsedSeconds),
+          drills: this.drillCount,
+          cues: this.cueCount,
+        },
+        characterId: this.characterState.selectedId,
+        xpEarned,
+        kufuDrills,
+        kufuEnabled: this.kufuLimit() > 0,
+        onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
+        onShare: (burnedBlob) => {
+          void this.deps.shareRecording(burnedBlob ?? blobForShare, ext).catch((e) => {
+            console.error("shareRecording failed", e);
+          });
+        },
+        onAgain: () => {
+          this.sessionEnding = false;
+          this.videoRecorder = null;
+          this.scheduler = null;
+          this.showSetup();
+        },
+      });
+    } catch (e) {
+      // Without this, a thrown/rejected step above (e.g. recorder.stop()
+      // rejecting on an already-inactive MediaRecorder) left finishSession()
+      // never reaching renderDoneScreen() — the 終了 button appeared to do
+      // nothing and the training screen stayed up with no visible error.
+      console.error("finishSession failed", e);
+      this.diagnostics = null;
+      this.overlayLog = null;
+      this.sessionEnding = false;
+      this.videoRecorder = null;
+      this.scheduler = null;
+      const message = e instanceof Error ? e.message : String(e);
+      this.showSetup(`動画の保存に失敗しました: ${message}`);
+    }
   }
 }
