@@ -61,9 +61,6 @@ export interface BgmPlayer {
   unlock(): void;
   play(): void;
   stop(): void;
-  // Mute/unmute without stopping playback — used by the training screen's
-  // 🔇/🎵 toggle. Independent of pause/resume (voice cues keep playing muted).
-  setMuted(muted: boolean): void;
 }
 
 export interface KarateAppDeps {
@@ -104,7 +101,6 @@ export class KarateApp {
   private drillCount = 0;
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
-  private bgmMuted = false;
   private characterState: CharacterState;
   private overlayLog: OverlayEventLog | null = null;
   private diagnostics: DiagnosticsLog | null = null;
@@ -424,8 +420,6 @@ export class KarateApp {
     this.drillCount = 0;
     this.paused = false;
     view.setPaused(false);
-    this.bgmMuted = false;
-    view.setBgmMuted(false);
 
     // Ready → 3 → 2 → 1 → Go!! intro. Numbers beep, Ready/Go are spoken.
     // BGM and the drill timer both start on "Go!!".
@@ -495,11 +489,6 @@ export class KarateApp {
     });
     view.onSkip(() => scheduler.skip());
     view.onStop(() => { void this.finishSession(); });
-    view.onToggleBgm(() => {
-      this.bgmMuted = !this.bgmMuted;
-      this.deps.bgm?.setMuted(this.bgmMuted);
-      view.setBgmMuted(this.bgmMuted);
-    });
 
     this.scheduler = scheduler;
     scheduler.start();

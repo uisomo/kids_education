@@ -209,7 +209,7 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   const store = new VoiceStore(memKv());
   await store.init();
 
-  const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn(), setMuted: vi.fn() };
+  const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn() };
 
   const app = new KarateApp(root, {
     voiceStore: store,
@@ -243,48 +243,6 @@ it("plays BGM after the intro and stops it when the session ends", async () => {
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
   expect(bgm.stop).toHaveBeenCalled();
-});
-
-it("the training screen's BGM button toggles bgm.setMuted", async () => {
-  const root = document.createElement("div");
-  document.body.append(root);
-
-  const store = new VoiceStore(memKv());
-  await store.init();
-
-  const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn(), setMuted: vi.fn() };
-
-  const app = new KarateApp(root, {
-    voiceStore: store,
-    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
-    makeVideoRecorder: () => ({
-      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
-      startRecording: vi.fn(),
-      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
-      fileExtension: () => "mp4",
-    }),
-    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
-    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
-    rafLoop: { start: vi.fn(), stop: vi.fn() },
-    shareRecording: vi.fn().mockResolvedValue(undefined),
-    bgm,
-    introStepMs: 0,
-    menuOverride: [{ id: "a", name: "前蹴り", seconds: 30, kind: "drill" }],
-  });
-  await app.start();
-
-  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
-
-  const btn = root.querySelector<HTMLButtonElement>("[data-bgm-toggle]")!;
-  btn.click();
-  expect(bgm.setMuted).toHaveBeenCalledWith(true);
-  expect(btn.textContent).toBe("🔇");
-
-  btn.click();
-  expect(bgm.setMuted).toHaveBeenCalledWith(false);
-  expect(btn.textContent).toBe("🎵");
 });
 
 it("records the raw camera stream directly and logs drill/countdown state for later burn-in", async () => {

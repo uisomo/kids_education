@@ -21,30 +21,6 @@ it("fires stop handler", () => {
   expect(onStop).toHaveBeenCalledOnce();
 });
 
-it("renders a BGM toggle button that starts unmuted and fires onToggleBgm", () => {
-  const root = document.createElement("div");
-  const view = renderTrainingScreen(root);
-  const btn = root.querySelector<HTMLButtonElement>("[data-bgm-toggle]")!;
-  expect(btn).not.toBeNull();
-  expect(btn.textContent).toBe("🎵");
-  const onToggleBgm = vi.fn();
-  view.onToggleBgm(onToggleBgm);
-  btn.click();
-  expect(onToggleBgm).toHaveBeenCalledOnce();
-});
-
-it("setBgmMuted flips the button's icon and muted state", () => {
-  const root = document.createElement("div");
-  const view = renderTrainingScreen(root);
-  const btn = root.querySelector<HTMLButtonElement>("[data-bgm-toggle]")!;
-  view.setBgmMuted(true);
-  expect(btn.textContent).toBe("🔇");
-  expect(btn.classList.contains("is-muted")).toBe(true);
-  view.setBgmMuted(false);
-  expect(btn.textContent).toBe("🎵");
-  expect(btn.classList.contains("is-muted")).toBe(false);
-});
-
 it("renders the Dojo backdrop and a hidden companion cheer video", () => {
   const root = document.createElement("div");
   renderTrainingScreen(root);

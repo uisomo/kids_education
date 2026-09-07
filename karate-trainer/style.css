@@ -711,20 +711,6 @@ button {
   border-radius: 999px;
 }
 
-.bgm-toggle-btn {
-  font-size: 1.1rem;
-  line-height: 1;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1.5px solid rgba(255, 255, 255, 0.3);
-  border-radius: 999px;
-  padding: 0.35rem 0.6rem;
-  cursor: pointer;
-}
-
-.bgm-toggle-btn.is-muted {
-  opacity: 0.6;
-}
-
 /* Companion cheer overlay on Training Screen — a transparent character clip
    that pops into a bottom corner on each cue, then fades away. Random
    character each time (no partner selection). */
