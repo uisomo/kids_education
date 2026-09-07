@@ -46,9 +46,9 @@ it("keeps plans isolated per member via scoped storage", () => {
 });
 
 it("exposes the plan limits from memory (free/standard/max)", () => {
-  expect(PLAN_LIMITS.free).toEqual({ presets: 1, kufu: 0 });
-  expect(PLAN_LIMITS.standard).toEqual({ presets: 10, kufu: 1 });
-  expect(PLAN_LIMITS.max).toEqual({ presets: 20, kufu: 10 });
+  expect(PLAN_LIMITS.free).toEqual({ presets: 1, kufu: 1, maxKufuDrills: 1 });
+  expect(PLAN_LIMITS.standard).toEqual({ presets: 10, kufu: 1, maxKufuDrills: Infinity });
+  expect(PLAN_LIMITS.max).toEqual({ presets: 20, kufu: 10, maxKufuDrills: Infinity });
 });
 
 it("exposes display metadata for each plan", () => {

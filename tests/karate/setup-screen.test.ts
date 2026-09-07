@@ -328,3 +328,17 @@ it("saving from the card calls onSaveKufu and lights that row's button", () => {
   expect(button.classList.contains("is-lit")).toBe(true);
   expect(root.querySelector("[data-kufu-modal]")).toBeNull();
 });
+
+it("disables (not hides) a row's 工夫 button when canAddKufuFor says no (Free plan slot used elsewhere)", () => {
+  const root = document.createElement("div");
+  const menu = structuredClone(DEFAULT_MENU);
+  renderSetupScreen(root, deps({
+    menu,
+    kufuEnabled: true,
+    latestKufuFor: () => "",
+    canAddKufuFor: (name: string) => name === menu[0].name,
+  }));
+  const buttons = root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]");
+  expect(buttons[0].disabled).toBe(false);
+  expect(buttons[1].disabled).toBe(true);
+});

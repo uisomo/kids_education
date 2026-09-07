@@ -51,10 +51,12 @@ export interface SetupDeps {
   activeMemberId?: string;
   onSelectMember?(id: string): void;
   // 工夫 written by the kids themselves, from the 💡 button on each row.
-  // kufuEnabled false (Free plan, cap 0) hides the buttons entirely, matching
-  // how the done screen hides its 工夫 section.
+  // kufuEnabled false (工夫 cap 0) hides the buttons entirely; when enabled
+  // but canAddKufuFor(drillName) is false (Free plan's single slot already
+  // used by another 種目), the button for THIS 種目 is shown but disabled.
   kufuEnabled?: boolean;
   latestKufuFor?(drillName: string): string;
+  canAddKufuFor?(drillName: string): boolean;
   onSaveKufu?(drillName: string, text: string): void;
   // Practice BGM on/off, shown next to the drill total. Omit bgmMuted/onToggleBgm
   // together to hide the button (e.g. no bgm player configured).
@@ -224,9 +226,12 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       kufu.className = "row-kufu";
       kufu.dataset.kufuOpen = drill.name;
       kufu.textContent = "💡";
+      const canAdd = deps.canAddKufuFor?.(drill.name) ?? true;
+      kufu.disabled = !canAdd;
+      if (!canAdd) kufu.title = "ほかの種目の工夫がいっぱいです";
       const paint = (note: string) => {
         kufu.classList.toggle("is-lit", !!note);
-        kufu.title = note || "工夫をかく";
+        if (canAdd) kufu.title = note || "工夫をかく";
         kufu.setAttribute("aria-label", `${drill.name} の工夫`);
       };
       paint(deps.latestKufuFor(drill.name));

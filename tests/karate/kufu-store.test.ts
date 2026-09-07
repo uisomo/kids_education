@@ -1,5 +1,5 @@
 import { it, expect, beforeEach } from "vitest";
-import { loadKufu, latestKufu, addKufu, trimKufuHistory, KUFU_MAX_LEN } from "../../karate-trainer/src/kufu-store";
+import { loadKufu, latestKufu, addKufu, trimKufuHistory, canAddKufu, KUFU_MAX_LEN } from "../../karate-trainer/src/kufu-store";
 
 function memStorage(): Storage {
   const m = new Map<string, string>();
@@ -47,7 +47,7 @@ it("returns empty for unknown drills", () => {
   expect(loadKufu("知らない種目", s)).toEqual([]);
 });
 
-it("saves nothing when the plan limit is 0 (Free)", () => {
+it("saves nothing when the plan limit is 0", () => {
   addKufu("前蹴り", "腰を落とす", s, 0);
   expect(loadKufu("前蹴り", s)).toEqual([]);
 });
@@ -78,4 +78,42 @@ it("trimKufuHistory with limit 0 clears all history (Free downgrade)", () => {
   trimKufuHistory(0, s);
   expect(loadKufu("突き", s)).toEqual([]);
   expect(loadKufu("蹴り", s)).toEqual([]);
+});
+
+// --- maxDrills (Free plan: 1 種目 total may have any saved 工夫) ---
+
+it("addKufu allows a first drill to get a note under maxDrills 1", () => {
+  addKufu("前蹴り", "腰を落とす", s, 1, 1);
+  expect(loadKufu("前蹴り", s)).toEqual(["腰を落とす"]);
+});
+
+it("addKufu refuses a NEW drill once maxDrills is reached, leaving it unchanged", () => {
+  addKufu("前蹴り", "腰を落とす", s, 1, 1);
+  addKufu("回し蹴り", "高く上げる", s, 1, 1);
+  expect(loadKufu("前蹴り", s)).toEqual(["腰を落とす"]);
+  expect(loadKufu("回し蹴り", s)).toEqual([]);
+});
+
+it("addKufu still allows updating a drill that already has the used slot", () => {
+  addKufu("前蹴り", "腰を落とす", s, 1, 1);
+  addKufu("前蹴り", "軸足まっすぐ", s, 1, 1);
+  expect(loadKufu("前蹴り", s)).toEqual(["軸足まっすぐ"]);
+});
+
+it("canAddKufu is true for an already-used drill and false for a new one at the cap", () => {
+  addKufu("前蹴り", "腰を落とす", s, 1, 1);
+  expect(canAddKufu("前蹴り", s, 1)).toBe(true);
+  expect(canAddKufu("回し蹴り", s, 1)).toBe(false);
+});
+
+it("canAddKufu is true for any drill when no drill has used a slot yet", () => {
+  expect(canAddKufu("前蹴り", s, 1)).toBe(true);
+});
+
+it("trimKufuHistory drops extra drills down to maxDrills on a plan downgrade", () => {
+  addKufu("突き", "a", s, 10, Infinity);
+  addKufu("蹴り", "b", s, 10, Infinity);
+  trimKufuHistory(10, s, 1);
+  const remaining = [loadKufu("突き", s), loadKufu("蹴り", s)].filter((h) => h.length);
+  expect(remaining).toHaveLength(1);
 });

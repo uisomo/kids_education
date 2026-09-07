@@ -10,7 +10,7 @@ import { renderDoneScreen } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
 import { playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
-import { latestKufu, addKufu, trimKufuHistory } from "./kufu-store";
+import { latestKufu, addKufu, trimKufuHistory, canAddKufu } from "./kufu-store";
 import { bumpDrills } from "./progress-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
@@ -28,21 +28,14 @@ import {
   type CharacterId,
   type CharacterState,
 } from "./character-store";
+import { OverlayEventLog, type OverlayEvent } from "./overlay-event-log";
+import { DiagnosticsLog } from "./diagnostics-log";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
   startRecording(streamOverride?: MediaStream): void;
   stop(): Promise<Blob>;
   fileExtension(): string;
-}
-
-// Factory for the canvas compositor, injected so app.ts stays testable and the
-// heavy DOM/canvas dependency lives at the composition root (main.ts).
-export interface CompositorLike {
-  setState(patch: Partial<{ drill: string; seconds: number; cue: string; caption: string }>): void;
-  start(): void;
-  stop(): void;
-  captureStream(cameraStream: MediaStream, fps?: number): MediaStream;
 }
 
 export interface VoiceRecorderLike {
@@ -89,11 +82,16 @@ export interface KarateAppDeps {
   shareRecording(blob: Blob, ext: string): Promise<void>;
   // Optional background music played during the session (Go!! → session end).
   bgm?: BgmPlayer;
-  // Optional canvas compositor factory: builds a compositor bound to the given
-  // camera <video>, used to burn 種目名/countdown/cue/工夫 into the recording.
-  // When omitted (or captureStream unsupported), recording falls back to the
-  // raw camera feed with no burned-in text.
-  makeCompositor?(video: HTMLVideoElement): CompositorLike;
+  // Burns overlay text (種目名/countdown/cue/工夫) into the saved recording as
+  // an offline post-process, after the raw camera+audio recording has already
+  // stopped. Returns null on any failure (unsupported browser, ffmpeg error)
+  // — the caller falls back to the raw video with no burned-in text.
+  burnOverlay?(
+    rawVideoBlob: Blob,
+    events: OverlayEvent[],
+    totalDurationMs: number,
+    ext: string,
+  ): Promise<Blob | null>;
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
   introStepMs?: number;
@@ -110,7 +108,8 @@ export class KarateApp {
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
   private characterState: CharacterState;
-  private compositor: CompositorLike | null = null;
+  private overlayLog: OverlayEventLog | null = null;
+  private diagnostics: DiagnosticsLog | null = null;
   private activeTab: NavTab = "train";
   // E4: the active member's ファイト コメント, snapshotted at session start so it's
   // stable for the whole practice. "" → fall back to the generic encourage toast.
@@ -139,6 +138,12 @@ export class KarateApp {
   // The active member's plan-derived 工夫 cap (0 = 工夫 disabled, Free plan).
   private kufuLimit(): number {
     return PLAN_LIMITS[loadPlan(this.mem())].kufu;
+  }
+
+  // The active member's plan-derived cap on how many DISTINCT 種目 may have a
+  // saved 工夫 at once (Free plan: 1; Standard/Max: unlimited).
+  private maxKufuDrills(): number {
+    return PLAN_LIMITS[loadPlan(this.mem())].maxKufuDrills;
   }
 
   // The family's effective preset (menu) cap = the highest plan cap across all
@@ -260,10 +265,11 @@ export class KarateApp {
         this.showSetup();
       },
       // 工夫 written by the kid from the 💡 button on each row. Same store and
-      // plan cap as the done screen, so the caps apply identically.
+      // plan caps as the done screen, so they apply identically.
       kufuEnabled: this.kufuLimit() > 0,
       latestKufuFor: (name) => latestKufu(name, this.mem()),
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
+      canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.maxKufuDrills()),
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
     });
 
     if (message) {
@@ -348,9 +354,10 @@ export class KarateApp {
     this.trimPresetsToFamilyLimit();
   }
 
-  // Drop each drill's 工夫 history down to the current plan cap (0 clears all).
+  // Drop each drill's 工夫 history down to the current plan caps (0 clears
+  // all; a lower maxKufuDrills also drops whole 種目 down to that count).
   private trimKufuToLimit(): void {
-    trimKufuHistory(this.kufuLimit(), this.mem());
+    trimKufuHistory(this.kufuLimit(), this.mem(), this.maxKufuDrills());
   }
 
   // Trim family-shared presets to the highest cap across all members.
@@ -411,17 +418,22 @@ export class KarateApp {
       /* ignore synchronously throwing play() in jsdom */
     }
 
-    // Build the compositor (burns text into the recording) now that the camera
-    // <video> exists. Record the composited stream when available, else the raw
-    // camera feed. startRecording() runs here — after the video is wired up —
-    // so the very first recorded frames already carry the overlay.
-    this.compositor = this.deps.makeCompositor?.(view.videoEl) ?? null;
-    if (this.compositor) {
-      this.compositor.start();
-      recorder.startRecording(this.compositor.captureStream(stream));
-    } else {
-      recorder.startRecording();
-    }
+    // Record the raw camera+audio stream directly — no live canvas
+    // compositing, so none of the iOS Safari canvas.captureStream()
+    // freeze/silent-audio bugs can occur. Overlay text is logged with
+    // timestamps here and burned into the file afterward (finishSession()).
+    this.overlayLog = new OverlayEventLog();
+    this.overlayLog.start();
+    recorder.startRecording();
+
+    // Temporary on-device diagnostics for the iPhone Safari video-freeze bug
+    // (image stalls while audio keeps recording). No Mac is available for
+    // Safari's remote inspector, so this logs track mute/ended events, tab
+    // visibility changes, and rAF stalls as plain text shown on the done
+    // screen — readable directly off the phone.
+    this.diagnostics = new DiagnosticsLog();
+    this.diagnostics.start();
+    this.diagnostics.watchStream(stream);
 
     this.recElapsedMs = 0;
     this.cueCount = 0;
@@ -454,24 +466,24 @@ export class KarateApp {
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
         view.setCaption(caption);
-        this.compositor?.setState({ drill: drill.name, caption });
+        this.overlayLog?.setState({ drill: drill.name, caption });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
         view.setNext(next ? next.name : null);
       },
       onTick: (secondsLeft: number) => {
         view.setTime(secondsLeft);
-        this.compositor?.setState({ seconds: secondsLeft });
+        this.overlayLog?.setState({ seconds: secondsLeft });
       },
       onEncourage: () => {
         this.cueCount++;
         // E4: show the parent's ファイト コメント when set, else the generic toast.
-        // The parent's words take priority (not shown alongside). Burned into the
-        // recording via the compositor's cue field, same as the generic toast.
+        // The parent's words take priority (not shown alongside). Logged for the
+        // offline burn-in pass, same as the generic toast.
         const cue = this.fightComment || ENCOURAGE_TOAST;
         view.showCue(cue);
-        this.compositor?.setState({ cue });
-        setTimeout(() => this.compositor?.setState({ cue: "" }), 1800);
+        this.overlayLog?.setState({ cue });
+        setTimeout(() => this.overlayLog?.setState({ cue: "" }), 1800);
         void cuePlayer.encourage();
       },
       onCountdown: (n: number) => {
@@ -508,7 +520,10 @@ export class KarateApp {
 
     this.scheduler = scheduler;
     scheduler.start();
-    this.deps.rafLoop.start((deltaMs) => scheduler.tick(deltaMs));
+    this.deps.rafLoop.start((deltaMs) => {
+      this.diagnostics?.noteRafTick();
+      scheduler.tick(deltaMs);
+    });
   }
 
   private scheduler: SessionScheduler | null = null;
@@ -544,8 +559,20 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
-    this.compositor?.stop();
-    this.compositor = null;
+    // Capture events AND elapsed time from the same OverlayEventLog instance,
+    // on its own clock, before nulling it out. recElapsedMs (driven by
+    // startRecTimer(), which starts AFTER the Ready→Go intro) undercounts the
+    // true recording length by the intro's duration — using it here would
+    // anchor totalDurationMs on a different clock than the event timestamps
+    // (which start at overlayLog.start(), before the intro), silently
+    // dropping every trailing overlay segment during burn-in. See
+    // overlay-event-log.ts's elapsedMs() and overlay-burner.ts's toSegments().
+    const events = this.overlayLog?.getEvents() ?? [];
+    const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
+    this.overlayLog = null;
+    this.diagnostics?.stop();
+    const diagnosticsText = this.diagnostics?.format() ?? "";
+    this.diagnostics = null;
 
     const recorder = this.videoRecorder;
     const blob = recorder ? await recorder.stop() : new Blob();
@@ -553,6 +580,9 @@ export class KarateApp {
 
     const ext = recorder ? recorder.fileExtension() : "webm";
     const videoUrl = URL.createObjectURL(blob);
+    const burnInPromise = this.deps.burnOverlay
+      ? this.deps.burnOverlay(blob, events, recordedDurationMs, ext)
+      : Promise.resolve(null);
 
     const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
@@ -567,7 +597,11 @@ export class KarateApp {
     const seen = new Set<string>();
     const kufuDrills = this.menu
       .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
-      .map((d) => ({ name: d.name, current: latestKufu(d.name, this.mem()) }));
+      .map((d) => ({
+        name: d.name,
+        current: latestKufu(d.name, this.mem()),
+        canAdd: canAddKufu(d.name, this.mem(), this.maxKufuDrills()),
+      }));
 
     // Count each practiced drill toward its 強さ level (+1 per session).
     bumpDrills(kufuDrills.map((d) => d.name), this.mem());
@@ -576,6 +610,8 @@ export class KarateApp {
     renderDoneScreen(this.root, {
       videoUrl,
       ext,
+      burnInPromise,
+      diagnosticsText,
       stats: {
         time: formatMMSS(elapsedSeconds),
         drills: this.drillCount,
@@ -585,9 +621,9 @@ export class KarateApp {
       xpEarned,
       kufuDrills,
       kufuEnabled: this.kufuLimit() > 0,
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
-      onShare: () => {
-        void this.deps.shareRecording(blobForShare, ext).catch((e) => {
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
+      onShare: (burnedBlob) => {
+        void this.deps.shareRecording(burnedBlob ?? blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);
         });
       },

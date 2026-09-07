@@ -4,21 +4,22 @@
 // on the active member), so each kid has their own plan, like menu / kufu / XP.
 //
 // Plans & limits (see karate-pricing-plans memory):
-//   Free     $0            presets 1   工夫 0 (工夫 disabled)
+//   Free     $0            presets 1   工夫 1 (1 種目 only)  Standard/Max 工夫 1/10 (any 種目)
 //   Standard $5 / ¥500     presets 10  工夫 1
 //   Max      $25 / ¥2500   presets 20  工夫 10
 
 export type Plan = "free" | "standard" | "max";
 
 export interface PlanLimits {
-  presets: number; // max saved presets (=menus/classes)
-  kufu: number;    // max 工夫 history per drill; 0 disables 工夫 entirely
+  presets: number;      // max saved presets (=menus/classes)
+  kufu: number;         // max 工夫 history per drill; 0 disables 工夫 entirely
+  maxKufuDrills: number; // max distinct 種目 that may have any saved 工夫 at once
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free: { presets: 1, kufu: 0 },
-  standard: { presets: 10, kufu: 1 },
-  max: { presets: 20, kufu: 10 },
+  free: { presets: 1, kufu: 1, maxKufuDrills: 1 },
+  standard: { presets: 10, kufu: 1, maxKufuDrills: Infinity },
+  max: { presets: 20, kufu: 10, maxKufuDrills: Infinity },
 };
 
 export interface PlanMeta {
