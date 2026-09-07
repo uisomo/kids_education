@@ -84,3 +84,50 @@ it("stop() detaches the visibilitychange listener so later changes aren't logged
   document.dispatchEvent(new Event("visibilitychange"));
   expect(log.stop()).toEqual([]);
 });
+
+it("startHeartbeat logs when rAF has produced no ticks for a while, even without any noteRafTick calls", () => {
+  vi.useFakeTimers();
+  let t = 0;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+  log.startHeartbeat(1000, 500);
+
+  t = 1000;
+  vi.advanceTimersByTime(1000); // no noteRafTick ever called — rAF is fully silent
+
+  expect(log.stop()).toEqual([{ tMs: 1000, label: "heartbeat: rAF silent for 1000ms" }]);
+  vi.useRealTimers();
+});
+
+it("startHeartbeat stays quiet when the most recent rAF tick is within the threshold", () => {
+  vi.useFakeTimers();
+  let t = 0;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+  log.startHeartbeat(1000, 500);
+
+  // Simulate rAF ticking steadily every 100ms, right up to the heartbeat check at t=1000.
+  for (let i = 1; i <= 9; i++) {
+    t = i * 100;
+    log.noteRafTick(500);
+  }
+  vi.advanceTimersByTime(1000); // heartbeat checks at t=1000 → only a 100ms gap since the last tick
+
+  expect(log.stop()).toEqual([]);
+  vi.useRealTimers();
+});
+
+it("startHeartbeat is silenced once stop() clears the interval", () => {
+  vi.useFakeTimers();
+  let t = 0;
+  const log = new DiagnosticsLog({ now: () => t });
+  log.start();
+  log.startHeartbeat(1000, 500);
+  log.stop();
+
+  t = 2000;
+  vi.advanceTimersByTime(2000);
+
+  expect(log.stop()).toEqual([]);
+  vi.useRealTimers();
+});

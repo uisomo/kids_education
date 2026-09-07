@@ -415,6 +415,7 @@ export class KarateApp {
     this.diagnostics = new DiagnosticsLog();
     this.diagnostics.start();
     this.diagnostics.watchStream(stream);
+    this.diagnostics.startHeartbeat();
 
     this.recElapsedMs = 0;
     this.cueCount = 0;

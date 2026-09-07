@@ -67,9 +67,30 @@ export class DiagnosticsLog {
     this.lastTickMs = nowMs;
   }
 
+  // noteRafTick() can only report a stall while rAF keeps firing at all — if
+  // rAF stops entirely (e.g. iOS Safari throttling it independent of the rest
+  // of the main thread), that path goes silent too. setInterval runs on a
+  // different browser scheduling path, so this heartbeat can catch "rAF has
+  // produced zero ticks in a while" even when noteRafTick itself never runs
+  // again to report it.
+  private heartbeatHandle: ReturnType<typeof setInterval> | null = null;
+  startHeartbeat(intervalMs = 1000, thresholdMs = 500): void {
+    this.heartbeatHandle = setInterval(() => {
+      const nowMs = this.now() - this.startTime;
+      const sinceLastTick = this.lastTickMs === null ? nowMs : nowMs - this.lastTickMs;
+      if (sinceLastTick > thresholdMs) {
+        this.log(`heartbeat: rAF silent for ${Math.round(sinceLastTick)}ms`);
+      }
+    }, intervalMs);
+  }
+
   stop(): DiagnosticsEntry[] {
     this.detachFns.forEach((fn) => fn());
     this.detachFns = [];
+    if (this.heartbeatHandle !== null) {
+      clearInterval(this.heartbeatHandle);
+      this.heartbeatHandle = null;
+    }
     return this.entries;
   }
 
