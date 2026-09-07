@@ -10,9 +10,11 @@ export interface TrainingView {
   setCaption(text: string): void;   // 工夫 reminder at the bottom
   setRecElapsed(text: string): void;
   setPaused(paused: boolean): void;
+  setBgmMuted(muted: boolean): void;
   onPause(cb: () => void): void;
   onSkip(cb: () => void): void;
   onStop(cb: () => void): void;
+  onToggleBgm(cb: () => void): void;
 }
 
 export function renderTrainingScreen(
@@ -42,12 +44,20 @@ export function renderTrainingScreen(
   recEl.className = "rec";
   recEl.textContent = "REC 00:00";
 
+  const BGM_ON_LABEL = "🎵";
+  const BGM_OFF_LABEL = "🔇";
+  const bgmBtn = document.createElement("button");
+  bgmBtn.dataset.bgmToggle = "";
+  bgmBtn.className = "bgm-toggle-btn";
+  bgmBtn.textContent = BGM_ON_LABEL;
+  bgmBtn.setAttribute("aria-label", "BGM on/off");
+
   const progEl = document.createElement("div");
   progEl.dataset.prog = "";
   progEl.className = "prog";
   progEl.textContent = "";
 
-  topBar.append(recEl, progEl);
+  topBar.append(recEl, bgmBtn, progEl);
 
   // Companion cheer overlay: a transparent (green-screen removed) character
   // video that pops up in a corner on each cue, then hides. A random
@@ -186,6 +196,10 @@ export function renderTrainingScreen(
     setPaused(paused: boolean) {
       pauseBtn.textContent = paused ? RESUME_LABEL : PAUSE_LABEL;
     },
+    setBgmMuted(muted: boolean) {
+      bgmBtn.textContent = muted ? BGM_OFF_LABEL : BGM_ON_LABEL;
+      bgmBtn.classList.toggle("is-muted", muted);
+    },
     onPause(cb: () => void) {
       pauseBtn.addEventListener("click", cb);
     },
@@ -194,6 +208,9 @@ export function renderTrainingScreen(
     },
     onStop(cb: () => void) {
       stopBtn.addEventListener("click", cb);
+    },
+    onToggleBgm(cb: () => void) {
+      bgmBtn.addEventListener("click", cb);
     },
   };
 

@@ -62,6 +62,22 @@ it("saving a 工夫 fires onSaveKufu with the drill name and text", () => {
   expect(onSaveKufu).toHaveBeenCalledWith("前蹴り", "軸足まっすぐ");
 });
 
+it("disables (not hides) a drill's input/save when canAdd is false (Free plan slot used elsewhere)", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 2, cues: 5 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    kufuDrills: [
+      { name: "前蹴り", current: "腰を落とす", canAdd: true },
+      { name: "回し蹴り", current: "", canAdd: false },
+    ],
+  });
+  expect(root.querySelector<HTMLInputElement>('[data-kufu-input="前蹴り"]')!.disabled).toBe(false);
+  expect(root.querySelector<HTMLInputElement>('[data-kufu-input="回し蹴り"]')!.disabled).toBe(true);
+  expect(root.querySelector<HTMLButtonElement>('[data-kufu-save="回し蹴り"]')!.disabled).toBe(true);
+});
+
 it("omits the 工夫 section when no drills are given", () => {
   const root = document.createElement("div");
   renderDoneScreen(root, {

@@ -4,6 +4,9 @@ import { createCompanionAvatar } from "./companion-avatar";
 export interface DoneKufuDrill {
   name: string;
   current: string;   // latest saved 工夫 for this drill (may be "")
+  // false when the plan's maxKufuDrills cap is already used by another 種目
+  // (Free plan: 1 種目 total) — the input/save button are disabled, not hidden.
+  canAdd?: boolean;
 }
 
 export interface DoneDeps {
@@ -135,6 +138,11 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       save.className = "kufu-save";
       save.dataset.kufuSave = d.name;
       save.textContent = "保存";
+      if (d.canAdd === false) {
+        input.disabled = true;
+        save.disabled = true;
+        save.title = "ほかの種目の工夫がいっぱいです";
+      }
       const persist = () => {
         const text = input.value.trim().slice(0, KUFU_MAX_LEN);
         if (!text) return;

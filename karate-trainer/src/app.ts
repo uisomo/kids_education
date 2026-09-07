@@ -10,7 +10,7 @@ import { renderDoneScreen } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
 import { playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
-import { latestKufu, addKufu, trimKufuHistory } from "./kufu-store";
+import { latestKufu, addKufu, trimKufuHistory, canAddKufu } from "./kufu-store";
 import { bumpDrills } from "./progress-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
@@ -61,6 +61,9 @@ export interface BgmPlayer {
   unlock(): void;
   play(): void;
   stop(): void;
+  // Mute/unmute without stopping playback — used by the training screen's
+  // 🔇/🎵 toggle. Independent of pause/resume (voice cues keep playing muted).
+  setMuted(muted: boolean): void;
 }
 
 export interface KarateAppDeps {
@@ -101,6 +104,7 @@ export class KarateApp {
   private drillCount = 0;
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
+  private bgmMuted = false;
   private characterState: CharacterState;
   private overlayLog: OverlayEventLog | null = null;
   private diagnostics: DiagnosticsLog | null = null;
@@ -130,6 +134,12 @@ export class KarateApp {
   // The active member's plan-derived 工夫 cap (0 = 工夫 disabled, Free plan).
   private kufuLimit(): number {
     return PLAN_LIMITS[loadPlan(this.mem())].kufu;
+  }
+
+  // The active member's plan-derived cap on how many DISTINCT 種目 may have a
+  // saved 工夫 at once (Free plan: 1; Standard/Max: unlimited).
+  private maxKufuDrills(): number {
+    return PLAN_LIMITS[loadPlan(this.mem())].maxKufuDrills;
   }
 
   // The family's effective preset (menu) cap = the highest plan cap across all
@@ -239,10 +249,11 @@ export class KarateApp {
         this.showSetup();
       },
       // 工夫 written by the kid from the 💡 button on each row. Same store and
-      // plan cap as the done screen, so the caps apply identically.
+      // plan caps as the done screen, so they apply identically.
       kufuEnabled: this.kufuLimit() > 0,
       latestKufuFor: (name) => latestKufu(name, this.mem()),
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
+      canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.maxKufuDrills()),
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
     });
 
     if (message) {
@@ -327,9 +338,10 @@ export class KarateApp {
     this.trimPresetsToFamilyLimit();
   }
 
-  // Drop each drill's 工夫 history down to the current plan cap (0 clears all).
+  // Drop each drill's 工夫 history down to the current plan caps (0 clears
+  // all; a lower maxKufuDrills also drops whole 種目 down to that count).
   private trimKufuToLimit(): void {
-    trimKufuHistory(this.kufuLimit(), this.mem());
+    trimKufuHistory(this.kufuLimit(), this.mem(), this.maxKufuDrills());
   }
 
   // Trim family-shared presets to the highest cap across all members.
@@ -412,6 +424,8 @@ export class KarateApp {
     this.drillCount = 0;
     this.paused = false;
     view.setPaused(false);
+    this.bgmMuted = false;
+    view.setBgmMuted(false);
 
     // Ready → 3 → 2 → 1 → Go!! intro. Numbers beep, Ready/Go are spoken.
     // BGM and the drill timer both start on "Go!!".
@@ -481,6 +495,11 @@ export class KarateApp {
     });
     view.onSkip(() => scheduler.skip());
     view.onStop(() => { void this.finishSession(); });
+    view.onToggleBgm(() => {
+      this.bgmMuted = !this.bgmMuted;
+      this.deps.bgm?.setMuted(this.bgmMuted);
+      view.setBgmMuted(this.bgmMuted);
+    });
 
     this.scheduler = scheduler;
     scheduler.start();
@@ -561,7 +580,11 @@ export class KarateApp {
     const seen = new Set<string>();
     const kufuDrills = this.menu
       .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
-      .map((d) => ({ name: d.name, current: latestKufu(d.name, this.mem()) }));
+      .map((d) => ({
+        name: d.name,
+        current: latestKufu(d.name, this.mem()),
+        canAdd: canAddKufu(d.name, this.mem(), this.maxKufuDrills()),
+      }));
 
     // Count each practiced drill toward its 強さ level (+1 per session).
     bumpDrills(kufuDrills.map((d) => d.name), this.mem());
@@ -581,7 +604,7 @@ export class KarateApp {
       xpEarned,
       kufuDrills,
       kufuEnabled: this.kufuLimit() > 0,
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit()); },
+      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
       onShare: (burnedBlob) => {
         void this.deps.shareRecording(burnedBlob ?? blobForShare, ext).catch((e) => {
           console.error("shareRecording failed", e);

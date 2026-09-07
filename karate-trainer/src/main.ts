@@ -40,6 +40,9 @@ function makeBgm(): BgmPlayer {
       audio.pause();
       audio.currentTime = 0;
     },
+    setMuted(muted: boolean) {
+      audio.muted = muted;
+    },
   };
 }
 
