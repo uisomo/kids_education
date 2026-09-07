@@ -78,6 +78,7 @@ export async function burnOverlay(
   totalDurationMs: number,
   ext: string,
   deps: OverlayBurnerDeps = {},
+  onError?: (message: string) => void,
 ): Promise<Blob | null> {
   const segments = toSegments(events, totalDurationMs);
   if (segments.length === 0) return null;
@@ -134,6 +135,7 @@ export async function burnOverlay(
     // burn-in failure (e.g. ffmpeg.wasm not supported on this browser) is
     // at least visible in the console instead of just quietly missing text.
     console.error("burnOverlay failed, falling back to raw video", e);
+    onError?.(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
     return null;
   }
 }

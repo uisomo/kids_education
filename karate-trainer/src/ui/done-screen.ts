@@ -30,6 +30,11 @@ export interface DoneDeps {
   // bug. Shown collapsed since it's only useful for debugging. Omitted
   // (undefined/empty) when nothing was logged.
   diagnosticsText?: string;
+  // Resolves to the burnOverlay() failure message, or null if burn-in
+  // succeeded/was skipped. Settles after burnInPromise (same underlying
+  // burn-in call) — appended to the debug panel once known, so a burn-in
+  // failure is visible on-device instead of only in the console.
+  burnInErrorPromise?: Promise<string | null>;
 }
 
 const KUFU_MAX_LEN = 15;
@@ -171,8 +176,12 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   if (showBurninStatus) root.insertBefore(burninStatus, dl);
 
   // Collapsed debug panel: readable directly on the phone, no devtools
-  // needed, for tracking down the iPhone Safari video-freeze bug.
-  if (deps.diagnosticsText) {
+  // needed, for tracking down the iPhone Safari video-freeze bug. Shown
+  // unconditionally (even with nothing logged) so a "no debug panel at all"
+  // report is never ambiguous between "nothing happened" and "it's hidden".
+  // Demo-only: gated on VITE_SHOW_DIAGNOSTICS so it can be turned off with a
+  // Cloudflare Pages env var once this bug is fixed, without a code change.
+  if (import.meta.env.VITE_SHOW_DIAGNOSTICS !== "false") {
     const details = document.createElement("details");
     details.dataset.diagnostics = "";
     details.style.cssText = "margin: 0.5rem 0; font-size: 0.75rem; color: #999;";
@@ -180,8 +189,15 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     summary.textContent = "デバッグ情報";
     const pre = document.createElement("pre");
     pre.style.cssText = "white-space: pre-wrap; word-break: break-all;";
-    pre.textContent = deps.diagnosticsText;
+    pre.textContent = deps.diagnosticsText || "(no events logged)";
     details.append(summary, pre);
     root.append(details);
+
+    if (deps.burnInErrorPromise) {
+      void deps.burnInErrorPromise.then((message) => {
+        if (!message) return;
+        pre.textContent = `burn-in failed: ${message}\n\n${pre.textContent}`;
+      });
+    }
   }
 }

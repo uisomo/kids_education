@@ -85,6 +85,7 @@ export interface KarateAppDeps {
     events: OverlayEvent[],
     totalDurationMs: number,
     ext: string,
+    onError?: (message: string) => void,
   ): Promise<Blob | null>;
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
@@ -552,9 +553,15 @@ export class KarateApp {
 
     const ext = recorder ? recorder.fileExtension() : "webm";
     const videoUrl = URL.createObjectURL(blob);
+    // burnOverlay() only calls onError on failure, so resolveBurnInError(null)
+    // covers both "succeeded" and "no burnOverlay dep at all" once the burn-in
+    // promise settles without having already reported a failure message.
+    let resolveBurnInError!: (message: string | null) => void;
+    const burnInErrorPromise = new Promise<string | null>((r) => { resolveBurnInError = r; });
     const burnInPromise = this.deps.burnOverlay
-      ? this.deps.burnOverlay(blob, events, recordedDurationMs, ext)
+      ? this.deps.burnOverlay(blob, events, recordedDurationMs, ext, resolveBurnInError)
       : Promise.resolve(null);
+    void burnInPromise.then(() => resolveBurnInError(null));
 
     const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
@@ -583,6 +590,7 @@ export class KarateApp {
       videoUrl,
       ext,
       burnInPromise,
+      burnInErrorPromise,
       diagnosticsText,
       stats: {
         time: formatMMSS(elapsedSeconds),

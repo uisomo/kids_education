@@ -58,6 +58,19 @@ it("returns null when ffmpeg fails to load", async () => {
   expect(result).toBeNull();
 });
 
+it("reports the failure message via onError when ffmpeg fails to load", async () => {
+  const onError = vi.fn();
+  await burnOverlay(
+    new Blob(["raw"]),
+    [{ t: 0, patch: { drill: "型", seconds: 0, cue: "", caption: "" } }],
+    1000,
+    "mp4",
+    { makeFfmpeg: async () => { throw new Error("wasm unsupported"); }, renderFrame },
+    onError,
+  );
+  expect(onError).toHaveBeenCalledWith("Error: wasm unsupported");
+});
+
 it("returns null when ffmpeg.exec throws", async () => {
   const { ffmpeg } = fakeFfmpeg();
   ffmpeg.exec = vi.fn().mockRejectedValue(new Error("oom"));

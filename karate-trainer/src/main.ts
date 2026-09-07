@@ -69,7 +69,7 @@ const app = new KarateApp(root, {
   // via ffmpeg.wasm, after the raw camera+audio recording has stopped.
   // Falls back to the raw (un-burned) video on any failure — see
   // overlay-burner.ts.
-  burnOverlay: (rawVideoBlob, events, totalDurationMs, ext) =>
-    burnOverlay(rawVideoBlob, events, totalDurationMs, ext),
+  burnOverlay: (rawVideoBlob, events, totalDurationMs, ext, onError) =>
+    burnOverlay(rawVideoBlob, events, totalDurationMs, ext, {}, onError),
 });
 await app.start();
