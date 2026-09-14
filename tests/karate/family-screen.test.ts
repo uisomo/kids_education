@@ -59,9 +59,19 @@ it("renders a plan card per plan with the active member's plan marked", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps({ activePlan: "standard" }));
   const cards = root.querySelectorAll("[data-plan-card]");
-  expect(cards).toHaveLength(3);   // free / standard / max
+  expect(cards).toHaveLength(4);   // free / standard / max / family
   expect(root.querySelector('[data-plan-card="standard"]')!.classList.contains("active")).toBe(true);
   expect(root.querySelector('[data-plan-card="free"]')!.classList.contains("active")).toBe(false);
+});
+
+it("shows the Family card at ¥3000 and notes it covers everyone when active", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ activePlan: "family" }));
+  const card = root.querySelector<HTMLButtonElement>('[data-plan-card="family"]')!;
+  expect(card.classList.contains("active")).toBe(true);
+  expect(card.querySelector(".family-plan-price")!.textContent).toContain("¥3000");
+  expect(card.querySelector(".family-plan-feats")!.textContent).toContain("家族みんな");
+  expect(root.querySelector(".family-plan-note")!.textContent).toContain("家族みんな");
 });
 
 it("tapping a plan card fires onSelectPlan with that plan", () => {

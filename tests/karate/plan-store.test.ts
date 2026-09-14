@@ -2,6 +2,9 @@ import { it, expect } from "vitest";
 import {
   loadPlan,
   setPlan,
+  loadFamilyPlan,
+  setFamilyPlan,
+  effectivePlan,
   PLAN_LIMITS,
   PLAN_META,
 } from "../../karate-trainer/src/plan-store";
@@ -45,14 +48,39 @@ it("keeps plans isolated per member via scoped storage", () => {
   expect(loadPlan(b)).toBe("standard");
 });
 
-it("exposes the plan limits from memory (free/standard/max)", () => {
+it("exposes the plan limits from memory (free/standard/max/family)", () => {
   expect(PLAN_LIMITS.free).toEqual({ presets: 1, kufu: 1, maxKufuDrills: 1 });
   expect(PLAN_LIMITS.standard).toEqual({ presets: 10, kufu: 1, maxKufuDrills: Infinity });
   expect(PLAN_LIMITS.max).toEqual({ presets: 20, kufu: 10, maxKufuDrills: Infinity });
+  expect(PLAN_LIMITS.family).toEqual(PLAN_LIMITS.max);
 });
 
 it("exposes display metadata for each plan", () => {
   expect(PLAN_META.free.label).toBeTruthy();
   expect(PLAN_META.standard.price).toBeTruthy();
   expect(PLAN_META.max.price).toBeTruthy();
+  expect(PLAN_META.family.price).toContain("¥3000");
+});
+
+it("family plan is off by default and toggles on/off", () => {
+  const base = memStorage();
+  expect(loadFamilyPlan(base)).toBe(false);
+  setFamilyPlan(true, base);
+  expect(loadFamilyPlan(base)).toBe(true);
+  setFamilyPlan(false, base);
+  expect(loadFamilyPlan(base)).toBe(false);
+});
+
+it("family plan covers every member and overrides their own plans while on", () => {
+  const base = memStorage();
+  const a = scopedStorage(base, "alice");
+  const b = scopedStorage(base, "bob");
+  setPlan("standard", a);
+  setFamilyPlan(true, base);
+  expect(effectivePlan(base, a)).toBe("family");
+  expect(effectivePlan(base, b)).toBe("family");
+
+  setFamilyPlan(false, base);
+  expect(effectivePlan(base, a)).toBe("standard");
+  expect(effectivePlan(base, b)).toBe("free");
 });

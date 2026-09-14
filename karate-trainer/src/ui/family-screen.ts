@@ -12,7 +12,7 @@ export interface FamilyDeps {
   onAddMember(name: string): void;
   onRemoveMember(id: string): void;
   onSelectMember(id: string): void;
-  activePlan: Plan;             // the active member's current plan
+  activePlan: Plan;             // the active member's current plan ("family" while Family is on)
   onSelectPlan(plan: Plan): void;
   // E3 くらす assignment. `classes` = the family-shared presets that can be
   // assigned; `assignments` maps memberId → assigned presetId (or null).
@@ -27,7 +27,7 @@ export interface FamilyDeps {
   onSaveComment?(kind: "kansou" | "fight", text: string): void;
 }
 
-const PLAN_ORDER: Plan[] = ["free", "standard", "max"];
+const PLAN_ORDER: Plan[] = ["free", "standard", "max", "family"];
 
 const NAME_MAX_LEN = 12;
 
@@ -112,7 +112,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   addRow.append(nameInput, addBtn);
 
-  // --- Plan / upgrade section (per active member) ---
+  // --- Plan / upgrade section (per active member, or everyone on Family) ---
   const planTitle = document.createElement("div");
   planTitle.className = "family-section-label";
   planTitle.textContent = "プラン";
@@ -120,7 +120,9 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const planNote = document.createElement("div");
   planNote.className = "family-plan-note";
   const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
-  planNote.textContent = `${activeName} のプラン（1人ごと）`;
+  planNote.textContent = deps.activePlan === "family"
+    ? "ファミリープラン（家族みんな）"
+    : `${activeName} のプラン（1人ごと）`;
 
   const planCards = document.createElement("div");
   planCards.className = "family-plan-cards";
@@ -147,7 +149,8 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     const feats = document.createElement("div");
     feats.className = "family-plan-feats";
     const kufuText = limits.kufu === 0 ? "工夫なし" : `工夫 ${limits.kufu}件`;
-    feats.textContent = `メニュー ${limits.presets}・${kufuText}`;
+    const whoText = plan === "family" ? "\n家族みんな" : "";
+    feats.textContent = `メニュー ${limits.presets}・${kufuText}${whoText}`;
 
     if (isActive) {
       const badge = document.createElement("div");

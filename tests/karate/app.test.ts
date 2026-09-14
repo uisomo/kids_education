@@ -3,7 +3,9 @@ import { it, expect, vi, beforeEach } from "vitest";
 import { KarateApp } from "../../karate-trainer/src/app";
 import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store";
 import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
-import { getActiveId } from "../../karate-trainer/src/member-store";
+import { getActiveId, addMember } from "../../karate-trainer/src/member-store";
+import { effectivePlan, loadFamilyPlan, loadPlan } from "../../karate-trainer/src/plan-store";
+import { addKufu, loadKufu } from "../../karate-trainer/src/kufu-store";
 import { saveComment } from "../../karate-trainer/src/comment-store";
 
 function memKv(): KvAdapter {
@@ -435,4 +437,66 @@ it("recovers to a visible screen instead of hanging when 終了 hits a recorder 
   await new Promise((r) => setTimeout(r, 0));
   expect(unhandled).not.toHaveBeenCalled();
   process.off("unhandledRejection", unhandled);
+});
+
+// Family plan: one plan for every member. Picking another plan turns it off,
+// so the other members fall back to their own plans with 工夫 trimmed to match.
+it("Family plan covers every member; leaving it trims the others back to their own plan", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const m = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => (m.has(k) ? m.get(k)! : null),
+    setItem: (k: string, v: string) => void m.set(k, String(v)),
+    removeItem: (k: string) => void m.delete(k),
+    clear: () => m.clear(),
+    key: (i: number) => [...m.keys()][i] ?? null,
+    get length() { return m.size; },
+  } as Storage;
+  const other = getActiveId(storage);
+  const active = addMember("たろう", storage).id;   // adding makes たろう active
+
+  const store = new VoiceStore(memKv());
+  await store.init();
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: vi.fn(), stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    storage,
+    introStepMs: 0,
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
+  });
+  await app.start();
+
+  // 家族 tab → pass the parental gate.
+  root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
+  const [a, b] = root.querySelector("[data-gate-question]")!.textContent!.match(/\d+/g)!.map(Number);
+  root.querySelector<HTMLInputElement>("[data-gate-input]")!.value = String(a + b);
+  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
+
+  root.querySelector<HTMLButtonElement>('[data-plan-card="family"]')!.click();
+  expect(root.querySelector('[data-plan-card="family"]')!.classList.contains("active")).toBe(true);
+  expect(effectivePlan(storage, scopedStorage(storage, active))).toBe("family");
+  expect(effectivePlan(storage, scopedStorage(storage, other))).toBe("family");
+
+  // じぶん (not active) uses Family's room: 3 工夫 across two 種目.
+  const otherS = scopedStorage(storage, other);
+  addKufu("前蹴り", "ひざ", otherS, 10, Infinity);
+  addKufu("前蹴り", "こし", otherS, 10, Infinity);
+  addKufu("正拳突き", "ひき", otherS, 10, Infinity);
+
+  root.querySelector<HTMLButtonElement>('[data-plan-card="standard"]')!.click();
+  expect(loadFamilyPlan(storage)).toBe(false);
+  expect(loadPlan(scopedStorage(storage, active))).toBe("standard");
+  // じぶん is back on their own Free plan: 1 工夫 in 1 種目.
+  expect(loadKufu("前蹴り", otherS).length + loadKufu("正拳突き", otherS).length).toBe(1);
 });

@@ -17,7 +17,7 @@ import { renderFamilyScreen } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
 import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
-import { type Plan, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
+import { type Plan, PLAN_LIMITS, effectivePlan, setPlan, setFamilyPlan } from "./plan-store";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import { loadComments, saveComment } from "./comment-store";
@@ -160,15 +160,22 @@ export class KarateApp {
     return scopedStorage(base, getActiveId(base));
   }
 
+  // The plan that applies to a member: Family (covers everyone) while it's on,
+  // otherwise that member's own plan.
+  private planFor(memberId: string): Plan {
+    const base = this.base();
+    return effectivePlan(base, scopedStorage(base, memberId));
+  }
+
   // The active member's plan-derived 工夫 cap (0 = 工夫 disabled, Free plan).
   private kufuLimit(): number {
-    return PLAN_LIMITS[loadPlan(this.mem())].kufu;
+    return PLAN_LIMITS[this.planFor(getActiveId(this.base()))].kufu;
   }
 
   // The active member's plan-derived cap on how many DISTINCT 種目 may have a
-  // saved 工夫 at once (Free plan: 1; Standard/Max: unlimited).
+  // saved 工夫 at once (Free plan: 1; Standard/Max/Family: unlimited).
   private maxKufuDrills(): number {
-    return PLAN_LIMITS[loadPlan(this.mem())].maxKufuDrills;
+    return PLAN_LIMITS[this.planFor(getActiveId(this.base()))].maxKufuDrills;
   }
 
   // The family's effective preset (menu) cap = the highest plan cap across all
@@ -178,7 +185,7 @@ export class KarateApp {
   private familyPresetLimit(): number {
     const base = this.base();
     return loadMembers(base).reduce((max, m) => {
-      const cap = PLAN_LIMITS[loadPlan(scopedStorage(base, m.id))].presets;
+      const cap = PLAN_LIMITS[this.planFor(m.id)].presets;
       return Math.max(max, cap);
     }, 0);
   }
@@ -356,7 +363,7 @@ export class KarateApp {
       onAddMember: (name) => { addMember(name, base); this.reloadForActiveMember(); this.showFamily(); },
       onRemoveMember: (id) => { removeMember(id, base); this.reloadForActiveMember(); this.showFamily(); },
       onSelectMember: (id) => { setActive(id, base); this.reloadForActiveMember(); this.showFamily(); },
-      activePlan: loadPlan(this.mem()),
+      activePlan: this.planFor(getActiveId(base)),
       onSelectPlan: (plan) => { this.changePlan(plan); this.showFamily(); },
       // E3: くらす assignment. Classes are the family-shared presets; each
       // member's assignment maps memberId → presetId (or null when unassigned).
@@ -370,19 +377,31 @@ export class KarateApp {
     });
   }
 
-  // Set the active member's plan and enforce the new caps immediately
-  // (delete-on-downgrade): trim this member's 工夫 history to the plan cap, and
-  // trim family-shared presets only if they now exceed EVERY member's cap.
+  // Apply a plan and enforce the new caps immediately (delete-on-downgrade).
+  // Family turns on for everyone; any other plan turns Family off and sets the
+  // active member's own plan, so the other members fall back to theirs. Every
+  // member's 工夫 history is trimmed to their plan, and family-shared presets
+  // only if they now exceed EVERY member's cap.
   private changePlan(plan: Plan): void {
-    setPlan(plan, this.mem());
+    const base = this.base();
+    if (plan === "family") {
+      setFamilyPlan(true, base);
+    } else {
+      setFamilyPlan(false, base);
+      setPlan(plan, this.mem());
+    }
     this.trimKufuToLimit();
     this.trimPresetsToFamilyLimit();
   }
 
-  // Drop each drill's 工夫 history down to the current plan caps (0 clears
+  // Drop each member's 工夫 history down to their current plan caps (0 clears
   // all; a lower maxKufuDrills also drops whole 種目 down to that count).
   private trimKufuToLimit(): void {
-    trimKufuHistory(this.kufuLimit(), this.mem(), this.maxKufuDrills());
+    const base = this.base();
+    loadMembers(base).forEach((m) => {
+      const limits = PLAN_LIMITS[this.planFor(m.id)];
+      trimKufuHistory(limits.kufu, scopedStorage(base, m.id), limits.maxKufuDrills);
+    });
   }
 
   // Trim family-shared presets to the highest cap across all members.
