@@ -6,6 +6,8 @@ import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
 import { getActiveId, loadMembers } from "../../karate-trainer/src/member-store";
 import { loadPlan } from "../../karate-trainer/src/plan-store";
 import { addKufu, loadKufu } from "../../karate-trainer/src/kufu-store";
+import { loadBelt } from "../../karate-trainer/src/belt-store";
+import { countFor } from "../../karate-trainer/src/progress-store";
 import { saveComment } from "../../karate-trainer/src/comment-store";
 
 function memKv(): KvAdapter {
@@ -385,6 +387,53 @@ it("bumps 強さ counts on session complete and the 強さ tab shows them", asyn
   expect(row).not.toBeNull();
   expect(root.querySelector('[data-strength-level="前蹴り"]')!.textContent).toBe("Lv.0");
   expect(row!.querySelectorAll(".strength-bar.lit").length).toBe(1);
+
+  // The finished practice also filled one belt bar.
+  expect(loadBelt(scopedStorage(storage, getActiveId(storage)))).toEqual({ index: 0, bars: 1 });
+});
+
+// Stopping with 終了 keeps the video but must not count toward 強さ or the belt.
+it("stopping partway with 終了 adds no 強さ count and no belt bar", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const storage = memStorage();
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    storage,
+    introStepMs: 0,
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 30, kind: "drill" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
+  for (let t = 0; t < 3000; t += 250) loopCb!(250);   // partway through the 30s drill
+
+  root.querySelector<HTMLButtonElement>("[data-stop]")!.click();
+  for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
+
+  expect(root.querySelector("[data-download]")).not.toBeNull();   // video still saved
+  expect(root.querySelector("[data-belt-result]")!.textContent).toContain("ふえない");
+  const mem = scopedStorage(storage, getActiveId(storage));
+  expect(countFor("前蹴り", mem)).toBe(0);
+  expect(loadBelt(mem)).toEqual({ index: 0, bars: 0 });
 });
 
 it("recovers to a visible screen instead of hanging when 終了 hits a recorder error", async () => {

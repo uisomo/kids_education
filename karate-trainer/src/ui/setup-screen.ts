@@ -1,11 +1,9 @@
 import type { Menu } from "../types";
 import { totalSeconds, formatMMSS } from "../menu-store";
 import type { Preset } from "../preset-store";
-import {
-  getCurrentBelt,
-  type CharacterId,
-  type CharacterState,
-} from "../character-store";
+import type { CharacterId, CharacterState } from "../character-store";
+import type { BeltState } from "../belt-store";
+import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
 
@@ -36,10 +34,12 @@ export interface SetupDeps {
   // Confirmation gate shared by preset delete and drill-row delete.
   // Defaults to window.confirm. Return true to proceed with the delete.
   confirmDelete?(label: string): boolean;
-  // Companion belt/XP state (drives the belt status card).
+  // Companion (cheer character) selection.
   characterId?: CharacterId;
   onSelectCharacter?(id: CharacterId): void;
   characterState?: CharacterState;
+  // The active member's belt and bars (drives the belt card). Absent → 白帯, 0 bars.
+  belt?: BeltState;
   // E3: the active member's assigned くらす name (read-only label), or null.
   className?: string | null;
   // E4: the parent's 感想コメント for the active member, shown as a banner at the
@@ -104,22 +104,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     });
   }
 
-  // --- Belt Status Card ---
-  const totalXp = deps.characterState?.totalXp ?? 0;
-  const beltInfo = getCurrentBelt(totalXp);
-  const beltCard = document.createElement("div");
-  beltCard.className = "belt-status-card";
-  beltCard.innerHTML = `
-    <div class="belt-info">
-      <div class="belt-badge" style="background-color: ${beltInfo.current.bgHex}; color: #111;">
-        ${beltInfo.current.icon} ${beltInfo.current.kanji}
-      </div>
-      <div>
-        <div class="belt-title">${beltInfo.current.name}</div>
-        <div class="belt-xp">通算 XP: ${totalXp} PT</div>
-      </div>
-    </div>
-  `;
+  // --- Belt card: drawn obi + 10-bar meter toward the next belt ---
+  const beltCard = renderBeltCard(deps.belt ?? { index: 0, bars: 0 });
 
   // --- Assigned くらす label (E3, read-only) ---
   let classLabel: HTMLDivElement | null = null;

@@ -16,7 +16,9 @@ export interface DoneDeps {
   onShare(blob?: Blob): void;
   onAgain(): void;
   characterId?: CharacterId;
-  xpEarned?: number;
+  // Belt progress from this practice. completed=false (stopped with 終了) means
+  // nothing was added; promotedTo names the new belt when the 10th bar landed.
+  beltResult?: { completed: boolean; bars: number; promotedTo: string | null };
   // 工夫: drills practiced this session (deduped, rest excluded) + save callback.
   kufuDrills?: DoneKufuDrill[];
   onSaveKufu?(drillName: string, text: string): void;
@@ -62,13 +64,27 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
 
   const title = document.createElement("h2");
   title.className = "done-title";
-  title.textContent = "稽古完了！よく頑張ったね！";
+  const stopped = deps.beltResult?.completed === false;
+  title.textContent = stopped ? "おつかれさま！" : "稽古完了！よく頑張ったね！";
 
   const praise = document.createElement("p");
   praise.style.cssText = "margin: 0; color: #ffd166; font-weight: 800; font-size: 1.05rem;";
-  praise.textContent = `${companionInfo.name}: 「${companionInfo.cheerClips[0]?.text ?? "応援するよ"}」 (+${deps.xpEarned ?? 50} XP)`;
+  praise.textContent = `${companionInfo.name}: 「${companionInfo.cheerClips[0]?.text ?? "応援するよ"}」`;
 
   celebCard.append(trophyImg, companionAvatar.element, stars, title, praise);
+
+  if (deps.beltResult) {
+    const { bars, promotedTo } = deps.beltResult;
+    const beltLine = document.createElement("p");
+    beltLine.className = `done-belt-result${promotedTo ? " promoted" : ""}`;
+    beltLine.dataset.beltResult = "";
+    beltLine.textContent = stopped
+      ? "とちゅうで終了したので、帯のバーはふえないよ"
+      : promotedTo
+        ? `🎉 ${promotedTo}に昇級！`
+        : `帯のバー ${bars}/10`;
+    celebCard.append(beltLine);
+  }
 
   // Video Replay
   const video = document.createElement("video");

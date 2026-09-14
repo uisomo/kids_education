@@ -227,3 +227,30 @@ it("does not alter the debug panel when burnInErrorPromise resolves null", async
   const details = root.querySelector<HTMLDetailsElement>("[data-diagnostics]")!;
   expect(details.textContent).not.toContain("burn-in failed");
 });
+
+// --- 帯 result line ---
+const doneBase = () => ({
+  videoUrl: "blob:v", ext: "mp4", stats: { time: "00:10", drills: 1, cues: 0 },
+  onShare: vi.fn(), onAgain: vi.fn(),
+});
+
+it("shows the belt meter after a finished practice", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, { ...doneBase(), beltResult: { completed: true, bars: 4, promotedTo: null } });
+  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("帯のバー 4/10");
+});
+
+it("celebrates moving up a belt", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, { ...doneBase(), beltResult: { completed: true, bars: 0, promotedTo: "ほのおの帯" } });
+  const line = root.querySelector("[data-belt-result]")!;
+  expect(line.textContent).toBe("🎉 ほのおの帯に昇級！");
+  expect(line.classList.contains("promoted")).toBe(true);
+});
+
+it("says nothing was added when the practice was stopped", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, { ...doneBase(), beltResult: { completed: false, bars: 0, promotedTo: null } });
+  expect(root.querySelector("[data-belt-result]")!.textContent).toContain("ふえない");
+  expect(root.querySelector(".done-title")!.textContent).toBe("おつかれさま！");
+});

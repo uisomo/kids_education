@@ -8,8 +8,8 @@ export interface StrengthDeps {
   storage?: Storage;
 }
 
-// Red → purple, 10 steps.
-const RAINBOW: string[] = [
+// Red → purple, 10 steps. Shared with the belt card's meter.
+export const RAINBOW: string[] = [
   "#ff3b30", "#ff6b22", "#ff9f0a", "#ffd60a", "#34c759",
   "#30c0c6", "#32ade6", "#5b6cff", "#8e5bff", "#bf5af2",
 ];

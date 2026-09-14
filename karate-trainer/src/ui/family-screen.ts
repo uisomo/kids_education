@@ -5,6 +5,7 @@
 import type { Member } from "../member-store";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
+import { BELTS } from "../belt-store";
 
 export interface FamilyDeps {
   members: Member[];
@@ -23,6 +24,10 @@ export interface FamilyDeps {
   classes?: Preset[];
   assignments?: Record<string, string | null>;
   onAssignClass?(memberId: string, presetId: string | null): void;
+  // 帯 (parent-controlled): `belts` maps memberId → belt index. Optional so
+  // earlier callers/tests keep working (section is hidden if absent).
+  belts?: Record<string, number>;
+  onSetBelt?(memberId: string, index: number): void;
   // E4 応援コメント (parent, for the active member). `comments` = the active
   // member's saved 感想 / ファイト messages. Optional so pre-E4 callers/tests keep
   // working (section is hidden if either is absent). Free on every plan.
@@ -191,10 +196,61 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- くらす assignment section (E3) ---
   const classNodes = buildClassSection(deps);
 
+  // --- 帯 section (parent sets each member's belt) ---
+  const beltNodes = buildBeltSection(deps);
+
   // --- 応援コメント section (E4, active member) ---
   const commentNodes = buildCommentSection(deps);
 
-  root.append(title, activeCard, listTitle, list, addRow, memberHint, ...classNodes, ...commentNodes, planTitle, planNote, planCards);
+  root.append(title, activeCard, listTitle, list, addRow, memberHint, ...classNodes, ...beltNodes, ...commentNodes, planTitle, planNote, planCards);
+}
+
+// Parent-controlled 帯: each member gets a <select> of every belt. Picking one
+// sets that belt directly (its 10-bar meter starts over). Returns [] when the
+// belt wiring is absent (earlier callers).
+function buildBeltSection(deps: FamilyDeps): Node[] {
+  if (!deps.onSetBelt || !deps.belts) return [];
+  const onSet = deps.onSetBelt;
+  const belts = deps.belts;
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "帯";
+
+  const note = document.createElement("div");
+  note.className = "family-plan-note";
+  note.textContent = "稽古を10回さいごまでやると、つぎの帯に上がります。ここで変えるとバーは0から。";
+
+  const list = document.createElement("div");
+  list.className = "family-class-list";
+  list.dataset.beltList = "";
+
+  deps.members.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "family-class-row";
+    row.dataset.beltRow = m.id;
+
+    const name = document.createElement("span");
+    name.className = "family-class-member";
+    name.textContent = m.name;
+
+    const select = document.createElement("select");
+    select.className = "family-class-select";
+    select.dataset.beltSelect = m.id;
+    BELTS.forEach((b, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = b.icon ? `${b.icon} ${b.name}` : b.name;
+      if (i === (belts[m.id] ?? 0)) opt.selected = true;
+      select.append(opt);
+    });
+    select.addEventListener("change", () => onSet(m.id, Number(select.value)));
+
+    row.append(name, select);
+    list.append(row);
+  });
+
+  return [sectionTitle, note, list];
 }
 
 // Per-active-member 応援コメント: two labelled inputs (感想 / ファイト) each with a

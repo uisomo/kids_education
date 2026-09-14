@@ -208,3 +208,23 @@ it("omits the comment section for callers without comment wiring", () => {
   expect(root.querySelector("[data-comment-kansou]")).toBeNull();
   expect(root.querySelector("[data-comment-fight]")).toBeNull();
 });
+
+// --- 帯 section (parent-controlled) ---
+it("lets the parent pick each member's belt", () => {
+  const root = document.createElement("div");
+  const onSetBelt = vi.fn();
+  renderFamilyScreen(root, deps({ belts: { m1: 11, m2: 0 }, onSetBelt }));
+  const s1 = root.querySelector<HTMLSelectElement>('[data-belt-select="m1"]')!;
+  expect(s1.value).toBe("11");
+  expect(s1.options).toHaveLength(14);
+  const s2 = root.querySelector<HTMLSelectElement>('[data-belt-select="m2"]')!;
+  s2.value = "12";
+  s2.dispatchEvent(new Event("change"));
+  expect(onSetBelt).toHaveBeenCalledWith("m2", 12);
+});
+
+it("omits the belt section without belt wiring", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());
+  expect(root.querySelector("[data-belt-list]")).toBeNull();
+});

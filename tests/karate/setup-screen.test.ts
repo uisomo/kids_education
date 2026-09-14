@@ -342,3 +342,28 @@ it("disables (not hides) a row's 工夫 button when canAddKufuFor says no (Free 
   expect(buttons[0].disabled).toBe(false);
   expect(buttons[1].disabled).toBe(true);
 });
+
+// --- 帯 card ---
+it("draws the member's belt with its bars and what comes next", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ belt: { index: 10, bars: 7 } }));
+  const card = root.querySelector(".belt-status-card")!;
+  expect(card.classList.contains("rpg")).toBe(true);
+  expect(card.querySelector("[data-belt-name]")!.textContent).toBe("🔮 クリスタルの帯");
+  expect(card.querySelectorAll(".belt-bar")).toHaveLength(10);
+  expect(card.querySelectorAll(".belt-bar.lit")).toHaveLength(7);
+  expect(card.querySelector("[data-belt-next]")!.textContent).toContain("💎 ダイヤモンドの帯");
+  expect(card.querySelector("[data-belt-next]")!.textContent).toContain("あと 3回");
+});
+
+it("colored belts have no RPG frame, and the top belt says so", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps());
+  const card = root.querySelector(".belt-status-card")!;
+  expect(card.classList.contains("rpg")).toBe(false);
+  expect(card.querySelector("[data-belt-name]")!.textContent).toBe("白帯");
+
+  const top = document.createElement("div");
+  renderSetupScreen(top, deps({ belt: { index: 13, bars: 10 } }));
+  expect(top.querySelector("[data-belt-next]")!.textContent).toBe("さいこうの帯！");
+});

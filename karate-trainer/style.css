@@ -260,12 +260,12 @@ button {
 }
 
 /* ---------------------------------------------------------
-   Belt Status Bar & XP
+   Belt card (帯): drawn obi + 10-bar meter toward the next belt
 --------------------------------------------------------- */
 .belt-status-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.8rem;
   background: linear-gradient(135deg, #2d264a 0%, #1a162b 100%);
   border: 2px solid var(--panel-line);
   border-radius: 16px;
@@ -273,29 +273,126 @@ button {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.belt-info {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+.belt-status-card.rpg {
+  border-color: #ffd166;
+  box-shadow: 0 0 18px rgba(255, 209, 102, 0.35), 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.belt-badge {
-  font-size: 1.4rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+.belt-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .belt-title {
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 900;
   color: #ffd166;
 }
 
-.belt-xp {
-  font-size: 0.8rem;
+.belt-bars {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.belt-bar {
+  flex: 1 1 0;
+  height: 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.belt-next {
+  font-size: 0.75rem;
+  font-weight: 700;
   color: var(--ink-dim);
+}
+
+/* The obi: a band, two hanging tails and a knot, all painted with the belt's
+   fill. The faint outline keeps 黒帯 visible on the dark card. */
+.obi {
+  position: relative;
+  flex: none;
+  width: 76px;
+  height: 46px;
+}
+
+.obi-band,
+.obi-knot,
+.obi-tail {
+  position: absolute;
+  background: var(--obi-fill);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
+
+.obi-band {
+  left: 0;
+  right: 0;
+  top: 10px;
+  height: 13px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.obi-knot {
+  left: 50%;
+  top: 5px;
+  width: 20px;
+  height: 22px;
+  margin-left: -10px;
+  border: 2px solid var(--obi-ink);
+  border-radius: 6px;
+}
+
+.obi-tail {
+  top: 20px;
+  width: 11px;
+  height: 24px;
+  border-radius: 0 0 3px 3px;
+}
+
+.obi-tail.left {
+  left: 24px;
+  transform: rotate(20deg);
+}
+
+.obi-tail.right {
+  right: 24px;
+  transform: rotate(-20deg);
+}
+
+/* RPG belts: soft glow plus a light streak sliding across the band now and
+   then. One transform animation — cheap to composite. */
+.obi.rpg {
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.45));
+}
+
+.obi.rpg .obi-band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.9) 50%, transparent 65%);
+  transform: translateX(-100%);
+  animation: obi-shine 2.8s ease-in-out infinite;
+}
+
+@keyframes obi-shine {
+  0%, 55% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.done-belt-result {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.done-belt-result.promoted {
+  font-size: 1.25rem;
+  color: #ffd166;
 }
 
 /* ---------------------------------------------------------
@@ -1865,6 +1962,7 @@ input[data-label] {
   .countdown-intro-label.pop { animation: none; }
   .kufu-overlay, .kufu-card { animation: none; }
   [data-rows].is-reordering .row { transition: none; }
+  .obi.rpg .obi-band::after { animation: none; display: none; }
 }
 
 /* --- Native iOS build: camera preview --------------------------------------

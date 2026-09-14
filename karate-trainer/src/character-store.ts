@@ -79,23 +79,8 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
   },
 };
 
-export interface BeltRank {
-  name: string;
-  kanji: string;
-  color: string;
-  bgHex: string;
-  minXp: number;
-  icon: string;
-}
-
-export const BELT_RANKS: BeltRank[] = [
-  { name: "White Belt", kanji: "白帯", color: "#FFFFFF", bgHex: "#F3F4F6", minXp: 0, icon: "🥋" },
-  { name: "Yellow Belt", kanji: "黄帯", color: "#FACC15", bgHex: "#FEF08A", minXp: 100, icon: "⚡" },
-  { name: "Green Belt", kanji: "緑帯", color: "#22C55E", bgHex: "#86EFAC", minXp: 250, icon: "🍃" },
-  { name: "Brown Belt", kanji: "茶帯", color: "#A16207", bgHex: "#FDE047", minXp: 500, icon: "🪵" },
-  { name: "Black Belt", kanji: "黒帯", color: "#111827", bgHex: "#1F2937", minXp: 1000, icon: "👑" },
-];
-
+// Belts live in belt-store.ts. totalXp is no longer earned; it is kept so
+// belt-store can carry an old XP belt over the first time it loads.
 export interface CharacterState {
   selectedId: CharacterId;
   totalXp: number;
@@ -127,25 +112,4 @@ export function saveCharacterState(state: CharacterState, storage: Storage = win
   } catch {
     /* ignore storage errors */
   }
-}
-
-export function getCurrentBelt(xp: number): { current: BeltRank; next: BeltRank | null; progress: number } {
-  let currentRank = BELT_RANKS[0];
-  let nextRank: BeltRank | null = BELT_RANKS[1];
-
-  for (let i = 0; i < BELT_RANKS.length; i++) {
-    if (xp >= BELT_RANKS[i].minXp) {
-      currentRank = BELT_RANKS[i];
-      nextRank = BELT_RANKS[i + 1] ?? null;
-    }
-  }
-
-  let progress = 100;
-  if (nextRank) {
-    const range = nextRank.minXp - currentRank.minXp;
-    const currentProgress = xp - currentRank.minXp;
-    progress = Math.min(100, Math.max(0, Math.floor((currentProgress / range) * 100)));
-  }
-
-  return { current: currentRank, next: nextRank, progress };
 }

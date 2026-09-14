@@ -12,6 +12,7 @@ import { playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
 import { latestKufu, addKufu, trimKufuHistory, canAddKufu } from "./kufu-store";
 import { bumpDrills } from "./progress-store";
+import { BELTS, addSessionBar, loadBelt, setBelt } from "./belt-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
@@ -289,6 +290,7 @@ export class KarateApp {
         this.showSetup();
       },
       characterState: this.characterState,
+      belt: loadBelt(this.mem()),
       // E3: the active member's assigned くらす name (read-only label).
       className: this.activeClassName(),
       // E4: the parent's 感想コメント for the active member (top banner).
@@ -386,6 +388,9 @@ export class KarateApp {
       classes: loadPresets(base),
       assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
       onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
+      // 帯: parents can set any member's belt directly (the meter starts over).
+      belts: Object.fromEntries(members.map((m) => [m.id, loadBelt(scopedStorage(base, m.id)).index])),
+      onSetBelt: (memberId, index) => { setBelt(index, scopedStorage(base, memberId)); this.showFamily(); },
       // E4: 応援コメント for the active member (per-member via mem()). Free on
       // every plan. Saving re-renders so the input reflects the trimmed value.
       comments: loadComments(this.mem()),
@@ -573,7 +578,7 @@ export class KarateApp {
         void cuePlayer.countdown(n);
       },
       onDrillEnd: () => { /* no-op */ },
-      onSessionEnd: () => { void this.finishSession(); },
+      onSessionEnd: () => { void this.finishSession(true); },
     };
 
     const scheduler = new SessionScheduler(this.menu, handlers);
@@ -592,7 +597,8 @@ export class KarateApp {
       }
     });
     view.onSkip(() => scheduler.skip());
-    view.onStop(() => { void this.finishSession(); });
+    // 終了 partway: the video is still saved, but nothing counts toward progress.
+    view.onStop(() => { void this.finishSession(false); });
     view.onToggleBgm(() => {
       const next = !(this.deps.bgm?.isMuted() ?? false);
       this.deps.bgm?.setMuted(next);
@@ -639,7 +645,8 @@ export class KarateApp {
 
   private sessionEnding = false;
 
-  private async finishSession(): Promise<void> {
+  // completed: the menu ran to its end (true) or was stopped with 終了 (false).
+  private async finishSession(completed: boolean): Promise<void> {
     if (this.sessionEnding) return;
     this.sessionEnding = true;
 
@@ -689,12 +696,6 @@ export class KarateApp {
 
       const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
-      // Award XP points to student & save
-      const xpEarned = 50 + this.drillCount * 10;
-      this.characterState.totalXp += xpEarned;
-      this.characterState.completedCount += 1;
-      saveCharacterState(this.characterState, this.mem());
-
       // Deduped list of the drills practiced this session (rest excluded), each
       // with its latest saved 工夫 pre-filled for editing.
       const seen = new Set<string>();
@@ -706,8 +707,14 @@ export class KarateApp {
           canAdd: canAddKufu(d.name, this.mem(), this.maxKufuDrills()),
         }));
 
-      // Count each practiced drill toward its 強さ level (+1 per session).
-      bumpDrills(kufuDrills.map((d) => d.name), this.mem());
+      // Only a practice finished to the end counts: each practiced drill gets
+      // +1 toward its 強さ level and the belt meter fills one bar.
+      let beltResult = { completed, bars: 0, promotedTo: null as string | null };
+      if (completed) {
+        bumpDrills(kufuDrills.map((d) => d.name), this.mem());
+        const { state, promoted } = addSessionBar(this.mem());
+        beltResult = { completed, bars: state.bars, promotedTo: promoted ? BELTS[state.index].name : null };
+      }
 
       const blobForShare = blob;
       const shareFileUri = recorder?.fileUri?.() ?? null;
@@ -723,7 +730,7 @@ export class KarateApp {
           cues: this.cueCount,
         },
         characterId: this.characterState.selectedId,
-        xpEarned,
+        beltResult,
         kufuDrills,
         kufuEnabled: this.kufuLimit() > 0,
         onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
