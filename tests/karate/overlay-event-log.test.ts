@@ -39,3 +39,19 @@ it("elapsedMs() returns time elapsed since start() on the same clock as event ti
   t = 4500;
   expect(log.elapsedMs()).toBe(3500);
 });
+
+it("records played sounds on the same clock as overlay events", () => {
+  let now = 1000;
+  const log = new OverlayEventLog({ now: () => now });
+  log.start();
+  now = 4500;
+  log.logSound({ kind: "bgm", playing: true, restart: true, src: "/m.mp3" });
+  now = 9200;
+  log.logSound({ kind: "clip", src: "/characters/cheer/leo-2.mov" });
+  expect(log.getSounds()).toEqual([
+    { kind: "bgm", playing: true, restart: true, src: "/m.mp3", t: 3500 },
+    { kind: "clip", src: "/characters/cheer/leo-2.mov", t: 8200 },
+  ]);
+  log.start();
+  expect(log.getSounds()).toEqual([]);
+});

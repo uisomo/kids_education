@@ -5,9 +5,14 @@ iOS with **Capacitor**. It is already live on the web at
 https://karate-trainer.pages.dev. This guide covers shipping the iOS app to the
 App Store, which **requires a Mac** (Xcode is macOS-only).
 
-The native `ios/` Xcode project is **NOT committed** to this repo — it is
-generated fresh on the Mac with `npx cap add ios` (the normal Capacitor flow).
-So you do not transfer an `ios/` folder; you regenerate it.
+The native `ios/` Xcode project is generated with
+`npx cap add ios --packagemanager SPM`. It uses **Swift Package Manager**, not
+CocoaPods, so no Ruby/Homebrew toolchain is involved — SPM ships inside Xcode.
+
+Video recording on iOS is **native**: `ios/App/App/KarateRecorder/` captures via
+AVFoundation and burns the overlay text with Core Animation. The web build's
+getUserMedia + MediaRecorder + ffmpeg.wasm path is not used on device. See
+`karate-trainer/src/native-recorder.ts`.
 
 ---
 
@@ -17,7 +22,7 @@ So you do not transfer an `ios/` folder; you regenerate it.
 |---|---|
 | App name | 空手稽古 |
 | Bundle ID (`appId`) | `com.ushimaru.karatetrainer` |
-| Web build dir (`webDir`) | `dist` (relative to `karate-trainer/`) |
+| Web build dir (`webDir`) | `karate-trainer/dist` (config lives at the repo root) |
 | iOS scheme | `https` (required: getUserMedia / MediaRecorder / IndexedDB need a secure context) |
 
 ---
@@ -28,11 +33,9 @@ So you do not transfer an `ios/` folder; you regenerate it.
    ```bash
    sudo xcodebuild -runFirstLaunch
    ```
-2. **Node.js 20.x** (the repo was built with v20.19.3) — https://nodejs.org
-3. **CocoaPods**:
-   ```bash
-   brew install cocoapods    # or: sudo gem install cocoapods
-   ```
+2. **Node.js 22 or newer** — https://nodejs.org
+   The Capacitor 8 CLI refuses to run on Node 20, despite what older notes said.
+3. ~~CocoaPods~~ — not required. The project uses Swift Package Manager.
 4. **Apple Developer Program** membership ($99/yr) — https://developer.apple.com/programs/
    Needed for code signing and App Store submission.
 5. An **App Store Connect** app record (create at https://appstoreconnect.apple.com
@@ -52,11 +55,11 @@ npm install
 npm run build:karate
 
 # 3. FIRST TIME ONLY — generate the native iOS project.
-#    Run from karate-trainer/, where capacitor.config.ts lives.
-cd karate-trainer
-npx cap add ios            # creates karate-trainer/ios/  (the Xcode project)
+#    Run from the REPO ROOT: that is where capacitor.config.ts and package.json
+#    both live, and the Capacitor CLI needs them together.
+npx cap add ios --packagemanager SPM   # creates ios/ (the Xcode project)
 
-# 4. Copy the web build into the native project + install pods
+# 4. Copy the web build into the native project
 npx cap sync ios
 
 # 5. Open in Xcode
@@ -71,20 +74,31 @@ npx cap open ios
 
 ## ⚠️ REQUIRED before the build will pass review
 
+### 0. Add the native recorder to the Xcode target
+
+`npx cap add ios` regenerates `ios/` from Capacitor's template, which does not
+know about our own Swift files. After generating the project, in Xcode drag
+**`ios/App/App/KarateRecorder/`** into the **App** group in the navigator and
+tick the **App** target. Without this the folder sits on disk, never compiles,
+and `registerPlugin("KarateRecorder")` fails at runtime.
+
+Redo this any time you delete and regenerate `ios/`.
+
 ### 1. Camera + Microphone usage strings (Info.plist)
 
-The app calls `getUserMedia({ video, audio: true })` to record practice videos.
-**iOS crashes the app** the instant it requests the camera if these strings are
-missing, and **App Store review rejects** builds without them.
+The app records practice video, so iOS **crashes the app** the instant it
+requests the camera if these strings are missing, and **App Store review
+rejects** builds without them.
 
-After `npx cap add ios`, open **`ios/App/App/Info.plist`** in Xcode (or a text
-editor) and add the two keys from **`ios-info-plist-additions.plist`** (in this
-folder) into the top-level `<dict>`:
+Already applied to `ios/App/App/Info.plist`:
 
 - `NSCameraUsageDescription`
 - `NSMicrophoneUsageDescription`
+- `NSPhotoLibraryAddUsageDescription` — needed because the share sheet offers
+  "Save Video" into Photos.
 
-(Kid-friendly Japanese reason strings are provided in that file.)
+The Japanese source strings live in `ios-info-plist-additions.plist`. Re-apply
+them if you regenerate `ios/`.
 
 ### 2. App icons
 

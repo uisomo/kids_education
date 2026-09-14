@@ -27,7 +27,7 @@ it("shareRecording on web triggers an <a download> click", async () => {
     return el as any;
   });
 
-  await shareRecording(new Blob(["v"]), "mp4", { isNative: () => false });
+  await shareRecording(new Blob(["v"]), "mp4", null, { isNative: () => false });
 
   expect(clicks.length).toBe(1);
   expect(clicks[0].download).toContain("mp4");

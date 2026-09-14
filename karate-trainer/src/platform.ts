@@ -41,9 +41,24 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(bin);
 }
 
-export async function shareRecording(blob: Blob, ext: string, deps: PlatformDeps = {}): Promise<void> {
+export async function shareRecording(
+  blob: Blob,
+  ext: string,
+  fileUri?: string | null,
+  deps: PlatformDeps = {},
+): Promise<void> {
   const isNative = deps.isNative;
   const native = isNative ? isNative() : await detectNative();
+
+  // The native recorder already wrote the finished video to disk, so hand the
+  // share sheet that path. Going through blobToBase64() instead would hold the
+  // whole video in memory twice as a JS string — minutes of 1080p is enough to
+  // get the app killed.
+  if (native && fileUri) {
+    const { Share } = await import("@capacitor/share");
+    await Share.share({ title: "空手稽古", url: fileUri });
+    return;
+  }
 
   if (native) {
     // ネイティブ: 一時ファイルに書き出し → OS シェアシート。

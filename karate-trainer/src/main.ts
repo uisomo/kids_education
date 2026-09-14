@@ -6,18 +6,55 @@ import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
 import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
+import { NativeVideoRecorder } from "./native-recorder";
+import { makeNativeBgm, playNativeClip } from "./native-audio";
+import { Capacitor } from "@capacitor/core";
+
+// iOS App Store build. The native recorder captures with AVFoundation and
+// burns the overlay itself, so neither MediaRecorder nor the ffmpeg.wasm pass
+// is used there — see native-recorder.ts for why both had to go.
+const isNative = Capacitor.isNativePlatform();
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
 
-mountInstallBanner(document.body, detectEnv());
+// The install banner only makes sense in a browser; inside the app the user
+// has already installed it.
+if (!isNative) mountInstallBanner(document.body, detectEnv());
 
 // Background music played during a session (loops from Go!! to session end).
 // The filename is Japanese, so encode it for the URL.
+// The microphone records whatever the speaker plays, so the music has to stay
+// well under the child's own voice in the saved video.
+const BGM_GAIN = 0.2;
+const CHEER_VOICE_VOLUME = 0.9;
+const BGM_SRC = `/characters/${encodeURIComponent("君ならできる")}.mp3`;
+
 function makeBgm(): BgmPlayer {
-  const audio = new Audio(`/characters/${encodeURIComponent("君ならできる")}.mp3`);
+  const src = BGM_SRC;
+  const audio = new Audio(src);
   audio.loop = true;
   audio.preload = "auto";
+  // iOS treats HTMLMediaElement.volume as read-only — assignments are ignored —
+  // so quieting the music means routing it through Web Audio and scaling it
+  // with a GainNode. Built inside unlock() (a user gesture), because an
+  // AudioContext created outside one starts suspended and would silence the
+  // element entirely once it's attached.
+  let ctx: AudioContext | null = null;
+  const attachGain = () => {
+    if (ctx) return;
+    try {
+      const Ctx = window.AudioContext
+        || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      ctx = new Ctx();
+      const gain = ctx.createGain();
+      gain.gain.value = BGM_GAIN;
+      ctx.createMediaElementSource(audio).connect(gain).connect(ctx.destination);
+    } catch {
+      ctx = null; // Web Audio unavailable: plays at full volume rather than not at all
+    }
+  };
+  const resumeGain = () => { void ctx?.resume().catch(() => { /* ignore */ }); };
   let unlocked = false;
   let muted = false;
   // Tracks whether a session wants BGM playing right now, independent of
@@ -28,6 +65,8 @@ function makeBgm(): BgmPlayer {
     unlock() {
       if (unlocked) return;
       unlocked = true;
+      attachGain();
+      resumeGain();
       // Play muted for a tick inside the user gesture, then reset. This marks
       // the element as user-activated so the real play() at Go!! is allowed.
       const wasMuted = audio.muted;
@@ -44,6 +83,7 @@ function makeBgm(): BgmPlayer {
       sessionActive = true;
       audio.currentTime = 0;
       if (muted) return;
+      resumeGain();
       void audio.play().catch(() => { /* autoplay blocked — ignore */ });
     },
     stop() {
@@ -62,6 +102,7 @@ function makeBgm(): BgmPlayer {
     isMuted() {
       return muted;
     },
+    src,
   };
 }
 
@@ -81,17 +122,25 @@ await store.init();
 const app = new KarateApp(root, {
   voiceStore: store,
   audioSink: new BrowserAudioSink(),
-  makeVideoRecorder: () => new VideoRecorder(),
+  makeVideoRecorder: () => (isNative ? new NativeVideoRecorder() : new VideoRecorder()),
   makeVoiceRecorder: () => new VoiceRecorder(),
-  wakeGuard: makeWakeGuard(),
+  // Passing the flag matters: without it makeWakeGuard always took the web
+  // branch, so the keep-awake plugin never ran on device and the screen could
+  // still sleep mid-practice.
+  wakeGuard: makeWakeGuard({ isNative: () => isNative }),
   rafLoop,
   shareRecording,
-  bgm: makeBgm(),
-  // Burns overlay text into the saved recording as an offline post-process
-  // via ffmpeg.wasm, after the raw camera+audio recording has stopped.
-  // Falls back to the raw (un-burned) video on any failure — see
-  // overlay-burner.ts.
-  burnOverlay: (rawVideoBlob, events, totalDurationMs, ext, onError) =>
-    burnOverlay(rawVideoBlob, events, totalDurationMs, ext, {}, onError),
+  bgm: isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),
+  playCheerVoice: isNative
+    ? (src) => playNativeClip(src, CHEER_VOICE_VOLUME)
+    : (src) => { void new Audio(src).play().catch(() => { /* autoplay blocked */ }); },
+  // Web only. Burns overlay text into the saved recording as an offline
+  // post-process via ffmpeg.wasm, falling back to the raw video on failure.
+  // The native recorder does its own burn-in during stop(), so leaving this
+  // undefined there avoids a second, redundant pass over the same video.
+  burnOverlay: isNative
+    ? undefined
+    : (rawVideoBlob, events, totalDurationMs, ext, onError) =>
+        burnOverlay(rawVideoBlob, events, totalDurationMs, ext, {}, onError),
 });
 await app.start();

@@ -1,3 +1,4 @@
+import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
 import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
 
@@ -5,7 +6,8 @@ export interface TrainingView {
   videoEl: HTMLVideoElement;
   setDrill(drill: Drill, index: number, total: number): void;
   setTime(secondsLeft: number): void;
-  showCue(text: string): void;
+  // Returns the cheer clip that started playing, or null.
+  showCue(text: string): CheerClip | null;
   setNext(text: string | null): void;
   setCaption(text: string): void;   // 工夫 reminder at the bottom
   setRecElapsed(text: string): void;
@@ -68,9 +70,12 @@ export function renderTrainingScreen(
 
   const cheerVideo = document.createElement("video");
   cheerVideo.className = "companion-cheer-video";
+  // The animation plays muted and once per cheer. Its voice is played by the app
+  // (KarateAppDeps.playCheerVoice): on iOS a second audible media element pauses
+  // the first, which stopped the music whenever a character spoke.
   cheerVideo.muted = true;
   cheerVideo.setAttribute("playsinline", "");
-  cheerVideo.loop = true;
+  cheerVideo.loop = false;
 
   const speechBubble = document.createElement("div");
   speechBubble.className = "companion-speech-bubble";
@@ -151,24 +156,24 @@ export function renderTrainingScreen(
     setTime(secondsLeft: number) {
       timerEl.textContent = String(secondsLeft);
     },
-    showCue(text: string) {
+    showCue(text: string): CheerClip | null {
       cueEl.textContent = text;
-      cueEl.classList.add("show");
+      if (text) cueEl.classList.add("show");
 
-      // Pick a random companion to cheer this time, load & play its
-      // transparent clip, and show one of its quotes in the bubble.
+      // Pick a random companion and one of its phrase clips; the bubble shows
+      // the words that clip says, so text and voice always match.
       const cheerId = CHARACTER_IDS[Math.floor(Math.random() * CHARACTER_IDS.length)];
       const cheerInfo = CHARACTERS[cheerId] ?? CHARACTERS.alan;
-      if (!cheerVideo.src.endsWith(cheerInfo.cheerVideo)) {
-        cheerVideo.src = cheerInfo.cheerVideo;
+      const clip = cheerInfo.cheerClips[Math.floor(Math.random() * cheerInfo.cheerClips.length)];
+      if (!cheerVideo.src.endsWith(clip.src)) {
+        cheerVideo.src = clip.src;
       }
       try { cheerVideo.currentTime = 0; } catch { /* jsdom / not ready */ }
       try {
         // jsdom's play() returns undefined and logs "not implemented"; guard it.
         void Promise.resolve(cheerVideo.play?.()).catch(() => { /* autoplay blocked */ });
       } catch { /* ignore synchronously throwing play() */ }
-      const randomQuote = cheerInfo.quotes[Math.floor(Math.random() * cheerInfo.quotes.length)];
-      speechBubble.textContent = `${cheerInfo.name}: ${randomQuote}`;
+      speechBubble.textContent = `${cheerInfo.name}: ${clip.text}`;
       companionOverlay.classList.add("cheering");
 
       if (cueTimeout) clearTimeout(cueTimeout);
@@ -178,6 +183,7 @@ export function renderTrainingScreen(
         cheerVideo.pause?.();
         cueTimeout = null;
       }, 2200);
+      return clip;
     },
     setNext(text: string | null) {
       if (text === null) {

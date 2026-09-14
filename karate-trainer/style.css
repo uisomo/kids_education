@@ -1841,3 +1841,35 @@ input[data-label] {
   .kufu-overlay, .kufu-card { animation: none; }
   [data-rows].is-reordering .row { transition: none; }
 }
+
+/* --- Native iOS build: camera preview --------------------------------------
+   On device the camera is an AVCaptureVideoPreviewLayer sitting *behind* the
+   web view (see ios/App/App/KarateRecorder/CameraSession.swift), not a <video>
+   element fed by getUserMedia. The class below is toggled by
+   NativeVideoRecorder while the preview is live; everything stacked above the
+   native layer has to be transparent or the camera is simply invisible.
+   Scoped to the training screen's own backdrop so the rest of the app keeps
+   its normal look. */
+html.native-camera,
+html.native-camera body,
+html.native-camera #app {
+  background: transparent !important;
+}
+
+html.native-camera body::before {
+  display: none;
+}
+
+/* The dojo backdrop exists to frame a letterboxed getUserMedia feed. The
+   native preview uses resizeAspectFill, so there is nothing to frame — and an
+   opaque image here would hide the camera entirely. */
+html.native-camera .training-dojo-bg {
+  display: none;
+}
+
+/* The <video> is left in the DOM (app.ts still assigns srcObject and the
+   diagnostics hook still refers to it) but carries an empty MediaStream on
+   native, so it would only paint an opaque black rectangle over the preview. */
+html.native-camera .screen.training video.mirror {
+  display: none;
+}

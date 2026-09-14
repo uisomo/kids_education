@@ -9,10 +9,30 @@ export interface CharacterInfo {
   themeGradient: string;
   avatarNormal: string;
   avatarCheer: string;
-  /** Transparent (green-screen removed) cheer clip, VP9+alpha WebM. */
-  cheerVideo: string;
-  quotes: string[];
+  /**
+   * One clip per spoken phrase: transparent HEVC (.mov) with the character's
+   * own voice, cut from the green-screen originals so mouth and words match.
+   * HEVC alpha is decoded in hardware on iPhone; the old VP9+alpha WebM lost its
+   * transparency in WebKit and showed the green background.
+   */
+  cheerClips: CheerClip[];
 }
+
+/** One cheer clip and the words spoken in it, shown in the speech bubble. */
+export interface CheerClip {
+  src: string;    // transparent HEVC animation, played muted
+  audio: string;  // the same phrase's voice as .m4a, played by the native engine
+  text: string;
+}
+
+// Phrases transcribed from each clip with on-device Japanese recognition, in
+// clip order: phrase N is /characters/cheer/<id>-N.mov.
+const cheerClips = (id: CharacterId, phrases: string[]): CheerClip[] =>
+  phrases.map((text, i) => ({
+    src: `/characters/cheer/${id}-${i + 1}.mov`,
+    audio: `/characters/cheer/${id}-${i + 1}.m4a`,
+    text,
+  }));
 
 /** All companion ids, for picking a random cheerleader during training. */
 export const CHARACTER_IDS: CharacterId[] = ["alan", "leo", "izzy"];
@@ -27,14 +47,10 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     themeGradient: "linear-gradient(135deg, #FF6B4A 0%, #C8402F 100%)",
     avatarNormal: "/characters/alan.jpg",
     avatarCheer: "/characters/alan_cheer.jpg",
-    cheerVideo: "/characters/alan_cheer.webm",
-    quotes: [
-      "オス！最高の気合だ！",
-      "ファイト！その調子で突こう！",
-      "カッコいいぞ！腰を入れて！",
-      "ナイス蹴り！キレがあるね！",
-      "最後まで諦めないぞ！",
-    ],
+    cheerClips: cheerClips("alan", [
+      "応援するよ", "がんばれー", "君ならできる", "ファイト",
+      "応援してるからね", "最高だよ", "その調子", "ずっと応援してるよ",
+    ]),
   },
   leo: {
     id: "leo",
@@ -45,14 +61,7 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     themeGradient: "linear-gradient(135deg, #60A5FA 0%, #1D4ED8 100%)",
     avatarNormal: "/characters/leo.jpg",
     avatarCheer: "/characters/leo_cheer.jpg",
-    cheerVideo: "/characters/leo_cheer.webm",
-    quotes: [
-      "ナイスフォーム！完璧だね！",
-      "冷静に、素早く構えよう！",
-      "キレてきたね！素晴らしい！",
-      "その集中力、さすがだ！",
-      "素晴らしいスピードだ！",
-    ],
+    cheerClips: cheerClips("leo", ["応援するよ", "頑張って", "君ならできる", "信じてるからね"]),
   },
   izzy: {
     id: "izzy",
@@ -63,14 +72,10 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     themeGradient: "linear-gradient(135deg, #FDE047 0%, #CA8A04 100%)",
     avatarNormal: "/characters/izzy.jpg",
     avatarCheer: "/characters/izzy_cheer.jpg",
-    cheerVideo: "/characters/izzy_cheer.webm",
-    quotes: [
-      "わーい！すっごく上手！",
-      "イジーと一緒にエイエイオー！",
-      "ぴかぴかスマイルでエイッ！",
-      "カッコ良すぎてドッキドキ！",
-      "スター級の演武だね！",
-    ],
+    // izzy-7.mov is not listed: it has no speech, only a trailing sound.
+    cheerClips: cheerClips("izzy", [
+      "応援するよ", "どんな時も味方だよ", "一緒に頑張ろう", "君ならできる", "信じてるからね", "ファイト",
+    ]),
   },
 };
 

@@ -28,14 +28,30 @@ import {
   type CharacterId,
   type CharacterState,
 } from "./character-store";
-import { OverlayEventLog, type OverlayEvent } from "./overlay-event-log";
+import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
 import { DiagnosticsLog } from "./diagnostics-log";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
-  startRecording(streamOverride?: MediaStream): void;
-  stop(): Promise<Blob>;
+  // Native (AVFoundation) starts capture asynchronously; the web MediaRecorder
+  // path is synchronous and simply returns void.
+  startRecording(streamOverride?: MediaStream): void | Promise<void>;
+  // The overlay log is passed through so a recorder that burns text in itself
+  // (the native one) has what it needs. The web recorder ignores both and
+  // relies on the separate burnOverlay() dep instead.
+  // menu feeds the 特訓一覧 panel the native recorder burns into the video.
+  // sounds lists the music and cheer clips the phone played, for the native
+  // export to mix back in when echo cancellation keeps them out of the mic.
+  stop(
+    events?: OverlayEvent[],
+    totalDurationMs?: number,
+    menu?: OverlayMenuItem[],
+    sounds?: SoundEvent[],
+  ): Promise<Blob>;
   fileExtension(): string;
+  // Native only: the finished file on disk, for handing to the OS share sheet
+  // without round-tripping the video through base64.
+  fileUri?(): string | null;
 }
 
 export interface VoiceRecorderLike {
@@ -67,6 +83,9 @@ export interface BgmPlayer {
   // unmuting resumes only if a session is currently playing.
   setMuted(muted: boolean): void;
   isMuted(): boolean;
+  // Web path of the music file, so the native export can mix the same track
+  // back in when echo cancellation keeps it out of the microphone.
+  readonly src?: string;
 }
 
 export interface KarateAppDeps {
@@ -79,9 +98,15 @@ export interface KarateAppDeps {
   menuOverride?: Menu;
   storage?: Storage;
   promptName?(defaultName: string): string | null;
-  shareRecording(blob: Blob, ext: string): Promise<void>;
+  // fileUri is set on native, where the recording already exists on disk —
+  // passing it lets the share sheet take the file directly instead of
+  // re-encoding the whole video as base64 through the bridge.
+  shareRecording(blob: Blob, ext: string, fileUri?: string | null): Promise<void>;
   // Optional background music played during the session (Go!! → session end).
   bgm?: BgmPlayer;
+  // Plays a character's cheer voice (the clip's .m4a). Native routes it through
+  // the same engine as the music, so one never pauses the other.
+  playCheerVoice?(src: string): void;
   // Burns overlay text (種目名/countdown/cue/工夫) into the saved recording as
   // an offline post-process, after the raw camera+audio recording has already
   // stopped. Returns null on any failure (unsupported browser, ffmpeg error)
@@ -98,7 +123,6 @@ export interface KarateAppDeps {
   introStepMs?: number;
 }
 
-const ENCOURAGE_TOAST = "ファイト！";
 
 export class KarateApp {
   private menu: Menu;
@@ -425,7 +449,7 @@ export class KarateApp {
     // timestamps here and burned into the file afterward (finishSession()).
     this.overlayLog = new OverlayEventLog();
     this.overlayLog.start();
-    recorder.startRecording();
+    await recorder.startRecording();
 
     // Temporary on-device diagnostics for the iPhone Safari video-freeze bug
     // (image stalls while audio keeps recording). No Mac is available for
@@ -439,7 +463,14 @@ export class KarateApp {
     // encoding — neither fires when the recorded video freezes but the raw
     // track and preview loop stay healthy. Poll the live preview's
     // currentTime instead, since that reflects real decoded-frame progress.
-    this.diagnostics.watchVideoElement(view.videoEl);
+    // Native records through AVFoundation, so startCamera() hands back an empty
+    // MediaStream and the preview <video> never advances. Polling it there
+    // would log a "stalled" line every second and drown the real signal.
+    // Optional call: test doubles hand back a minimal stream stub, and the
+    // native path's empty MediaStream has no video tracks either.
+    if ((stream.getVideoTracks?.() ?? []).length > 0) {
+      this.diagnostics.watchVideoElement(view.videoEl);
+    }
 
     this.recElapsedMs = 0;
     this.cueCount = 0;
@@ -454,13 +485,22 @@ export class KarateApp {
     await playCountdownIntro(this.root, {
       stepMs: this.deps.introStepMs,
       onBeat: (cue) => {
+        // Burned into the recording too, so the video opens with the same
+        // Ready → 3 → 2 → 1 → Go!! the child saw on screen.
+        this.overlayLog?.setState({ intro: cue });
         if (cue === "Ready") void this.deps.audioSink.speak("よーい");
         else if (cue === "Go!!") void this.deps.audioSink.speak("はじめ");
         else void this.deps.audioSink.beep();
       },
     });
 
+    this.overlayLog?.setState({ intro: "" });
     this.deps.bgm?.play();
+    if (this.deps.bgm) {
+      this.overlayLog?.logSound({
+        kind: "bgm", playing: !this.deps.bgm.isMuted(), restart: true, src: this.deps.bgm.src,
+      });
+    }
     this.startRecTimer(view);
 
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
@@ -472,7 +512,7 @@ export class KarateApp {
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
         view.setCaption(caption);
-        this.overlayLog?.setState({ drill: drill.name, caption });
+        this.overlayLog?.setState({ drill: drill.name, caption, drillIndex: index });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
         view.setNext(next ? next.name : null);
@@ -483,14 +523,22 @@ export class KarateApp {
       },
       onEncourage: () => {
         this.cueCount++;
-        // E4: show the parent's ファイト コメント when set, else the generic toast.
-        // The parent's words take priority (not shown alongside). Logged for the
-        // offline burn-in pass, same as the generic toast.
-        const cue = this.fightComment || ENCOURAGE_TOAST;
-        view.showCue(cue);
-        this.overlayLog?.setState({ cue });
-        setTimeout(() => this.overlayLog?.setState({ cue: "" }), 1800);
-        void cuePlayer.encourage();
+        // E4: the parent's ファイト コメント, when set, is shown and burned in.
+        // The generic 「ファイト！」 toast is gone: it predates the talking
+        // characters and only repeated what the speech bubble already says.
+        const cue = this.fightComment;
+        const clip = view.showCue(cue);
+        if (clip) {
+          this.deps.playCheerVoice?.(clip.audio);
+          this.overlayLog?.logSound({ kind: "clip", src: clip.audio });
+        }
+        if (cue) {
+          this.overlayLog?.setState({ cue });
+          setTimeout(() => this.overlayLog?.setState({ cue: "" }), 1800);
+        }
+        // The character's own voice is the encouragement now. Playing the
+        // generic cue as well was the stray extra voice heard during cheers.
+        if (!clip) void cuePlayer.encourage();
       },
       onCountdown: (n: number) => {
         this.cueCount++;
@@ -520,6 +568,7 @@ export class KarateApp {
     view.onToggleBgm(() => {
       const next = !(this.deps.bgm?.isMuted() ?? false);
       this.deps.bgm?.setMuted(next);
+      this.overlayLog?.logSound({ kind: "bgm", playing: !next });
       setBgmMuted(next, this.base());
       view.setBgmMuted(next);
     });
@@ -570,6 +619,7 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
+    this.overlayLog?.logSound({ kind: "bgm", playing: false });
 
     try {
       // Capture events AND elapsed time from the same OverlayEventLog instance,
@@ -581,6 +631,7 @@ export class KarateApp {
       // dropping every trailing overlay segment during burn-in. See
       // overlay-event-log.ts's elapsedMs() and overlay-burner.ts's toSegments().
       const events = this.overlayLog?.getEvents() ?? [];
+      const sounds = this.overlayLog?.getSounds() ?? [];
       const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
       this.overlayLog = null;
       this.diagnostics?.stop();
@@ -588,7 +639,12 @@ export class KarateApp {
       this.diagnostics = null;
 
       const recorder = this.videoRecorder;
-      const blob = recorder ? await recorder.stop() : new Blob();
+      // On native, stop() also burns the overlay text into the video before it
+      // returns, which takes several seconds. Without this the training screen
+      // just froze after 終了 with no sign anything was happening.
+      renderLoadingScreen(this.root, "動画を保存中…");
+      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds, kind }) => ({ name, seconds, kind }));
+      const blob = recorder ? await recorder.stop(events, recordedDurationMs, menu, sounds) : new Blob();
       await this.deps.wakeGuard.release();
 
       const ext = recorder ? recorder.fileExtension() : "webm";
@@ -626,6 +682,7 @@ export class KarateApp {
       bumpDrills(kufuDrills.map((d) => d.name), this.mem());
 
       const blobForShare = blob;
+      const shareFileUri = recorder?.fileUri?.() ?? null;
       renderDoneScreen(this.root, {
         videoUrl,
         ext,
@@ -643,7 +700,7 @@ export class KarateApp {
         kufuEnabled: this.kufuLimit() > 0,
         onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
         onShare: (burnedBlob) => {
-          void this.deps.shareRecording(burnedBlob ?? blobForShare, ext).catch((e) => {
+          void this.deps.shareRecording(burnedBlob ?? blobForShare, ext, shareFileUri).catch((e) => {
             console.error("shareRecording failed", e);
           });
         },

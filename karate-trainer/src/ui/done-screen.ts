@@ -66,7 +66,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
 
   const praise = document.createElement("p");
   praise.style.cssText = "margin: 0; color: #ffd166; font-weight: 800; font-size: 1.05rem;";
-  praise.textContent = `${companionInfo.name}: 「${companionInfo.quotes[0]}」 (+${deps.xpEarned ?? 50} XP)`;
+  praise.textContent = `${companionInfo.name}: 「${companionInfo.cheerClips[0]?.text ?? "応援するよ"}」 (+${deps.xpEarned ?? 50} XP)`;
 
   celebCard.append(trophyImg, companionAvatar.element, stars, title, praise);
 
