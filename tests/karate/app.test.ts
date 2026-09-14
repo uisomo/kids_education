@@ -3,8 +3,8 @@ import { it, expect, vi, beforeEach } from "vitest";
 import { KarateApp } from "../../karate-trainer/src/app";
 import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store";
 import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
-import { getActiveId, addMember } from "../../karate-trainer/src/member-store";
-import { effectivePlan, loadFamilyPlan, loadPlan } from "../../karate-trainer/src/plan-store";
+import { getActiveId, loadMembers } from "../../karate-trainer/src/member-store";
+import { loadPlan } from "../../karate-trainer/src/plan-store";
 import { addKufu, loadKufu } from "../../karate-trainer/src/kufu-store";
 import { saveComment } from "../../karate-trainer/src/comment-store";
 
@@ -439,9 +439,10 @@ it("recovers to a visible screen instead of hanging when 終了 hits a recorder 
   process.off("unhandledRejection", unhandled);
 });
 
-// Family plan: one plan for every member. Picking another plan turns it off,
-// so the other members fall back to their own plans with 工夫 trimmed to match.
-it("Family plan covers every member; leaving it trims the others back to their own plan", async () => {
+// Household plan: Free/Premium allow 1 kid, Family allows 5. Dropping below the
+// member count locks the extra kids (kept, not deleted) and keeps the active
+// kid inside the limit.
+it("plan kid limits: Family unlocks siblings; downgrading locks them without deleting", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const m = new Map<string, string>();
@@ -453,8 +454,7 @@ it("Family plan covers every member; leaving it trims the others back to their o
     key: (i: number) => [...m.keys()][i] ?? null,
     get length() { return m.size; },
   } as Storage;
-  const other = getActiveId(storage);
-  const active = addMember("たろう", storage).id;   // adding makes たろう active
+  const first = getActiveId(storage);
 
   const store = new VoiceStore(memKv());
   await store.init();
@@ -476,6 +476,7 @@ it("Family plan covers every member; leaving it trims the others back to their o
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
   await app.start();
+  const card = (plan: string) => root.querySelector<HTMLButtonElement>(`[data-plan-card="${plan}"]`)!;
 
   // 家族 tab → pass the parental gate.
   root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
@@ -483,20 +484,37 @@ it("Family plan covers every member; leaving it trims the others back to their o
   root.querySelector<HTMLInputElement>("[data-gate-input]")!.value = String(a + b);
   root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
 
-  root.querySelector<HTMLButtonElement>('[data-plan-card="family"]')!.click();
-  expect(root.querySelector('[data-plan-card="family"]')!.classList.contains("active")).toBe(true);
-  expect(effectivePlan(storage, scopedStorage(storage, active))).toBe("family");
-  expect(effectivePlan(storage, scopedStorage(storage, other))).toBe("family");
+  // Free: 1 kid, so adding is off.
+  expect(root.querySelector<HTMLButtonElement>("[data-member-add]")!.disabled).toBe(true);
 
-  // じぶん (not active) uses Family's room: 3 工夫 across two 種目.
-  const otherS = scopedStorage(storage, other);
-  addKufu("前蹴り", "ひざ", otherS, 10, Infinity);
-  addKufu("前蹴り", "こし", otherS, 10, Infinity);
-  addKufu("正拳突き", "ひき", otherS, 10, Infinity);
+  // Family: add たろう (adding makes them active).
+  card("family").click();
+  expect(loadPlan(storage)).toBe("family");
+  root.querySelector<HTMLInputElement>("[data-member-add-input]")!.value = "たろう";
+  root.querySelector<HTMLButtonElement>("[data-member-add]")!.click();
+  const taro = loadMembers(storage).find((x) => x.name === "たろう")!.id;
+  expect(getActiveId(storage)).toBe(taro);
 
-  root.querySelector<HTMLButtonElement>('[data-plan-card="standard"]')!.click();
-  expect(loadFamilyPlan(storage)).toBe(false);
-  expect(loadPlan(scopedStorage(storage, active))).toBe("standard");
-  // じぶん is back on their own Free plan: 1 工夫 in 1 種目.
-  expect(loadKufu("前蹴り", otherS).length + loadKufu("正拳突き", otherS).length).toBe(1);
+  // たろう saves 3 工夫 across two 種目.
+  const taroS = scopedStorage(storage, taro);
+  addKufu("前蹴り", "ひざ", taroS, 10, Infinity);
+  addKufu("前蹴り", "こし", taroS, 10, Infinity);
+  addKufu("正拳突き", "ひき", taroS, 10, Infinity);
+  const kufuCount = () => loadKufu("前蹴り", taroS).length + loadKufu("正拳突き", taroS).length;
+
+  // Premium: back to 1 kid. たろう is locked but kept; じぶん becomes active.
+  card("premium").click();
+  expect(loadMembers(storage)).toHaveLength(2);
+  expect(getActiveId(storage)).toBe(first);
+  expect(root.querySelector(`[data-member-row="${taro}"]`)!.classList.contains("locked")).toBe(true);
+  expect(kufuCount()).toBe(3);   // Premium keeps 10 工夫
+
+  // The practice screen only offers usable kids.
+  root.querySelector<HTMLButtonElement>('[data-navtab="train"]')!.click();
+  expect(root.querySelectorAll("[data-member]")).toHaveLength(1);
+
+  // Free trims every member's 工夫 to 1 in 1 種目.
+  root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
+  card("free").click();
+  expect(kufuCount()).toBe(1);
 });

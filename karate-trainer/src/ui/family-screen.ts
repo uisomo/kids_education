@@ -12,8 +12,11 @@ export interface FamilyDeps {
   onAddMember(name: string): void;
   onRemoveMember(id: string): void;
   onSelectMember(id: string): void;
-  activePlan: Plan;             // the active member's current plan ("family" while Family is on)
+  activePlan: Plan;             // the household's plan (one plan covers every member)
   onSelectPlan(plan: Plan): void;
+  // How many members the plan allows. Members past it are shown locked (kept,
+  // not deleted) and adding is disabled. Optional: absent means no limit.
+  memberCap?: number;
   // E3 くらす assignment. `classes` = the family-shared presets that can be
   // assigned; `assignments` maps memberId → assigned presetId (or null).
   // Optional so pre-E3 callers/tests keep working (section is hidden if absent).
@@ -27,7 +30,7 @@ export interface FamilyDeps {
   onSaveComment?(kind: "kansou" | "fight", text: string): void;
 }
 
-const PLAN_ORDER: Plan[] = ["free", "standard", "max", "family"];
+const PLAN_ORDER: Plan[] = ["free", "premium", "family"];
 
 const NAME_MAX_LEN = 12;
 
@@ -38,6 +41,8 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const title = document.createElement("h1");
   title.className = "screen-title";
   title.textContent = "家族";
+
+  const cap = deps.memberCap ?? Infinity;
 
   // --- Active member selector ---
   const activeCard = document.createElement("div");
@@ -50,10 +55,11 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const select = document.createElement("select");
   select.className = "family-select";
   select.dataset.memberSelect = "";
-  deps.members.forEach((m) => {
+  deps.members.forEach((m, i) => {
     const opt = document.createElement("option");
     opt.value = m.id;
     opt.textContent = m.name;
+    opt.disabled = i >= cap;   // locked by plan
     if (m.id === deps.activeId) opt.selected = true;
     select.append(opt);
   });
@@ -69,14 +75,15 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const list = document.createElement("div");
   list.className = "family-member-list";
   list.dataset.memberList = "";
-  deps.members.forEach((m) => {
+  deps.members.forEach((m, i) => {
+    const locked = i >= cap;
     const row = document.createElement("div");
-    row.className = `family-member-row${m.id === deps.activeId ? " active" : ""}`;
+    row.className = `family-member-row${m.id === deps.activeId ? " active" : ""}${locked ? " locked" : ""}`;
     row.dataset.memberRow = m.id;
 
     const name = document.createElement("span");
     name.className = "family-member-name";
-    name.textContent = m.name;
+    name.textContent = locked ? `🔒 ${m.name}` : m.name;
 
     const del = document.createElement("button");
     del.className = "family-member-del";
@@ -111,18 +118,29 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   });
 
   addRow.append(nameInput, addBtn);
+  nameInput.disabled = addBtn.disabled = deps.members.length >= cap;
 
-  // --- Plan / upgrade section (per active member, or everyone on Family) ---
+  // Why adding is off, or why some members are locked.
+  const memberHint = document.createElement("div");
+  memberHint.className = "family-member-hint";
+  memberHint.dataset.memberHint = "";
+  if (deps.members.length > cap) {
+    memberHint.textContent = "🔒 のメンバーは、プランを上げるか ほかの人を削除すると使えます";
+  } else if (deps.members.length >= cap) {
+    memberHint.textContent = cap === 1
+      ? "2人目からはファミリープランで追加できます"
+      : `このプランは${cap}人までです`;
+  }
+  memberHint.hidden = !memberHint.textContent;
+
+  // --- Plan / upgrade section (one plan for the whole household) ---
   const planTitle = document.createElement("div");
   planTitle.className = "family-section-label";
   planTitle.textContent = "プラン";
 
   const planNote = document.createElement("div");
   planNote.className = "family-plan-note";
-  const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
-  planNote.textContent = deps.activePlan === "family"
-    ? "ファミリープラン（家族みんな）"
-    : `${activeName} のプラン（1人ごと）`;
+  planNote.textContent = "家族みんなで1つのプラン";
 
   const planCards = document.createElement("div");
   planCards.className = "family-plan-cards";
@@ -144,13 +162,17 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
     const price = document.createElement("div");
     price.className = "family-plan-price";
-    price.textContent = meta.price;
+    price.textContent = meta.monthly;
+
+    const yearly = document.createElement("div");
+    yearly.className = "family-plan-yearly";
+    if (meta.yearly) yearly.textContent = `または ${meta.yearly}`;
 
     const feats = document.createElement("div");
     feats.className = "family-plan-feats";
     const kufuText = limits.kufu === 0 ? "工夫なし" : `工夫 ${limits.kufu}件`;
-    const whoText = plan === "family" ? "\n家族みんな" : "";
-    feats.textContent = `メニュー ${limits.presets}・${kufuText}${whoText}`;
+    const kidsText = limits.members === 1 ? "1人" : `${limits.members}人まで`;
+    feats.textContent = `${kidsText}\nメニュー ${limits.presets}\n${kufuText}`;
 
     if (isActive) {
       const badge = document.createElement("div");
@@ -159,7 +181,9 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
       card.append(badge);
     }
 
-    card.append(name, price, feats);
+    card.append(name, price);
+    if (meta.yearly) card.append(yearly);
+    card.append(feats);
     card.addEventListener("click", () => deps.onSelectPlan(plan));
     planCards.append(card);
   });
@@ -170,7 +194,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- 応援コメント section (E4, active member) ---
   const commentNodes = buildCommentSection(deps);
 
-  root.append(title, activeCard, listTitle, list, addRow, ...classNodes, ...commentNodes, planTitle, planNote, planCards);
+  root.append(title, activeCard, listTitle, list, addRow, memberHint, ...classNodes, ...commentNodes, planTitle, planNote, planCards);
 }
 
 // Per-active-member 応援コメント: two labelled inputs (感想 / ファイト) each with a

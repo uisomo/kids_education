@@ -1,89 +1,82 @@
-// Plan store (Tower E2): subscription plans. Billing is mock (no real
-// payment — localStorage only) but the LIMITS are enforced for real by the
-// preset / kufu stores. Free/Standard/Max are stored per-member: written
-// through mem() (scopedStorage on the active member), so each kid has their
-// own plan, like menu / kufu / XP. Family is a single flag in the unscoped base
-// storage: while it's on it covers every member and overrides their own plans.
+// Plan store (Tower E2): the household's subscription plan. Billing is mock (no
+// real payment — localStorage only) but the LIMITS are enforced for real by the
+// app (members) and the preset / kufu stores. One plan covers the whole
+// household, matching how Apple bills a subscription per Apple ID rather than
+// per child, so it lives unscoped in the base storage.
 //
-// Plans & limits (monthly):
-//   Free     $0            presets 1   工夫 1 (1 種目 only)  Standard/Max 工夫 1/10 (any 種目)
-//   Standard $5 / ¥500     presets 10  工夫 1                 (per member)
-//   Max      $25 / ¥2500   presets 20  工夫 10                (per member)
-//   Family   $30 / ¥3000   presets 20  工夫 10                (every member)
+// Plans & limits:
+//   Free     ¥0                        kids 1  presets 1   工夫 1 (1 種目 only)
+//   Premium  ¥980/月 or ¥9,800/年      kids 1  presets 20  工夫 10 (any 種目)
+//   Family   ¥1,480/月 or ¥14,800/年   kids 5  presets 20  工夫 10 (any 種目)
 
-export type MemberPlan = "free" | "standard" | "max";
-export type Plan = MemberPlan | "family";
+import { loadMembers } from "./member-store";
+import { scopeKey } from "./scoped-storage";
+
+export type Plan = "free" | "premium" | "family";
 
 export interface PlanLimits {
+  members: number;      // max usable members (kids); extras are locked, not deleted
   presets: number;      // max saved presets (=menus/classes)
   kufu: number;         // max 工夫 history per drill; 0 disables 工夫 entirely
   maxKufuDrills: number; // max distinct 種目 that may have any saved 工夫 at once
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free: { presets: 1, kufu: 1, maxKufuDrills: 1 },
-  standard: { presets: 10, kufu: 1, maxKufuDrills: Infinity },
-  max: { presets: 20, kufu: 10, maxKufuDrills: Infinity },
-  family: { presets: 20, kufu: 10, maxKufuDrills: Infinity },
+  free: { members: 1, presets: 1, kufu: 1, maxKufuDrills: 1 },
+  premium: { members: 1, presets: 20, kufu: 10, maxKufuDrills: Infinity },
+  family: { members: 5, presets: 20, kufu: 10, maxKufuDrills: Infinity },
 };
 
 export interface PlanMeta {
-  label: string; // display name
-  price: string; // display monthly price (per member; Family covers everyone)
+  label: string;         // display name
+  monthly: string;       // display monthly price
+  yearly: string | null; // display yearly price (null = no yearly option)
 }
 
 export const PLAN_META: Record<Plan, PlanMeta> = {
-  free: { label: "フリー", price: "$0" },
-  standard: { label: "スタンダード", price: "$5・¥500" },
-  max: { label: "マックス", price: "$25・¥2500" },
-  family: { label: "ファミリー", price: "$30・¥3000" },
+  free: { label: "フリー", monthly: "¥0", yearly: null },
+  premium: { label: "プレミアム", monthly: "¥980/月", yearly: "¥9,800/年" },
+  family: { label: "ファミリー", monthly: "¥1,480/月", yearly: "¥14,800/年" },
 };
 
-const KEY = "karate.plan";
-const FAMILY_KEY = "karate.familyPlan";
-const DEFAULT_PLAN: MemberPlan = "free";
+const KEY = "karate.householdPlan";
+const DEFAULT_PLAN: Plan = "free";
 
-function isMemberPlan(v: unknown): v is MemberPlan {
-  return v === "free" || v === "standard" || v === "max";
+// Earlier plan storage, read once to carry existing households over.
+const LEGACY_MEMBER_KEY = "karate.plan";       // per member: "standard" | "max"
+const LEGACY_FAMILY_KEY = "karate.familyPlan"; // household: "on"
+
+function isPlan(v: unknown): v is Plan {
+  return v === "free" || v === "premium" || v === "family";
 }
 
-export function loadPlan(storage: Storage = localStorage): MemberPlan {
+// Carry an older install over: Family stays Family, and any member on the old
+// Standard or Max plan makes the household Premium. Otherwise Free.
+function migrate(base: Storage): Plan {
+  if (base.getItem(LEGACY_FAMILY_KEY) === "on") return "family";
+  const paid = loadMembers(base).some((m) => {
+    const old = base.getItem(scopeKey(m.id, LEGACY_MEMBER_KEY));
+    return old === "standard" || old === "max";
+  });
+  return paid ? "premium" : "free";
+}
+
+export function loadPlan(base: Storage = localStorage): Plan {
   try {
-    const raw = storage.getItem(KEY);
-    return isMemberPlan(raw) ? raw : DEFAULT_PLAN;
+    const raw = base.getItem(KEY);
+    if (isPlan(raw)) return raw;
+    const plan = migrate(base);
+    base.setItem(KEY, plan);
+    return plan;
   } catch {
     return DEFAULT_PLAN;
   }
 }
 
-export function setPlan(plan: MemberPlan, storage: Storage = localStorage): void {
+export function setPlan(plan: Plan, base: Storage = localStorage): void {
   try {
-    storage.setItem(KEY, plan);
+    base.setItem(KEY, plan);
   } catch {
     /* ignore storage errors */
   }
-}
-
-// Family plan flag. Pass the unscoped base storage — it is family-wide.
-export function loadFamilyPlan(base: Storage = localStorage): boolean {
-  try {
-    return base.getItem(FAMILY_KEY) === "on";
-  } catch {
-    return false;
-  }
-}
-
-export function setFamilyPlan(on: boolean, base: Storage = localStorage): void {
-  try {
-    if (on) base.setItem(FAMILY_KEY, "on");
-    else base.removeItem(FAMILY_KEY);
-  } catch {
-    /* ignore storage errors */
-  }
-}
-
-// The plan that actually applies to a member: Family while it's on, otherwise
-// the member's own plan. `base` is unscoped; `member` is that member's scope.
-export function effectivePlan(base: Storage, member: Storage): Plan {
-  return loadFamilyPlan(base) ? "family" : loadPlan(member);
 }

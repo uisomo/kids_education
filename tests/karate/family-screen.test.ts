@@ -57,29 +57,51 @@ it("removing a member fires onRemoveMember; last member's delete is disabled", (
 
 it("renders a plan card per plan with the active member's plan marked", () => {
   const root = document.createElement("div");
-  renderFamilyScreen(root, deps({ activePlan: "standard" }));
+  renderFamilyScreen(root, deps({ activePlan: "premium" }));
   const cards = root.querySelectorAll("[data-plan-card]");
-  expect(cards).toHaveLength(4);   // free / standard / max / family
-  expect(root.querySelector('[data-plan-card="standard"]')!.classList.contains("active")).toBe(true);
+  expect(cards).toHaveLength(3);   // free / premium / family
+  expect(root.querySelector('[data-plan-card="premium"]')!.classList.contains("active")).toBe(true);
   expect(root.querySelector('[data-plan-card="free"]')!.classList.contains("active")).toBe(false);
 });
 
-it("shows the Family card at ¥3000 and notes it covers everyone when active", () => {
+it("shows monthly and yearly prices and each plan's kid limit", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps({ activePlan: "family" }));
-  const card = root.querySelector<HTMLButtonElement>('[data-plan-card="family"]')!;
-  expect(card.classList.contains("active")).toBe(true);
-  expect(card.querySelector(".family-plan-price")!.textContent).toContain("¥3000");
-  expect(card.querySelector(".family-plan-feats")!.textContent).toContain("家族みんな");
-  expect(root.querySelector(".family-plan-note")!.textContent).toContain("家族みんな");
+  const fam = root.querySelector('[data-plan-card="family"]')!;
+  expect(fam.classList.contains("active")).toBe(true);
+  expect(fam.querySelector(".family-plan-price")!.textContent).toBe("¥1,480/月");
+  expect(fam.querySelector(".family-plan-yearly")!.textContent).toContain("¥14,800/年");
+  expect(fam.querySelector(".family-plan-feats")!.textContent).toContain("5人まで");
+  const prem = root.querySelector('[data-plan-card="premium"]')!;
+  expect(prem.querySelector(".family-plan-price")!.textContent).toBe("¥980/月");
+  expect(prem.querySelector(".family-plan-yearly")!.textContent).toContain("¥9,800/年");
+  expect(root.querySelector('[data-plan-card="free"] .family-plan-yearly')).toBeNull();
+});
+
+it("locks members past the plan's kid limit and disables adding", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ memberCap: 1 }));
+  expect(root.querySelector('[data-member-row="m1"]')!.classList.contains("locked")).toBe(false);
+  expect(root.querySelector('[data-member-row="m2"]')!.classList.contains("locked")).toBe(true);
+  expect(root.querySelector<HTMLOptionElement>('[data-member-select] option[value="m2"]')!.disabled).toBe(true);
+  expect(root.querySelector<HTMLButtonElement>("[data-member-add]")!.disabled).toBe(true);
+  expect(root.querySelector<HTMLElement>("[data-member-hint]")!.hidden).toBe(false);
+});
+
+it("allows adding while under the kid limit", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ memberCap: 5 }));
+  expect(root.querySelector(".family-member-row.locked")).toBeNull();
+  expect(root.querySelector<HTMLButtonElement>("[data-member-add]")!.disabled).toBe(false);
+  expect(root.querySelector<HTMLElement>("[data-member-hint]")!.hidden).toBe(true);
 });
 
 it("tapping a plan card fires onSelectPlan with that plan", () => {
   const root = document.createElement("div");
   const onSelectPlan = vi.fn();
   renderFamilyScreen(root, deps({ activePlan: "free", onSelectPlan }));
-  root.querySelector<HTMLButtonElement>('[data-plan-card="max"]')!.click();
-  expect(onSelectPlan).toHaveBeenCalledWith("max");
+  root.querySelector<HTMLButtonElement>('[data-plan-card="family"]')!.click();
+  expect(onSelectPlan).toHaveBeenCalledWith("family");
 });
 
 // --- E3: くらす assignment section ---

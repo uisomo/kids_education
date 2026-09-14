@@ -16,8 +16,8 @@ import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
-import { getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
-import { type Plan, PLAN_LIMITS, effectivePlan, setPlan, setFamilyPlan } from "./plan-store";
+import { type Member, getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
+import { type Plan, type PlanLimits, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import { loadComments, saveComment } from "./comment-store";
@@ -145,6 +145,7 @@ export class KarateApp {
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     // Family-shared base storage (member list + classes/presets live here).
     // Per-member data is read/written through mem() (scoped by active member).
+    this.clampActiveMember();
     this.menu = deps.menuOverride ?? loadMenu(this.mem());
     this.characterState = loadCharacterState(this.mem());
   }
@@ -160,34 +161,39 @@ export class KarateApp {
     return scopedStorage(base, getActiveId(base));
   }
 
-  // The plan that applies to a member: Family (covers everyone) while it's on,
-  // otherwise that member's own plan.
-  private planFor(memberId: string): Plan {
-    const base = this.base();
-    return effectivePlan(base, scopedStorage(base, memberId));
+  // The household plan's limits (one plan covers every member).
+  private limits(): PlanLimits {
+    return PLAN_LIMITS[loadPlan(this.base())];
   }
 
-  // The active member's plan-derived 工夫 cap (0 = 工夫 disabled, Free plan).
+  // Plan-derived 工夫 cap (0 = 工夫 disabled).
   private kufuLimit(): number {
-    return PLAN_LIMITS[this.planFor(getActiveId(this.base()))].kufu;
+    return this.limits().kufu;
   }
 
-  // The active member's plan-derived cap on how many DISTINCT 種目 may have a
-  // saved 工夫 at once (Free plan: 1; Standard/Max/Family: unlimited).
+  // Plan-derived cap on how many DISTINCT 種目 may have a saved 工夫 at once
+  // (Free plan: 1; Premium/Family: unlimited).
   private maxKufuDrills(): number {
-    return PLAN_LIMITS[this.planFor(getActiveId(this.base()))].maxKufuDrills;
+    return this.limits().maxKufuDrills;
   }
 
-  // The family's effective preset (menu) cap = the highest plan cap across all
-  // members. Presets are family-shared, so one member downgrading must never
-  // delete another member's saved menus — only trim when the count exceeds
-  // EVERY member's plan cap.
+  // Cap on the family-shared presets (menus).
   private familyPresetLimit(): number {
+    return this.limits().presets;
+  }
+
+  // Members the plan lets the household use: the first N in the list. Extra
+  // members (e.g. after Family lapses) keep their data but stay locked until
+  // the household upgrades or removes someone.
+  private usableMembers(): Member[] {
+    return loadMembers(this.base()).slice(0, this.limits().members);
+  }
+
+  // Keep the active member inside the usable set.
+  private clampActiveMember(): void {
     const base = this.base();
-    return loadMembers(base).reduce((max, m) => {
-      const cap = PLAN_LIMITS[this.planFor(m.id)].presets;
-      return Math.max(max, cap);
-    }, 0);
+    const usable = this.usableMembers();
+    if (!usable.some((m) => m.id === getActiveId(base))) setActive(usable[0].id, base);
   }
 
   // The assigned class (preset) id for a member, or null if unassigned or the
@@ -289,9 +295,10 @@ export class KarateApp {
       kansou: loadComments(this.mem()).kansou,
       // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
       // its parental gate for adding/removing members and changing plans.
-      members: loadMembers(this.base()),
+      members: this.usableMembers(),
       activeMemberId: getActiveId(this.base()),
       onSelectMember: (id) => {
+        if (!this.usableMembers().some((m) => m.id === id)) return;   // locked by plan
         setActive(id, this.base());
         this.reloadForActiveMember();
         this.showSetup();
@@ -360,10 +367,19 @@ export class KarateApp {
     renderFamilyScreen(this.root, {
       members,
       activeId: getActiveId(base),
-      onAddMember: (name) => { addMember(name, base); this.reloadForActiveMember(); this.showFamily(); },
-      onRemoveMember: (id) => { removeMember(id, base); this.reloadForActiveMember(); this.showFamily(); },
-      onSelectMember: (id) => { setActive(id, base); this.reloadForActiveMember(); this.showFamily(); },
-      activePlan: this.planFor(getActiveId(base)),
+      memberCap: this.limits().members,
+      onAddMember: (name) => {
+        if (members.length >= this.limits().members) return;   // plan's kid limit
+        addMember(name, base); this.reloadForActiveMember(); this.showFamily();
+      },
+      onRemoveMember: (id) => {
+        removeMember(id, base); this.clampActiveMember(); this.reloadForActiveMember(); this.showFamily();
+      },
+      onSelectMember: (id) => {
+        if (!this.usableMembers().some((m) => m.id === id)) return;   // locked by plan
+        setActive(id, base); this.reloadForActiveMember(); this.showFamily();
+      },
+      activePlan: loadPlan(base),
       onSelectPlan: (plan) => { this.changePlan(plan); this.showFamily(); },
       // E3: くらす assignment. Classes are the family-shared presets; each
       // member's assignment maps memberId → presetId (or null when unassigned).
@@ -377,34 +393,27 @@ export class KarateApp {
     });
   }
 
-  // Apply a plan and enforce the new caps immediately (delete-on-downgrade).
-  // Family turns on for everyone; any other plan turns Family off and sets the
-  // active member's own plan, so the other members fall back to theirs. Every
-  // member's 工夫 history is trimmed to their plan, and family-shared presets
-  // only if they now exceed EVERY member's cap.
+  // Set the household plan and enforce the new caps immediately
+  // (delete-on-downgrade): trim every member's 工夫 history and the
+  // family-shared presets to the plan, and move the active member back inside
+  // the plan's kid limit. Members over the limit are locked, never deleted.
   private changePlan(plan: Plan): void {
-    const base = this.base();
-    if (plan === "family") {
-      setFamilyPlan(true, base);
-    } else {
-      setFamilyPlan(false, base);
-      setPlan(plan, this.mem());
-    }
+    setPlan(plan, this.base());
     this.trimKufuToLimit();
     this.trimPresetsToFamilyLimit();
+    this.clampActiveMember();
+    this.reloadForActiveMember();
   }
 
-  // Drop each member's 工夫 history down to their current plan caps (0 clears
-  // all; a lower maxKufuDrills also drops whole 種目 down to that count).
+  // Drop every member's 工夫 history down to the plan caps (0 clears all; a
+  // lower maxKufuDrills also drops whole 種目 down to that count).
   private trimKufuToLimit(): void {
     const base = this.base();
-    loadMembers(base).forEach((m) => {
-      const limits = PLAN_LIMITS[this.planFor(m.id)];
-      trimKufuHistory(limits.kufu, scopedStorage(base, m.id), limits.maxKufuDrills);
-    });
+    const { kufu, maxKufuDrills } = this.limits();
+    loadMembers(base).forEach((m) => trimKufuHistory(kufu, scopedStorage(base, m.id), maxKufuDrills));
   }
 
-  // Trim family-shared presets to the highest cap across all members.
+  // Trim family-shared presets to the plan's cap.
   private trimPresetsToFamilyLimit(): void {
     const limit = this.familyPresetLimit();
     const list = loadPresets(this.base());

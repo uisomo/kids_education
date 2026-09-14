@@ -1,14 +1,7 @@
 import { it, expect } from "vitest";
-import {
-  loadPlan,
-  setPlan,
-  loadFamilyPlan,
-  setFamilyPlan,
-  effectivePlan,
-  PLAN_LIMITS,
-  PLAN_META,
-} from "../../karate-trainer/src/plan-store";
-import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
+import { loadPlan, setPlan, PLAN_LIMITS, PLAN_META } from "../../karate-trainer/src/plan-store";
+import { scopeKey } from "../../karate-trainer/src/scoped-storage";
+import { addMember, getActiveId } from "../../karate-trainer/src/member-store";
 
 function memStorage(): Storage {
   const m = new Map<string, string>();
@@ -22,65 +15,51 @@ function memStorage(): Storage {
   } as Storage;
 }
 
-it("defaults to the free plan when nothing is stored", () => {
+it("defaults a fresh household to the free plan", () => {
   expect(loadPlan(memStorage())).toBe("free");
 });
 
-it("persists and reads back a plan", () => {
+it("persists and reads back the household plan", () => {
   const s = memStorage();
-  setPlan("max", s);
-  expect(loadPlan(s)).toBe("max");
+  setPlan("premium", s);
+  expect(loadPlan(s)).toBe("premium");
+  setPlan("family", s);
+  expect(loadPlan(s)).toBe("family");
 });
 
-it("falls back to free on a corrupt / unknown stored value", () => {
+it("falls back to the migrated plan on a corrupt stored value", () => {
   const s = memStorage();
-  s.setItem("karate.plan", "platinum");
+  s.setItem("karate.householdPlan", "platinum");
   expect(loadPlan(s)).toBe("free");
 });
 
-it("keeps plans isolated per member via scoped storage", () => {
-  const base = memStorage();
-  const a = scopedStorage(base, "alice");
-  const b = scopedStorage(base, "bob");
-  setPlan("max", a);
-  setPlan("standard", b);
-  expect(loadPlan(a)).toBe("max");
-  expect(loadPlan(b)).toBe("standard");
+it("carries an old Family flag over as Family", () => {
+  const s = memStorage();
+  s.setItem("karate.familyPlan", "on");
+  expect(loadPlan(s)).toBe("family");
 });
 
-it("exposes the plan limits from memory (free/standard/max/family)", () => {
-  expect(PLAN_LIMITS.free).toEqual({ presets: 1, kufu: 1, maxKufuDrills: 1 });
-  expect(PLAN_LIMITS.standard).toEqual({ presets: 10, kufu: 1, maxKufuDrills: Infinity });
-  expect(PLAN_LIMITS.max).toEqual({ presets: 20, kufu: 10, maxKufuDrills: Infinity });
-  expect(PLAN_LIMITS.family).toEqual(PLAN_LIMITS.max);
+it("carries any member's old Standard or Max plan over as Premium, and remembers it", () => {
+  const s = memStorage();
+  getActiveId(s);                                   // default member, on Free
+  const taro = addMember("たろう", s);
+  s.setItem(scopeKey(taro.id, "karate.plan"), "standard");
+  expect(loadPlan(s)).toBe("premium");
+  expect(s.getItem("karate.householdPlan")).toBe("premium");
+
+  const s2 = memStorage();
+  s2.setItem(scopeKey(getActiveId(s2), "karate.plan"), "max");
+  expect(loadPlan(s2)).toBe("premium");
 });
 
-it("exposes display metadata for each plan", () => {
-  expect(PLAN_META.free.label).toBeTruthy();
-  expect(PLAN_META.standard.price).toBeTruthy();
-  expect(PLAN_META.max.price).toBeTruthy();
-  expect(PLAN_META.family.price).toContain("¥3000");
+it("exposes the plan limits (free/premium/family)", () => {
+  expect(PLAN_LIMITS.free).toEqual({ members: 1, presets: 1, kufu: 1, maxKufuDrills: 1 });
+  expect(PLAN_LIMITS.premium).toEqual({ members: 1, presets: 20, kufu: 10, maxKufuDrills: Infinity });
+  expect(PLAN_LIMITS.family).toEqual({ members: 5, presets: 20, kufu: 10, maxKufuDrills: Infinity });
 });
 
-it("family plan is off by default and toggles on/off", () => {
-  const base = memStorage();
-  expect(loadFamilyPlan(base)).toBe(false);
-  setFamilyPlan(true, base);
-  expect(loadFamilyPlan(base)).toBe(true);
-  setFamilyPlan(false, base);
-  expect(loadFamilyPlan(base)).toBe(false);
-});
-
-it("family plan covers every member and overrides their own plans while on", () => {
-  const base = memStorage();
-  const a = scopedStorage(base, "alice");
-  const b = scopedStorage(base, "bob");
-  setPlan("standard", a);
-  setFamilyPlan(true, base);
-  expect(effectivePlan(base, a)).toBe("family");
-  expect(effectivePlan(base, b)).toBe("family");
-
-  setFamilyPlan(false, base);
-  expect(effectivePlan(base, a)).toBe("standard");
-  expect(effectivePlan(base, b)).toBe("free");
+it("exposes monthly and yearly prices", () => {
+  expect(PLAN_META.free).toMatchObject({ monthly: "¥0", yearly: null });
+  expect(PLAN_META.premium).toMatchObject({ monthly: "¥980/月", yearly: "¥9,800/年" });
+  expect(PLAN_META.family).toMatchObject({ monthly: "¥1,480/月", yearly: "¥14,800/年" });
 });

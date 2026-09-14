@@ -85,7 +85,7 @@ function ensure(storage: Storage): MemberState {
   // unlimited presets and 10 工夫, so a Free default would silently regress
   // them. Only migrated (existing) installs are grandfathered; fresh installs
   // are left unset and default to Free via plan-store.
-  if (migrated) storage.setItem(scopeKey(first.id, "karate.plan"), "max");
+  if (migrated) storage.setItem(scopeKey(first.id, "karate.plan"), "max");   // plan-store carries this over as Premium
   const state: MemberState = { members: [first], activeId: first.id };
   write(state, storage);
   return state;
