@@ -53,6 +53,8 @@ export interface SetupDeps {
   // above the start button, signed with kansouBy. Empty / absent → no banner.
   kansou?: string;
   kansouBy?: string;
+  // 🔥 days in a row the member has practiced; shown top-right when > 0.
+  streakDays?: number;
   // Member band: every registered kid, so whoever is about to practice can pick
   // themselves. Ungated on purpose — the 家族 tab still gates add/remove/plans.
   members?: SetupMember[];
@@ -102,6 +104,13 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   title.textContent = "今日の稽古";
 
   header.append(title);
+  if (deps.streakDays && deps.streakDays > 0) {
+    const streak = document.createElement("div");
+    streak.className = "setup-streak";
+    streak.dataset.streak = "";
+    streak.textContent = `🔥 ${deps.streakDays}日継続中`;
+    header.append(streak);
+  }
 
   // --- Member band: who is practicing right now (tap to switch, no gate) ---
   let memberBand: HTMLDivElement | null = null;

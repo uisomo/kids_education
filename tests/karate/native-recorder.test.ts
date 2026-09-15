@@ -379,4 +379,13 @@ describe("NativeVideoRecorder with a real Capacitor-style plugin proxy", () => {
     expect(calls).toContain("cancelRecording");
     expect(calls).not.toContain("then");
   });
+
+  it("passes the 🔥 streak and belt labels to the native burn-in", async () => {
+    const { plugin, got } = makePlugin();
+    const rec = makeRecorder(plugin);
+    await rec.startCamera();
+    await rec.startRecording();
+    await rec.stop([], 1000, [], [], { streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯" });
+    expect(got()).toMatchObject({ streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯" });
+  });
 });

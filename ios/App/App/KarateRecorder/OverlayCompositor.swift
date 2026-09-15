@@ -250,6 +250,41 @@ enum OverlayCompositor {
         return layer
     }
 
+    /// 「🔥 N日間 毎日継続中」 pinned top-left for the whole video. Small enough to
+    /// sit above the drill-name pill (whose top is at ~52 in design space).
+    private static func streakLayer(text: String, renderSize: CGSize) -> CALayer {
+        let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
+        let fontSize = 22 * scale
+        let font = UIFont(name: "HiraginoSans-W8", size: fontSize)
+            ?? UIFont.systemFont(ofSize: fontSize, weight: .heavy)
+        let attributed = NSAttributedString(string: text, attributes: [
+            .font: font, .foregroundColor: UIColor.white,
+        ])
+        let textSize = attributed.size()
+        let padX = 12 * scale
+        let padY = 6 * scale
+        let w = ceil(textSize.width + padX * 2)
+        let h = ceil(textSize.height + padY * 2)
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let image = UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: format).image { _ in
+            UIColor(white: 0, alpha: 0.55).setFill()
+            UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: w, height: h), cornerRadius: h / 2).fill()
+            attributed.draw(at: CGPoint(x: padX, y: padY))
+        }
+
+        // Core Animation's origin is bottom-left; design coordinates are from the top.
+        let left = 24 * renderSize.width / designWidth
+        let top = 12 * renderSize.height / designHeight
+        let layer = CALayer()
+        layer.frame = CGRect(x: left, y: renderSize.height - top - h, width: w, height: h)
+        layer.contents = image.cgImage
+        layer.contentsGravity = .resize
+        return layer
+    }
+
     /// Windows during which each drill is the highlighted row, merged like the
     /// text windows so one bitmap per row covers the whole session.
     private static func menuWindows(
@@ -274,7 +309,7 @@ enum OverlayCompositor {
     /// highlighted, finished ones are dimmed. Anchored bottom-left above the
     /// 工夫 caption, over the body rather than the face.
     private static func menuPanelLayer(
-        menu: [MenuItem], activeIndex: Int, renderSize: CGSize
+        menu: [MenuItem], activeIndex: Int, renderSize: CGSize, beltLabel: String? = nil
     ) -> CALayer {
         let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
         let pad = 14 * scale
@@ -309,9 +344,11 @@ enum OverlayCompositor {
                 cornerRadius: 16 * scale
             ).fill()
 
-            NSAttributedString(string: "特訓一覧", attributes: [
-                .font: titleFont, .foregroundColor: yellow,
-            ]).draw(at: CGPoint(x: pad, y: pad))
+            // 「特訓一覧  🟢 緑帯」 — the belt of the saved menu being practiced.
+            let title = beltLabel.map { "特訓一覧  \($0)" } ?? "特訓一覧"
+            NSAttributedString(string: title, attributes: [
+                .font: titleFont, .foregroundColor: yellow, .paragraphStyle: truncating,
+            ]).draw(in: CGRect(x: pad, y: pad, width: width - pad * 2, height: titleH))
 
             for (i, item) in menu.enumerated() {
                 let rowY = pad + titleH + CGFloat(i) * rowH
@@ -419,7 +456,7 @@ enum OverlayCompositor {
     /// Builds the overlay layer tree for the whole session.
     static func overlayLayer(
         segments: [Segment], totalDurationMs: Double, renderSize: CGSize,
-        menu: [MenuItem] = []
+        menu: [MenuItem] = [], beltLabel: String? = nil
     ) -> CALayer {
         let container = CALayer()
         container.frame = CGRect(origin: .zero, size: renderSize)
@@ -427,7 +464,7 @@ enum OverlayCompositor {
 
         if !menu.isEmpty {
             for (index, spans) in menuWindows(in: segments) {
-                let panel = menuPanelLayer(menu: menu, activeIndex: index, renderSize: renderSize)
+                let panel = menuPanelLayer(menu: menu, activeIndex: index, renderSize: renderSize, beltLabel: beltLabel)
                 applyVisibility(to: panel, windows: spans, totalMs: totalDurationMs)
                 container.addSublayer(panel)
             }
@@ -555,7 +592,9 @@ enum OverlayCompositor {
         menu: [MenuItem] = [],
         sounds: [Sound] = [],
         voice: VoiceTrack? = nil,
-        badgeURL: URL? = nil
+        badgeURL: URL? = nil,
+        streakLabel: String? = nil,
+        beltLabel: String? = nil
     ) async throws -> ExportResult {
         let started = Date()
         // Keep the source asset in this local for the whole export: composition
@@ -592,8 +631,12 @@ enum OverlayCompositor {
         let segs = segments(from: events, totalDurationMs: totalDurationMs)
         if !segs.isEmpty {
             parentLayer.addSublayer(
-                overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size, menu: menu)
+                overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size,
+                             menu: menu, beltLabel: beltLabel)
             )
+        }
+        if let streakLabel, !streakLabel.isEmpty {
+            parentLayer.addSublayer(streakLayer(text: streakLabel, renderSize: size))
         }
         // Keep the badge asset alive for the export, like the source.
         var badge: AVURLAsset?

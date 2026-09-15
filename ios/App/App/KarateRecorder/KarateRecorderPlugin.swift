@@ -331,6 +331,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func stopRecording(_ call: CAPPluginCall) {
         let rawEvents = call.getArray("events", JSObject.self) ?? []
         let totalDurationMs = call.getDouble("totalDurationMs") ?? 0
+        let streakLabel = call.getString("streakLabel")
+        let beltLabel = call.getString("beltLabel")
         let menu: [OverlayCompositor.MenuItem] = (call.getArray("menu", JSObject.self) ?? []).compactMap { entry in
             guard let name = entry["name"] as? String else { return nil }
             return OverlayCompositor.MenuItem(
@@ -425,7 +427,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     try await OverlayCompositor.burn(
                         sourceURL: raw, outputURL: burned, events: events, totalDurationMs: totalMs,
                         menu: menu, sounds: music, voice: voiceTrack,
-                        badgeURL: OverlayCompositor.bundledURL(forWebPath: "/characters/alan-badge.mov")
+                        badgeURL: OverlayCompositor.bundledURL(forWebPath: "/characters/alan-badge.mov"),
+                        streakLabel: streakLabel, beltLabel: beltLabel
                     )
                 }
                 finalURL = burned

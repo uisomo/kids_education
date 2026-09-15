@@ -14,7 +14,8 @@ import {
   latestKufu, kufuNotes, addKufu, canAddKufu, removeKufu, removeKufuAt, clearAllKufu, countKufu,
   renameKufu, pruneKufu, type KufuCaps,
 } from "./kufu-store";
-import { BELTS } from "./belt-store";
+import { BELTS, beltLabel } from "./belt-store";
+import { currentStreak, recordPracticeDay } from "./streak-store";
 import {
   loadMenuBelt, beltStateFor, recordPractice, setMenuBelt, removeMenuBelt, levelOf,
   getSelectedPreset, setSelectedPreset,
@@ -55,6 +56,7 @@ export interface VideoRecorderLike {
     totalDurationMs?: number,
     menu?: OverlayMenuItem[],
     sounds?: SoundEvent[],
+    labels?: { streakLabel?: string; beltLabel?: string },
   ): Promise<Blob>;
   fileExtension(): string;
   // Native only: bytes free on the phone, or null when unknown.
@@ -372,6 +374,7 @@ export class KarateApp {
       // E4: the parent's 感想コメント for the active member (top banner).
       kansou: loadComments(this.mem()).kansou,
       kansouBy: loadComments(this.mem()).kansouBy,
+      streakDays: currentStreak(this.mem()),
       // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
       // its parental gate for adding/removing members and changing plans.
       members: this.usableMembers(),
@@ -848,7 +851,15 @@ export class KarateApp {
           ? { name, seconds, kind, level: levelOf(before, name), gained: completed && this.finishedRows.has(i) }
           : { name, seconds, kind }
       ));
-      const blob = recorder ? await recorder.stop(events, recordedDurationMs, menu, sounds) : new Blob();
+      // 🔥 A practice that ran to the end with a finished drill counts for today.
+      const streak = completed && this.finishedDrills.length > 0
+        ? recordPracticeDay(this.mem())
+        : currentStreak(this.mem());
+      const labels = {
+        ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
+        ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
+      };
+      const blob = recorder ? await recorder.stop(events, recordedDurationMs, menu, sounds, labels) : new Blob();
       await this.deps.wakeGuard.release();
 
       const ext = recorder ? recorder.fileExtension() : "webm";

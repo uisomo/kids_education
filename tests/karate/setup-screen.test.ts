@@ -469,3 +469,11 @@ it("a full 種目's 💡 still opens so a 工夫 can be erased", () => {
   expect(d.onRemoveKufu).toHaveBeenCalledWith("前蹴り", 1);
   expect(root.querySelector("[data-kufu-modal-input]")).not.toBeNull();
 });
+
+it("shows 🔥 N日継続中 at the top right when there is a streak, nothing at 0", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ streakDays: 3 }));
+  expect(root.querySelector(".toybox-header [data-streak]")!.textContent).toBe("🔥 3日継続中");
+  renderSetupScreen(root, deps({ streakDays: 0 }));
+  expect(root.querySelector("[data-streak]")).toBeNull();
+});

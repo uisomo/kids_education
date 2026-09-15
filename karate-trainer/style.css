@@ -76,11 +76,39 @@ button {
    「アランのおもちゃ箱」 Top Banner & Branding Header
 --------------------------------------------------------- */
 .toybox-header {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
   margin-bottom: 0.5rem;
+}
+
+/* 今日の稽古 header: three columns keep the title centred and give the 🔥 pill
+   its own space on the right, so a long streak never runs into the title. */
+.screen.setup .toybox-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 0.3rem;
+}
+
+.screen.setup .toybox-header .screen-title {
+  grid-column: 2;
+}
+
+/* 🔥 N日継続中, top-right of 今日の稽古. */
+.setup-streak {
+  grid-column: 3;
+  justify-self: end;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
 }
 
 .toybox-banner-img {

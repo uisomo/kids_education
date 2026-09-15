@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { BELTS, loadBelt } from "../../karate-trainer/src/belt-store";
+import { BELTS, loadBelt, beltLabel } from "../../karate-trainer/src/belt-store";
 import { saveCharacterState } from "../../karate-trainer/src/character-store";
 
 function memStorage(): Storage {
@@ -39,4 +39,11 @@ it("ignores a corrupt stored value", () => {
   const s = memStorage();
   s.setItem("karate.belt", "{oops");
   expect(loadBelt(s)).toEqual({ index: 0, bars: 0 });
+});
+
+it("every belt has an emoji for the video label", () => {
+  expect(BELTS.every((b) => b.mark.length > 0)).toBe(true);
+  expect(beltLabel(3)).toBe("🟢 緑帯");
+  expect(beltLabel(7)).toBe("⚫ 黒帯");
+  expect(beltLabel(99)).toBe("🌟 でんせつの帯");
 });

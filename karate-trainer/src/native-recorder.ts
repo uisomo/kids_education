@@ -32,6 +32,9 @@ export interface KarateRecorderPluginLike {
     totalDurationMs: number;
     menu: OverlayMenuItem[];
     sounds: SoundEvent[];
+    // 「🔥 N日間 毎日継続中」 (top-left) and 「🟢 緑帯」 (next to 特訓一覧).
+    streakLabel?: string;
+    beltLabel?: string;
   }): Promise<NativeStopResult>;
   // Stops recording/preview/voice/music and deletes the session's temp files.
   // Optional so older native builds (and test fakes) without it still type.
@@ -212,11 +215,12 @@ export class NativeVideoRecorder {
     totalDurationMs = 0,
     menu: OverlayMenuItem[] = [],
     sounds: SoundEvent[] = [],
+    labels: { streakLabel?: string; beltLabel?: string } = {},
   ): Promise<Blob> {
     const plugin = this.getPlugin();
     this.removeInterruptListener();
     try {
-      const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds });
+      const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds, ...labels });
       this.lastUri = result.uri;
       this.burnedIn = result.burnedIn;
       this.lastBurnError = result.burnError ?? null;

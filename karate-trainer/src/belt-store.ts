@@ -7,29 +7,36 @@ import { loadCharacterState } from "./character-store";
 export interface BeltDef {
   name: string;   // 白帯, クリスタルの帯, …
   icon: string;   // shown before the name (RPG belts only)
+  mark: string;   // emoji for the belt in the recorded video (colored belts get a circle)
   fill: string;   // CSS background for the drawn obi (color or gradient)
   ink: string;    // knot outline that reads against the fill
   rpg: boolean;   // RPG belts get the gold frame and shimmer
 }
 
 export const BELTS: BeltDef[] = [
-  { name: "白帯", icon: "", fill: "#f5f5f4", ink: "#a8a29e", rpg: false },
-  { name: "黄帯", icon: "", fill: "#facc15", ink: "#a16207", rpg: false },
-  { name: "オレンジ帯", icon: "", fill: "#fb923c", ink: "#c2410c", rpg: false },
-  { name: "緑帯", icon: "", fill: "#22c55e", ink: "#15803d", rpg: false },
-  { name: "青帯", icon: "", fill: "#3b82f6", ink: "#1d4ed8", rpg: false },
-  { name: "紫帯", icon: "", fill: "#a855f7", ink: "#7e22ce", rpg: false },
-  { name: "茶帯", icon: "", fill: "#92400e", ink: "#451a03", rpg: false },
-  { name: "黒帯", icon: "", fill: "#1c1917", ink: "#78716c", rpg: false },
-  { name: "ほのおの帯", icon: "🔥", fill: "linear-gradient(90deg, #b91c1c, #f97316, #facc15, #f97316, #b91c1c)", ink: "#7f1d1d", rpg: true },
-  { name: "いかずちの帯", icon: "⚡", fill: "linear-gradient(90deg, #1e3a8a, #3b82f6, #fde047, #3b82f6, #1e3a8a)", ink: "#172554", rpg: true },
-  { name: "クリスタルの帯", icon: "🔮", fill: "linear-gradient(90deg, #a5f3fc, #e0e7ff, #c4b5fd, #e0e7ff, #a5f3fc)", ink: "#7c3aed", rpg: true },
-  { name: "ダイヤモンドの帯", icon: "💎", fill: "linear-gradient(90deg, #bae6fd, #ffffff, #7dd3fc, #ffffff, #bae6fd)", ink: "#0284c7", rpg: true },
-  { name: "ドラゴンの帯", icon: "🐉", fill: "linear-gradient(90deg, #064e3b, #10b981, #fbbf24, #10b981, #064e3b)", ink: "#022c22", rpg: true },
-  { name: "でんせつの帯", icon: "🌟", fill: "linear-gradient(90deg, #f43f5e, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7)", ink: "#ffffff", rpg: true },
+  { name: "白帯", mark: "⚪", icon: "", fill: "#f5f5f4", ink: "#a8a29e", rpg: false },
+  { name: "黄帯", mark: "🟡", icon: "", fill: "#facc15", ink: "#a16207", rpg: false },
+  { name: "オレンジ帯", mark: "🟠", icon: "", fill: "#fb923c", ink: "#c2410c", rpg: false },
+  { name: "緑帯", mark: "🟢", icon: "", fill: "#22c55e", ink: "#15803d", rpg: false },
+  { name: "青帯", mark: "🔵", icon: "", fill: "#3b82f6", ink: "#1d4ed8", rpg: false },
+  { name: "紫帯", mark: "🟣", icon: "", fill: "#a855f7", ink: "#7e22ce", rpg: false },
+  { name: "茶帯", mark: "🟤", icon: "", fill: "#92400e", ink: "#451a03", rpg: false },
+  { name: "黒帯", mark: "⚫", icon: "", fill: "#1c1917", ink: "#78716c", rpg: false },
+  { name: "ほのおの帯", mark: "🔥", icon: "🔥", fill: "linear-gradient(90deg, #b91c1c, #f97316, #facc15, #f97316, #b91c1c)", ink: "#7f1d1d", rpg: true },
+  { name: "いかずちの帯", mark: "⚡", icon: "⚡", fill: "linear-gradient(90deg, #1e3a8a, #3b82f6, #fde047, #3b82f6, #1e3a8a)", ink: "#172554", rpg: true },
+  { name: "クリスタルの帯", mark: "🔮", icon: "🔮", fill: "linear-gradient(90deg, #a5f3fc, #e0e7ff, #c4b5fd, #e0e7ff, #a5f3fc)", ink: "#7c3aed", rpg: true },
+  { name: "ダイヤモンドの帯", mark: "💎", icon: "💎", fill: "linear-gradient(90deg, #bae6fd, #ffffff, #7dd3fc, #ffffff, #bae6fd)", ink: "#0284c7", rpg: true },
+  { name: "ドラゴンの帯", mark: "🐉", icon: "🐉", fill: "linear-gradient(90deg, #064e3b, #10b981, #fbbf24, #10b981, #064e3b)", ink: "#022c22", rpg: true },
+  { name: "でんせつの帯", mark: "🌟", icon: "🌟", fill: "linear-gradient(90deg, #f43f5e, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7)", ink: "#ffffff", rpg: true },
 ];
 
 export const BARS_PER_BELT = 10;
+
+// 「🟢 緑帯」: the belt as shown next to 特訓一覧 in the recorded video.
+export function beltLabel(index: number): string {
+  const belt = BELTS[Math.min(BELTS.length - 1, Math.max(0, Math.floor(index)))];
+  return `${belt.mark} ${belt.name}`;
+}
 
 export interface BeltState {
   index: number; // into BELTS
