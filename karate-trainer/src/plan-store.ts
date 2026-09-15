@@ -5,9 +5,10 @@
 // per child, so it lives unscoped in the base storage.
 //
 // Plans & limits:
-//   Free     ¥0                        kids 1  presets 1   工夫 1 (1 種目 only)
-//   Premium  ¥980/月 or ¥9,800/年      kids 1  presets 20  工夫 10 (any 種目)
-//   Family   ¥1,480/月 or ¥14,800/年   kids 5  presets 20  工夫 10 (any 種目)
+//   Free     ¥0                        kids 1  menus 1       工夫 1
+//   Premium  ¥980/月 or ¥9,800/年      kids 1  menus 5       工夫 3/種目, 150
+//   Family   ¥1,480/月 or ¥14,800/年   kids 5  menus 5/kid   工夫 3/種目, 150/kid
+// Menus are household-shared, so the cap is presetsPerMember × usable kids.
 
 import { loadMembers } from "./member-store";
 import { scopeKey } from "./scoped-storage";
@@ -16,15 +17,15 @@ export type Plan = "free" | "premium" | "family";
 
 export interface PlanLimits {
   members: number;      // max usable members (kids); extras are locked, not deleted
-  presets: number;      // max saved presets (=menus/classes)
-  kufu: number;         // max 工夫 history per drill; 0 disables 工夫 entirely
-  maxKufuDrills: number; // max distinct 種目 that may have any saved 工夫 at once
+  presetsPerMember: number; // saved menus (presets/classes) per usable kid
+  kufuPerDrill: number;     // 工夫 per 種目; 0 disables 工夫 entirely
+  kufuTotal: number;        // 工夫 per kid, across every 種目
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free: { members: 1, presets: 1, kufu: 1, maxKufuDrills: 1 },
-  premium: { members: 1, presets: 20, kufu: 10, maxKufuDrills: Infinity },
-  family: { members: 5, presets: 20, kufu: 10, maxKufuDrills: Infinity },
+  free: { members: 1, presetsPerMember: 1, kufuPerDrill: 1, kufuTotal: 1 },
+  premium: { members: 1, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
+  family: { members: 5, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
 };
 
 export interface PlanMeta {

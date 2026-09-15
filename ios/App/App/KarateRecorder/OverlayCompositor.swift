@@ -29,6 +29,23 @@ enum OverlayCompositor {
         var name: String
         var seconds: Int
         var isRest: Bool
+        /// 強さ level before this practice (saved menus only), 0...10.
+        var level: Int? = nil
+        /// This row's drill finished, so it earns one more bar once it's done.
+        var gained = false
+    }
+
+    /// Red → purple, matching the 強さ screen's bars.
+    private static let rainbow: [UIColor] = [
+        rgb(0xff3b30), rgb(0xff6b22), rgb(0xff9f0a), rgb(0xffd60a), rgb(0x34c759),
+        rgb(0x30c0c6), rgb(0x32ade6), rgb(0x5b6cff), rgb(0x8e5bff), rgb(0xbf5af2),
+    ]
+
+    private static func rgb(_ hex: Int) -> UIColor {
+        let r = CGFloat((hex >> 16) & 0xff) / 255
+        let g = CGFloat((hex >> 8) & 0xff) / 255
+        let b = CGFloat(hex & 0xff) / 255
+        return UIColor(red: r, green: g, blue: b, alpha: 1)
     }
 
     struct State: Equatable {
@@ -264,7 +281,9 @@ enum OverlayCompositor {
         let titleH = 40 * scale
         // Long menus shrink their rows rather than running up over the face.
         let rowH = min(34 * scale, 460 * scale / CGFloat(max(menu.count, 1)))
-        let width = 300 * scale
+        // Rows with a 強さ level get 10 small bars, so the panel is a bit wider.
+        let showLevels = menu.contains { $0.level != nil }
+        let width = (showLevels ? 350 : 300) * scale
         let height = ceil(pad + titleH + rowH * CGFloat(menu.count) + pad)
 
         let yellow = UIColor(red: 1, green: 0xd1 / 255, blue: 0x66 / 255, alpha: 1)
@@ -317,11 +336,31 @@ enum OverlayCompositor {
                 let secondsW = ceil(seconds.size().width)
                 seconds.draw(in: CGRect(x: pad, y: textY, width: width - pad * 2, height: rowFont.lineHeight))
 
+                // 強さ bars between the name and the seconds: lit up to the
+                // level, plus the bar this practice earned once the row is done.
+                var levelW: CGFloat = 0
+                if let level = item.level {
+                    let done = activeIndex >= 0 && i < activeIndex
+                    let lit = min(10, max(0, level) + (item.gained && done ? 1 : 0))
+                    let barW = 7 * scale, gap = 2 * scale, barH = rowH * 0.42
+                    let barsW = barW * 10 + gap * 9
+                    let x0 = width - pad - secondsW - pad * 0.6 - barsW
+                    let y0 = rowY + (rowH - barH) / 2
+                    for b in 0..<10 {
+                        (b < lit ? rainbow[b] : UIColor(white: 1, alpha: 0.18)).setFill()
+                        UIBezierPath(
+                            roundedRect: CGRect(x: x0 + CGFloat(b) * (barW + gap), y: y0, width: barW, height: barH),
+                            cornerRadius: 2 * scale
+                        ).fill()
+                    }
+                    levelW = barsW + pad * 0.6
+                }
+
                 let marker = i == activeIndex ? "▶ " : ""
                 NSAttributedString(string: "\(marker)\(i + 1). \(item.name)", attributes: [
                     .font: rowFont, .foregroundColor: color, .paragraphStyle: truncating,
                 ]).draw(in: CGRect(x: pad, y: textY,
-                                   width: width - pad * 3 - secondsW, height: rowFont.lineHeight))
+                                   width: width - pad * 3 - secondsW - levelW, height: rowFont.lineHeight))
             }
         }
 
@@ -436,8 +475,78 @@ enum OverlayCompositor {
         return CGSize(width: abs(size.width), height: abs(size.height))
     }
 
-    /// Burns `events` into `sourceURL`, writing an .mp4 to `outputURL`.
-    /// Audio passes through untouched.
+    /// What an export managed to put in the audio.
+    struct ExportResult {
+        /// The voice and/or music made it into the file.
+        let soundMixed: Bool
+        /// Why (part of) the sound mix was dropped, if it was.
+        let mixError: String?
+    }
+
+    /// The asset to export: the raw capture with the voice and music mixed in,
+    /// or — if the full mix fails — with just the voice, so a broken music file
+    /// can't cost the recording its sound. Falls back to the raw capture.
+    private static func mixedAsset(
+        source: AVURLAsset, sounds: [Sound], voice: VoiceTrack?
+    ) async -> (asset: AVAsset, audioMix: AVAudioMix?, result: ExportResult) {
+        guard !sounds.isEmpty || voice != nil else {
+            return (source, nil, ExportResult(soundMixed: false, mixError: nil))
+        }
+        do {
+            let mixed = try await SoundMixer.composition(source: source, sounds: sounds, voice: voice)
+            return (mixed.composition, mixed.audioMix, ExportResult(soundMixed: true, mixError: nil))
+        } catch {
+            let fullError = error.localizedDescription
+            print("⚡️  [KarateRecorder] sound mix failed: \(fullError)")
+            if voice != nil, !sounds.isEmpty,
+               let voiceOnly = try? await SoundMixer.composition(source: source, sounds: [], voice: voice) {
+                print("⚡️  [KarateRecorder] exporting with the voice only")
+                return (voiceOnly.composition, voiceOnly.audioMix, ExportResult(soundMixed: true, mixError: fullError))
+            }
+            return (source, nil, ExportResult(soundMixed: false, mixError: fullError))
+        }
+    }
+
+    /// Runs one export, removing any partial output if it fails.
+    private static func export(
+        asset: AVAsset, videoComposition: AVVideoComposition?, audioMix: AVAudioMix?, to outputURL: URL
+    ) async throws {
+        guard let export = AVAssetExportSession(
+            asset: asset, presetName: AVAssetExportPresetHighestQuality
+        ) else {
+            throw CompositorError.exportFailed("could not create export session")
+        }
+        export.videoComposition = videoComposition
+        export.audioMix = audioMix
+        export.outputFileType = .mp4
+        export.outputURL = outputURL
+        export.shouldOptimizeForNetworkUse = true
+
+        try? FileManager.default.removeItem(at: outputURL)
+        // exportAsynchronously is deprecated in the iOS 18 SDK in favour of
+        // export(to:as:), but it exists on every iOS version this app targets.
+        // Wrapping it avoids depending on which async overload a given SDK has.
+        do {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                export.exportAsynchronously {
+                    if export.status == .completed {
+                        cont.resume()
+                    } else {
+                        cont.resume(throwing: CompositorError.exportFailed(
+                            export.error?.localizedDescription ?? "status \(export.status.rawValue)"
+                        ))
+                    }
+                }
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: outputURL)
+            throw error
+        }
+    }
+
+    /// Burns `events` into `sourceURL`, writing an .mp4 to `outputURL`, with the
+    /// voice and music mixed in.
+    @discardableResult
     static func burn(
         sourceURL: URL,
         outputURL: URL,
@@ -445,23 +554,20 @@ enum OverlayCompositor {
         totalDurationMs: Double,
         menu: [MenuItem] = [],
         sounds: [Sound] = [],
-        voice: VoiceTrack? = nil
-    ) async throws {
+        voice: VoiceTrack? = nil,
+        badgeURL: URL? = nil
+    ) async throws -> ExportResult {
+        let started = Date()
+        // Keep the source asset in this local for the whole export: composition
+        // tracks don't retain it.
         let source = AVURLAsset(url: sourceURL)
         // With echo-cancelled input the microphone no longer hears the music or
         // character voices, so they are mixed back in from the original files.
         // A failed mix still exports the recording with its overlay.
-        var asset: AVAsset = source
-        var audioMix: AVAudioMix?
-        if !sounds.isEmpty || voice != nil {
-            do {
-                let mixed = try await SoundMixer.composition(source: source, sounds: sounds, voice: voice)
-                asset = mixed.composition
-                audioMix = mixed.audioMix
-            } catch {
-                print("⚡️  [KarateRecorder] sound mix skipped: \(error.localizedDescription)")
-            }
-        }
+        let (mixed, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
+        // The badge needs a composition to add its track to; without a mix the
+        // asset is still the raw file.
+        let asset: AVAsset = badgeURL == nil ? mixed : try await mutableComposition(of: mixed)
         guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
             throw CompositorError.noVideoTrack
         }
@@ -489,35 +595,112 @@ enum OverlayCompositor {
                 overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size, menu: menu)
             )
         }
+        // Keep the badge asset alive for the export, like the source.
+        var badge: AVURLAsset?
+        if let badgeURL, let comp = asset as? AVMutableComposition {
+            let clip = AVURLAsset(url: badgeURL)
+            do {
+                try await addBadge(clip, to: comp, videoComposition: composition, renderSize: size)
+                badge = clip
+            } catch {
+                // A missing or broken badge must never cost the overlay.
+                print("⚡️  [KarateRecorder] badge skipped: \(error.localizedDescription)")
+            }
+        }
+
         composition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer, in: parentLayer
         )
 
-        guard let export = AVAssetExportSession(
-            asset: asset, presetName: AVAssetExportPresetHighestQuality
-        ) else {
-            throw CompositorError.exportFailed("could not create export session")
-        }
-        export.videoComposition = composition
-        export.audioMix = audioMix
-        export.outputFileType = .mp4
-        export.outputURL = outputURL
-        export.shouldOptimizeForNetworkUse = true
+        try await export(asset: asset, videoComposition: composition, audioMix: audioMix, to: outputURL)
+        withExtendedLifetime(source) {}
+        withExtendedLifetime(badge) {}
+        print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video (badge: %@)",
+                     Date().timeIntervalSince(started), totalDurationMs / 1000, badge == nil ? "no" : "yes"))
+        return result
+    }
 
-        try? FileManager.default.removeItem(at: outputURL)
-        // exportAsynchronously is deprecated in the iOS 18 SDK in favour of
-        // export(to:as:), but it exists on every iOS version this app targets.
-        // Wrapping it avoids depending on which async overload a given SDK has.
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            export.exportAsynchronously {
-                if export.status == .completed {
-                    cont.resume()
-                } else {
-                    cont.resume(throwing: CompositorError.exportFailed(
-                        export.error?.localizedDescription ?? "status \(export.status.rawValue)"
-                    ))
-                }
-            }
+    // MARK: - Badge (アランのからて)
+
+    /// The raw capture copied into a composition, so another track can be added.
+    private static func mutableComposition(of asset: AVAsset) async throws -> AVMutableComposition {
+        if let comp = asset as? AVMutableComposition { return comp }
+        let comp = AVMutableComposition()
+        for track in try await asset.load(.tracks) where track.mediaType == .video || track.mediaType == .audio {
+            let (range, transform) = try await track.load(.timeRange, .preferredTransform)
+            guard let copy = comp.addMutableTrack(withMediaType: track.mediaType,
+                                                  preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
+            try copy.insertTimeRange(range, of: track, at: range.start)
+            copy.preferredTransform = transform
         }
+        return comp
+    }
+
+    /// Loops the transparent badge clip (HEVC with alpha, no sound) over the
+    /// whole video as a second video track, drawn bottom-right on top of the
+    /// camera — mirroring the 特訓一覧 panel on the left.
+    ///
+    /// A track rather than Core Animation image frames: measured on the Mac,
+    /// frames cost ~70 MB of decoded images, while the track adds ~5 MB and is
+    /// decoded by the hardware HEVC decoder.
+    private static func addBadge(
+        _ clip: AVURLAsset, to comp: AVMutableComposition,
+        videoComposition: AVMutableVideoComposition, renderSize: CGSize
+    ) async throws {
+        guard let source = try await clip.loadTracks(withMediaType: .video).first else {
+            throw CompositorError.noVideoTrack
+        }
+        let (clipDuration, clipSize) = (try await clip.load(.duration), try await source.load(.naturalSize))
+        let total = comp.duration
+        guard clipDuration.seconds > 0.1, clipSize.width > 0, total.seconds > 0,
+              let track = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        else { throw CompositorError.exportFailed("badge clip unusable") }
+        var at = CMTime.zero
+        while at < total {
+            let length = CMTimeMinimum(clipDuration, total - at)
+            try track.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: source, at: at)
+            at = at + length
+        }
+
+        let old = videoComposition.instructions.compactMap { $0 as? AVVideoCompositionInstruction }
+        guard !old.isEmpty else {
+            comp.removeTrack(track)
+            throw CompositorError.exportFailed("no video instructions to add the badge to")
+        }
+
+        // Design space 720x1280 like the rest of the overlay; composition
+        // coordinates have their origin top-left.
+        let side = (170 * renderSize.width / designWidth).rounded()
+        let x = renderSize.width - side - 24 * renderSize.width / designWidth
+        let y = 1130 * renderSize.height / designHeight - side
+        let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+        layer.setTransform(
+            CGAffineTransform(scaleX: side / clipSize.width, y: side / clipSize.height)
+                .concatenating(CGAffineTransform(translationX: x, y: y)),
+            at: .zero
+        )
+        videoComposition.instructions = old.map { instruction in
+            let copy = AVMutableVideoCompositionInstruction()
+            copy.timeRange = instruction.timeRange
+            copy.enablePostProcessing = instruction.enablePostProcessing
+            copy.layerInstructions = [layer] + instruction.layerInstructions   // first = on top
+            return copy
+        }
+    }
+
+    /// The fallback when the overlay burn fails: the same sound mix into the raw
+    /// video, with no overlay, so the family still gets a video with sound.
+    /// Throws if there is nothing to mix or the mix itself fails.
+    static func mixOnly(
+        sourceURL: URL, outputURL: URL, sounds: [Sound], voice: VoiceTrack?
+    ) async throws -> ExportResult {
+        let source = AVURLAsset(url: sourceURL)
+        let (asset, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
+        guard result.soundMixed else {
+            throw CompositorError.exportFailed("no sound to mix: \(result.mixError ?? "nothing recorded")")
+        }
+        try await export(asset: asset, videoComposition: nil, audioMix: audioMix, to: outputURL)
+        withExtendedLifetime(source) {}
+        return result
     }
 }

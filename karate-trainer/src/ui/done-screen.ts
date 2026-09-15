@@ -1,12 +1,21 @@
 import { CHARACTERS, type CharacterId } from "../character-store";
 import { createCompanionAvatar } from "./companion-avatar";
+import { openKufuModal } from "./kufu-modal";
 
 export interface DoneKufuDrill {
   name: string;
-  current: string;   // latest saved 工夫 for this drill (may be "")
-  // false when the plan's maxKufuDrills cap is already used by another 種目
-  // (Free plan: 1 種目 total) — the input/save button are disabled, not hidden.
-  canAdd?: boolean;
+}
+
+// Why a practice run to the end still earned no belt bar.
+// "interrupted": the recording was stopped by the phone (call, app switch).
+// "no-menu": the menu was never saved, so there is no belt to fill.
+export type BeltMissReason = "no-menu" | "no-drills" | "interrupted";
+
+export interface DoneBeltResult {
+  completed: boolean;
+  bars: number;
+  promotedTo: string | null;
+  missed?: BeltMissReason;
 }
 
 export interface DoneDeps {
@@ -14,14 +23,28 @@ export interface DoneDeps {
   ext: string;
   stats: { time: string; drills: number; cues: number };
   onShare(blob?: Blob): void;
+  // A parent allowed this kid to send videos out (家族 tab): show 「LINE・SNSで
+  // 送る」, which calls onSend with no gate. Otherwise only a note is shown.
+  shareAllowed?: boolean;
+  onSend?(blob?: Blob): void;
   onAgain(): void;
+  // Asked before もう一度 when the video hasn't been saved yet (it is lost once
+  // the next practice starts). Defaults to window.confirm.
+  confirm?(message: string): boolean;
   characterId?: CharacterId;
   // Belt progress from this practice. completed=false (stopped with 終了) means
-  // nothing was added; promotedTo names the new belt when the 10th bar landed.
-  beltResult?: { completed: boolean; bars: number; promotedTo: string | null };
-  // 工夫: drills practiced this session (deduped, rest excluded) + save callback.
+  // nothing was added; missed says why a run to the end added no bar (a drill
+  // was skipped, or no drill was practiced); promotedTo names the new belt when
+  // the 10th bar landed.
+  beltResult?: DoneBeltResult;
+  // 工夫: drills practiced this session (deduped, rest excluded). Each row opens
+  // the same 💡 card as the setup screen (list + 「けす」 + add one more).
   kufuDrills?: DoneKufuDrill[];
-  onSaveKufu?(drillName: string, text: string): void;
+  kufuPerDrill?: number;
+  kufuFor?(drillName: string): string[];
+  canAddKufuFor?(drillName: string): boolean;
+  onAddKufu?(drillName: string, text: string): void;
+  onRemoveKufu?(drillName: string, index: number): void;
   // When false (Free plan, 工夫 cap 0) the 工夫 section is not rendered at all.
   kufuEnabled?: boolean;
   // Resolves to the burned-in video blob, or null if burn-in failed/was
@@ -65,7 +88,8 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   const title = document.createElement("h2");
   title.className = "done-title";
   const stopped = deps.beltResult?.completed === false;
-  title.textContent = stopped ? "おつかれさま！" : "稽古完了！よく頑張ったね！";
+  const missed = deps.beltResult?.missed;
+  title.textContent = stopped || missed ? "おつかれさま！" : "稽古完了！よく頑張ったね！";
 
   const praise = document.createElement("p");
   praise.style.cssText = "margin: 0; color: #ffd166; font-weight: 800; font-size: 1.05rem;";
@@ -78,11 +102,17 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     const beltLine = document.createElement("p");
     beltLine.className = `done-belt-result${promotedTo ? " promoted" : ""}`;
     beltLine.dataset.beltResult = "";
-    beltLine.textContent = stopped
-      ? "とちゅうで終了したので、帯のバーはふえないよ"
-      : promotedTo
-        ? `🎉 ${promotedTo}に昇級！`
-        : `帯のバー ${bars}/10`;
+    beltLine.textContent = missed === "interrupted"
+      ? "録画がとちゅうで止まったので、レベルはふえないよ"
+      : stopped
+        ? "とちゅうで終了したので、レベルはふえないよ"
+        : missed === "no-menu"
+          ? "メニューを保存すると、帯と強さがたまるよ"
+          : missed === "no-drills"
+            ? "練習した種目がないので、レベルはふえないよ"
+            : promotedTo
+              ? `🎉 ${promotedTo}に昇級！`
+              : `帯のバー ${bars}/10`;
     celebCard.append(beltLine);
   }
 
@@ -128,7 +158,8 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   };
   stats.append(stat(deps.stats.time, "時間"), stat(deps.stats.drills, "種目"), stat(deps.stats.cues, "掛け声"));
 
-  // 工夫 section: one input per practiced drill (child writes it, no gate).
+  // 工夫 section: one row per practiced drill showing its newest 工夫, and a 💡
+  // button opening the card to add or erase (child writes it, no gate).
   // Saved notes reappear as reminders during the next practice.
   const kufuSection = document.createElement("div");
   kufuSection.className = "kufu-section";
@@ -136,7 +167,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     kufuSection.dataset.kufuSection = "";
     const kufuTitle = document.createElement("div");
     kufuTitle.className = "kufu-title";
-    kufuTitle.textContent = "つぎの工夫（15文字まで）";
+    kufuTitle.textContent = `つぎの工夫（${KUFU_MAX_LEN}文字まで）`;
     kufuSection.append(kufuTitle);
 
     deps.kufuDrills.forEach((d) => {
@@ -148,32 +179,35 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       label.className = "kufu-label";
       label.textContent = d.name;
 
-      const input = document.createElement("input");
-      input.className = "kufu-input";
-      input.dataset.kufuInput = d.name;
-      input.maxLength = KUFU_MAX_LEN;
-      input.placeholder = "こうしよう！";
-      input.value = d.current;
+      const latest = document.createElement("div");
+      latest.className = "kufu-latest";
+      latest.dataset.kufuLatest = d.name;
 
-      const save = document.createElement("button");
-      save.className = "kufu-save";
-      save.dataset.kufuSave = d.name;
-      save.textContent = "保存";
-      if (d.canAdd === false) {
-        input.disabled = true;
-        save.disabled = true;
-        save.title = "ほかの種目の工夫がいっぱいです";
-      }
-      const persist = () => {
-        const text = input.value.trim().slice(0, KUFU_MAX_LEN);
-        if (!text) return;
-        deps.onSaveKufu?.(d.name, text);
-        save.textContent = "保存済 ✓";
-        setTimeout(() => { save.textContent = "保存"; }, 1200);
+      const open = document.createElement("button");
+      open.className = "kufu-open";
+      open.dataset.kufuOpen = d.name;
+
+      const notes = () => deps.kufuFor?.(d.name) ?? [];
+      const paint = () => {
+        const list = notes();
+        latest.textContent = list[0] ?? "まだないよ";
+        latest.classList.toggle("is-empty", !list.length);
+        open.textContent = list.length ? `💡 ${list.length}` : "💡 かく";
       };
-      save.addEventListener("click", persist);
+      paint();
+      open.addEventListener("click", () => {
+        openKufuModal(root, {
+          drillName: d.name,
+          perDrill: deps.kufuPerDrill,
+          notes,
+          canAdd: () => deps.canAddKufuFor?.(d.name) ?? true,
+          onAdd: (text) => deps.onAddKufu?.(d.name, text),
+          onRemove: (index) => deps.onRemoveKufu?.(d.name, index),
+          onClose: () => paint(),
+        });
+      });
 
-      row.append(label, input, save);
+      row.append(label, latest, open);
       kufuSection.append(row);
     });
   }
@@ -182,22 +216,42 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   const dl = document.createElement("button");
   dl.dataset.download = ""; dl.className = "btn-dl";
   dl.textContent = `⬇ 動画を保存 (.${deps.ext})`;
-  dl.addEventListener("click", () => deps.onShare(shareBlob));
+  let shareTapped = false;
+  dl.addEventListener("click", () => { shareTapped = true; deps.onShare(shareBlob); });
 
+  const confirm = deps.confirm
+    ?? ((m: string) => (typeof window !== "undefined" && typeof window.confirm === "function" ? window.confirm(m) !== false : true));
   const again = document.createElement("button");
   again.dataset.again = ""; again.className = "btn-again"; again.textContent = "もう一度 稽古する 🥋";
-  again.addEventListener("click", () => deps.onAgain());
+  again.addEventListener("click", () => {
+    if (!shareTapped && !confirm("動画はまだ保存していません。保存しないで もう一度 稽古しますか？")) return;
+    deps.onAgain();
+  });
 
-  root.append(celebCard, video, stats, kufuSection, dl, again);
+  // Sending the video out (LINE, Instagram, TikTok… all live in the share
+  // sheet — iOS can't aim a video at one app without its SDK). Only for kids a
+  // parent allowed on the 家族 tab; that setting is the gate, so none here.
+  let sendNode: HTMLElement;
+  if (deps.shareAllowed) {
+    const send = document.createElement("button");
+    send.dataset.share = ""; send.className = "btn-share"; send.textContent = "LINE・SNSで送る";
+    send.addEventListener("click", () => { shareTapped = true; deps.onSend?.(shareBlob); });
+    sendNode = send;
+  } else {
+    sendNode = document.createElement("div");
+    sendNode.dataset.shareNote = ""; sendNode.className = "share-note";
+    sendNode.textContent = "LINE・SNSで送るのは、おうちの人にそうだんしてね。";
+  }
+
+  root.append(celebCard, video, stats, kufuSection, dl, again, sendNode);
   if (showBurninStatus) root.insertBefore(burninStatus, dl);
 
   // Collapsed debug panel: readable directly on the phone, no devtools
   // needed, for tracking down the iPhone Safari video-freeze bug. Shown
   // unconditionally (even with nothing logged) so a "no debug panel at all"
   // report is never ambiguous between "nothing happened" and "it's hidden".
-  // Demo-only: gated on VITE_SHOW_DIAGNOSTICS so it can be turned off with a
-  // Cloudflare Pages env var once this bug is fixed, without a code change.
-  if (import.meta.env.VITE_SHOW_DIAGNOSTICS !== "false") {
+  // Development only (or VITE_SHOW_DIAGNOSTICS=true): never in the App Store build.
+  if (import.meta.env.DEV || import.meta.env.VITE_SHOW_DIAGNOSTICS === "true") {
     const details = document.createElement("details");
     details.dataset.diagnostics = "";
     details.style.cssText = "margin: 0.5rem 0; font-size: 0.75rem; color: #999;";

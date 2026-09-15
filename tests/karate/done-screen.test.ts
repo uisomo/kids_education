@@ -29,55 +29,6 @@ it("save fires onShare directly with no parental gate", () => {
 });
 
 // --- 工夫 inputs ---
-it("renders a 工夫 input per drill with the current value and 15-char cap", () => {
-  const root = document.createElement("div");
-  renderDoneScreen(root, {
-    videoUrl: "blob:v", ext: "mp4",
-    stats: { time: "3:00", drills: 2, cues: 5 },
-    onShare: vi.fn(), onAgain: vi.fn(),
-    kufuDrills: [
-      { name: "前蹴り", current: "腰を落とす" },
-      { name: "回し蹴り", current: "" },
-    ],
-  });
-  const inputs = root.querySelectorAll<HTMLInputElement>("[data-kufu-input]");
-  expect(inputs).toHaveLength(2);
-  expect(inputs[0].value).toBe("腰を落とす");
-  expect(inputs[0].maxLength).toBe(15);
-});
-
-it("saving a 工夫 fires onSaveKufu with the drill name and text", () => {
-  const root = document.createElement("div");
-  const onSaveKufu = vi.fn();
-  renderDoneScreen(root, {
-    videoUrl: "blob:v", ext: "mp4",
-    stats: { time: "3:00", drills: 1, cues: 5 },
-    onShare: vi.fn(), onAgain: vi.fn(),
-    kufuDrills: [{ name: "前蹴り", current: "" }],
-    onSaveKufu,
-  });
-  const input = root.querySelector<HTMLInputElement>('[data-kufu-input="前蹴り"]')!;
-  input.value = "軸足まっすぐ";
-  root.querySelector<HTMLButtonElement>('[data-kufu-save="前蹴り"]')!.click();
-  expect(onSaveKufu).toHaveBeenCalledWith("前蹴り", "軸足まっすぐ");
-});
-
-it("disables (not hides) a drill's input/save when canAdd is false (Free plan slot used elsewhere)", () => {
-  const root = document.createElement("div");
-  renderDoneScreen(root, {
-    videoUrl: "blob:v", ext: "mp4",
-    stats: { time: "3:00", drills: 2, cues: 5 },
-    onShare: vi.fn(), onAgain: vi.fn(),
-    kufuDrills: [
-      { name: "前蹴り", current: "腰を落とす", canAdd: true },
-      { name: "回し蹴り", current: "", canAdd: false },
-    ],
-  });
-  expect(root.querySelector<HTMLInputElement>('[data-kufu-input="前蹴り"]')!.disabled).toBe(false);
-  expect(root.querySelector<HTMLInputElement>('[data-kufu-input="回し蹴り"]')!.disabled).toBe(true);
-  expect(root.querySelector<HTMLButtonElement>('[data-kufu-save="回し蹴り"]')!.disabled).toBe(true);
-});
-
 it("omits the 工夫 section when no drills are given", () => {
   const root = document.createElement("div");
   renderDoneScreen(root, {
@@ -94,7 +45,7 @@ it("hides the 工夫 section when kufu is disabled (Free plan) even with drills"
     videoUrl: "blob:v", ext: "mp4",
     stats: { time: "3:00", drills: 2, cues: 5 },
     onShare: vi.fn(), onAgain: vi.fn(),
-    kufuDrills: [{ name: "前蹴り", current: "" }],
+    kufuDrills: [{ name: "前蹴り" }],
     kufuEnabled: false,
   });
   expect(root.querySelector("[data-kufu-section]")).toBeNull();
@@ -253,4 +204,87 @@ it("says nothing was added when the practice was stopped", () => {
   renderDoneScreen(root, { ...doneBase(), beltResult: { completed: false, bars: 0, promotedTo: null } });
   expect(root.querySelector("[data-belt-result]")!.textContent).toContain("ふえない");
   expect(root.querySelector(".done-title")!.textContent).toBe("おつかれさま！");
+});
+
+it("an unsaved menu explains that saving it starts the belt", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, { ...doneBase(), beltResult: { completed: true, bars: 0, promotedTo: null, missed: "no-menu" } });
+  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("メニューを保存すると、帯と強さがたまるよ");
+});
+
+// --- 工夫 rows (each opens the 💡 card) ---
+function kufuDone(notes: Record<string, string[]>) {
+  return {
+    videoUrl: "blob:v", ext: "mp4", stats: { time: "3:00", drills: 2, cues: 5 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    kufuDrills: [{ name: "前蹴り" }, { name: "回し蹴り" }],
+    kufuPerDrill: 3,
+    kufuFor: (name: string) => notes[name] ?? [],
+    canAddKufuFor: (name: string) => (notes[name]?.length ?? 0) < 3,
+    onAddKufu: vi.fn((name: string, text: string) => { notes[name] = [text, ...(notes[name] ?? [])]; }),
+    onRemoveKufu: vi.fn((name: string, i: number) => { notes[name].splice(i, 1); }),
+  };
+}
+
+it("shows each practiced drill's newest 工夫, or まだないよ", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, kufuDone({ 前蹴り: ["こし", "ひざ"] }));
+  expect(root.querySelector('[data-kufu-latest="前蹴り"]')!.textContent).toBe("こし");
+  expect(root.querySelector('[data-kufu-open="前蹴り"]')!.textContent).toBe("💡 2");
+  expect(root.querySelector('[data-kufu-latest="回し蹴り"]')!.textContent).toBe("まだないよ");
+});
+
+it("💡 opens the card; adding or erasing there updates the row", () => {
+  const root = document.createElement("div");
+  const deps = kufuDone({ 前蹴り: ["こし"] });
+  renderDoneScreen(root, deps);
+
+  root.querySelector<HTMLButtonElement>('[data-kufu-open="回し蹴り"]')!.click();
+  root.querySelector<HTMLInputElement>("[data-kufu-modal-input]")!.value = "高く";
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-save]")!.click();
+  expect(deps.onAddKufu).toHaveBeenCalledWith("回し蹴り", "高く");
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-close]")!.click();
+  expect(root.querySelector('[data-kufu-latest="回し蹴り"]')!.textContent).toBe("高く");
+
+  root.querySelector<HTMLButtonElement>('[data-kufu-open="前蹴り"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-kufu-modal-remove="0"]')!.click();
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-close]")!.click();
+  expect(deps.onRemoveKufu).toHaveBeenCalledWith("前蹴り", 0);
+  expect(root.querySelector('[data-kufu-latest="前蹴り"]')!.textContent).toBe("まだないよ");
+});
+
+// --- LINE・SNS at the end ---
+it("an allowed kid gets one 「LINE・SNSで送る」 that sends with no gate and counts as saved", () => {
+  const root = document.createElement("div");
+  const onSend = vi.fn();
+  const onShare = vi.fn();
+  const onAgain = vi.fn();
+  const confirm = vi.fn().mockReturnValue(false);
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4", stats: { time: "0:10", drills: 1, cues: 0 },
+    onShare, onAgain, confirm, shareAllowed: true, onSend,
+  });
+  const send = root.querySelector<HTMLButtonElement>("[data-share]")!;
+  expect(send.textContent).toBe("LINE・SNSで送る");
+  expect(root.querySelector("[data-share-note]")).toBeNull();
+  // After もう一度, i.e. at the end (a dev-only debug panel may follow).
+  const again = root.querySelector<HTMLButtonElement>("[data-again]")!;
+  expect(again.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+  send.click();
+  expect(onSend).toHaveBeenCalledOnce();
+  expect(onShare).not.toHaveBeenCalled();
+  again.click();
+  expect(confirm).not.toHaveBeenCalled();
+  expect(onAgain).toHaveBeenCalledOnce();
+});
+
+it("a kid who isn't allowed sees no send button, just a note to ask", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4", stats: { time: "0:10", drills: 1, cues: 0 },
+    onShare: vi.fn(), onAgain: vi.fn(), onSend: vi.fn(),
+  });
+  expect(root.querySelector("[data-share]")).toBeNull();
+  expect(root.querySelector("[data-share-note]")!.textContent).toBe("LINE・SNSで送るのは、おうちの人にそうだんしてね。");
 });

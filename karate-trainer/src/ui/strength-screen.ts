@@ -1,11 +1,24 @@
-// 強さ screen: per-drill level with a rainbow 10-bar meter. Bars go red→purple
-// left→right; the first `inLevel` bars are lit (this level's progress), the rest
-// dimmed. Level = floor(count / 10); count keeps growing across levels.
+// 強さ screen: the picked saved menu's 帯 and each of its drills' level. A drill
+// levels up once per practice it finishes (0..10), shown as Lv.N and N lit
+// bars going red→purple. The belt's bars are the lowest drill level (see
+// menu-belt-store), so the card on top moves only when the weakest drill does.
 
-import { loadCounts, levelFor, PER_LEVEL } from "../progress-store";
+import type { Menu } from "../types";
+import { loadMenuBelt, levelOf, beltStateFor, drillNames, MAX_LEVEL } from "../menu-belt-store";
+import { renderBeltCard } from "./belt-card";
+
+export interface StrengthMenu {
+  id: string;
+  name: string;
+  menu: Menu;
+}
 
 export interface StrengthDeps {
   storage?: Storage;
+  // Saved menus the household can use; each has its own belt and levels.
+  menus?: StrengthMenu[];
+  // The member's picked menu, shown first. Falls back to the first menu.
+  selectedId?: string | null;
 }
 
 // Red → purple, 10 steps. Shared with the belt card's meter.
@@ -21,20 +34,46 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
   const title = document.createElement("h1");
   title.className = "screen-title";
   title.textContent = "強さ";
-
-  const counts = loadCounts(deps.storage);
-  const drills = Object.entries(counts)
-    .filter(([, c]) => c > 0)
-    .sort((a, b) => b[1] - a[1]);   // most-practiced first
-
   root.append(title);
 
-  if (!drills.length) {
-    const empty = document.createElement("div");
-    empty.className = "strength-empty";
-    empty.dataset.strengthEmpty = "";
-    empty.textContent = "まだ稽古がないよ。特訓してみよう！";
-    root.append(empty);
+  const menus = deps.menus ?? [];
+  const empty = (text: string) => {
+    const el = document.createElement("div");
+    el.className = "strength-empty";
+    el.dataset.strengthEmpty = "";
+    el.textContent = text;
+    root.append(el);
+  };
+
+  if (!menus.length) {
+    empty("メニューを保存すると、帯と強さがたまるよ");
+    return;
+  }
+
+  const current = menus.find((m) => m.id === deps.selectedId) ?? menus[0];
+
+  // Just for looking: picking here doesn't change the menu used for practice.
+  if (menus.length > 1) {
+    const select = document.createElement("select");
+    select.className = "preset-select strength-menu-select";
+    select.dataset.strengthMenu = "";
+    menus.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.name;
+      if (m.id === current.id) opt.selected = true;
+      select.append(opt);
+    });
+    select.addEventListener("change", () => renderStrengthScreen(root, { ...deps, selectedId: select.value }));
+    root.append(select);
+  }
+
+  const mb = loadMenuBelt(current.id, deps.storage);
+  root.append(renderBeltCard(beltStateFor(mb, current.menu)));
+
+  const names = drillNames(current.menu);
+  if (!names.length) {
+    empty("このメニューには種目がないよ");
     return;
   }
 
@@ -42,8 +81,8 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
   list.className = "strength-list";
   list.dataset.strengthList = "";
 
-  drills.forEach(([name, count]) => {
-    const info = levelFor(count);
+  names.forEach((name) => {
+    const level = levelOf(mb, name);
 
     const row = document.createElement("div");
     row.className = "strength-row";
@@ -59,25 +98,21 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
     const levelEl = document.createElement("div");
     levelEl.className = "strength-level";
     levelEl.dataset.strengthLevel = name;
-    levelEl.textContent = `Lv.${info.level}`;
+    levelEl.textContent = `Lv.${level}`;
 
     head.append(nameEl, levelEl);
 
     const bars = document.createElement("div");
     bars.className = "strength-bars";
-    for (let i = 0; i < PER_LEVEL; i++) {
+    for (let i = 0; i < MAX_LEVEL; i++) {
       const bar = document.createElement("div");
-      const lit = i < info.inLevel;
+      const lit = i < level;
       bar.className = `strength-bar${lit ? " lit" : ""}`;
       if (lit) bar.style.background = RAINBOW[i];
       bars.append(bar);
     }
 
-    const countEl = document.createElement("div");
-    countEl.className = "strength-count";
-    countEl.textContent = `つうさん ${count} かい`;
-
-    row.append(head, bars, countEl);
+    row.append(head, bars);
     list.append(row);
   });
 

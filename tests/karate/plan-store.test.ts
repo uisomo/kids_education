@@ -53,9 +53,9 @@ it("carries any member's old Standard or Max plan over as Premium, and remembers
 });
 
 it("exposes the plan limits (free/premium/family)", () => {
-  expect(PLAN_LIMITS.free).toEqual({ members: 1, presets: 1, kufu: 1, maxKufuDrills: 1 });
-  expect(PLAN_LIMITS.premium).toEqual({ members: 1, presets: 20, kufu: 10, maxKufuDrills: Infinity });
-  expect(PLAN_LIMITS.family).toEqual({ members: 5, presets: 20, kufu: 10, maxKufuDrills: Infinity });
+  expect(PLAN_LIMITS.free).toEqual({ members: 1, presetsPerMember: 1, kufuPerDrill: 1, kufuTotal: 1 });
+  expect(PLAN_LIMITS.premium).toEqual({ members: 1, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 });
+  expect(PLAN_LIMITS.family).toEqual({ members: 5, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 });
 });
 
 it("exposes monthly and yearly prices", () => {

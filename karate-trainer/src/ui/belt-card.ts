@@ -1,5 +1,5 @@
 // Belt card for the practice screen: the member's 帯 drawn as a small obi, its
-// name, the rainbow 10-bar meter toward the next belt, and what comes next.
+// name, the rainbow 10-bar meter (the menu's lowest drill level) and what comes next.
 // RPG belts (ほのお and up) get a gold frame and a light CSS shimmer.
 
 import { BELTS, BARS_PER_BELT, type BeltState } from "../belt-store";
@@ -52,7 +52,7 @@ export function renderBeltCard(state: BeltState): HTMLElement {
   hint.className = "belt-next";
   hint.dataset.beltNext = "";
   hint.textContent = next
-    ? `つぎは ${next.icon ? `${next.icon} ` : ""}${next.name}！ あと ${BARS_PER_BELT - state.bars}回`
+    ? `ぜんぶの種目を Lv.${BARS_PER_BELT} にすると ${next.icon ? `${next.icon} ` : ""}${next.name}！`
     : "さいこうの帯！";
 
   body.append(name, bars, hint);

@@ -40,3 +40,38 @@ it("removeItem only affects the scoped key", () => {
   a.removeItem("k");
   expect(a.getItem("k")).toBeNull();
 });
+
+it("clear() removes only this member's keys", () => {
+  const base = memStorage();
+  base.setItem("karate.members", "LIST");
+  const a = scopedStorage(base, "alice");
+  const b = scopedStorage(base, "bob");
+  a.setItem("k1", "1");
+  a.setItem("k2", "2");
+  b.setItem("k1", "B");
+  a.clear();
+  expect(a.getItem("k1")).toBeNull();
+  expect(a.getItem("k2")).toBeNull();
+  expect(b.getItem("k1")).toBe("B");
+  expect(base.getItem("karate.members")).toBe("LIST");
+});
+
+it("key()/length only see this member's keys, without the prefix", () => {
+  const base = memStorage();
+  base.setItem("karate.members", "LIST");
+  const a = scopedStorage(base, "alice");
+  scopedStorage(base, "bob").setItem("x", "B");
+  a.setItem("k1", "1");
+  a.setItem("k2", "2");
+  expect(a.length).toBe(2);
+  expect([a.key(0), a.key(1)].sort()).toEqual(["k1", "k2"]);
+  expect(a.key(2)).toBeNull();
+});
+
+it("scoped key()/length/clear tolerate a non-enumerable base", () => {
+  const base = { ...memStorage(), key: () => null, length: 0 } as unknown as Storage;
+  const a = scopedStorage(base, "alice");
+  expect(a.length).toBe(0);
+  expect(a.key(0)).toBeNull();
+  expect(() => a.clear()).not.toThrow();
+});

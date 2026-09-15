@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { BELTS, BARS_PER_BELT, loadBelt, addSessionBar, setBelt } from "../../karate-trainer/src/belt-store";
+import { BELTS, loadBelt } from "../../karate-trainer/src/belt-store";
 import { saveCharacterState } from "../../karate-trainer/src/character-store";
 
 function memStorage(): Storage {
@@ -24,34 +24,6 @@ it("lists 8 colored belts, then 6 RPG belts ending in でんせつ", () => {
 
 it("starts a new member on 白帯 with no bars", () => {
   expect(loadBelt(memStorage())).toEqual({ index: 0, bars: 0 });
-});
-
-it("fills one bar per finished practice and moves up a belt on the 10th", () => {
-  const s = memStorage();
-  for (let i = 0; i < 9; i++) expect(addSessionBar(s).promoted).toBe(false);
-  expect(loadBelt(s)).toEqual({ index: 0, bars: 9 });
-
-  const tenth = addSessionBar(s);
-  expect(tenth.promoted).toBe(true);
-  expect(tenth.state).toEqual({ index: 1, bars: 0 });
-  expect(loadBelt(s)).toEqual({ index: 1, bars: 0 });
-});
-
-it("stays on the top belt with a full meter", () => {
-  const s = memStorage();
-  setBelt(BELTS.length - 1, s);
-  for (let i = 0; i < 15; i++) expect(addSessionBar(s).promoted).toBe(false);
-  expect(loadBelt(s)).toEqual({ index: BELTS.length - 1, bars: BARS_PER_BELT });
-});
-
-it("lets a parent set any belt, clamped, with the meter reset", () => {
-  const s = memStorage();
-  addSessionBar(s);
-  addSessionBar(s);
-  expect(setBelt(10, s)).toEqual({ index: 10, bars: 0 });
-  expect(loadBelt(s)).toEqual({ index: 10, bars: 0 });
-  expect(setBelt(99, s).index).toBe(BELTS.length - 1);
-  expect(setBelt(-3, s).index).toBe(0);
 });
 
 it("carries old XP over to the matching belt so nobody drops a belt", () => {

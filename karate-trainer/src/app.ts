@@ -1,28 +1,35 @@
 import type { Menu, Drill } from "./types";
-import { loadMenu, saveMenu, formatMMSS } from "./menu-store";
-import { loadPresets, savePreset, deletePreset } from "./preset-store";
+import { loadMenu, saveMenu, formatMMSS, totalSeconds, MAX_RECORD_SECONDS, recordingBytesNeeded } from "./menu-store";
+import { type Preset, loadPresets, savePreset, deletePreset, updatePreset } from "./preset-store";
 import { SessionScheduler, type SchedulerHandlers } from "./scheduler";
 import { CuePlayer, type CueSink, type ClipSource } from "./cue-player";
 import type { VoiceStore } from "./voice-store";
 import { renderSetupScreen } from "./ui/setup-screen";
 import { renderTrainingScreen, type TrainingView } from "./ui/training-screen";
-import { renderDoneScreen } from "./ui/done-screen";
+import { renderDoneScreen, type BeltMissReason, type DoneBeltResult } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
 import { playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
-import { latestKufu, addKufu, trimKufuHistory, canAddKufu } from "./kufu-store";
-import { bumpDrills } from "./progress-store";
-import { BELTS, addSessionBar, loadBelt, setBelt } from "./belt-store";
+import {
+  latestKufu, kufuNotes, addKufu, canAddKufu, removeKufu, removeKufuAt, clearAllKufu, countKufu,
+  renameKufu, pruneKufu, type KufuCaps,
+} from "./kufu-store";
+import { BELTS } from "./belt-store";
+import {
+  loadMenuBelt, beltStateFor, recordPractice, setMenuBelt, removeMenuBelt, levelOf,
+  getSelectedPreset, setSelectedPreset,
+} from "./menu-belt-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderFamilyScreen } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
-import { type Member, getActiveId, loadMembers, addMember, removeMember, setActive } from "./member-store";
+import { type Member, getActiveId, loadMembers, addMember, removeMember, renameMember, setActive } from "./member-store";
 import { type Plan, type PlanLimits, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import { loadComments, saveComment } from "./comment-store";
-import { renderParentalGate } from "./parental-gate";
+import { getShareAllowed, setShareAllowed } from "./share-setting-store";
+import { renderParentalGate, askParentalGate } from "./parental-gate";
 import {
   loadCharacterState,
   saveCharacterState,
@@ -50,9 +57,19 @@ export interface VideoRecorderLike {
     sounds?: SoundEvent[],
   ): Promise<Blob>;
   fileExtension(): string;
+  // Native only: bytes free on the phone, or null when unknown.
+  freeDiskBytes?(): Promise<number | null>;
   // Native only: the finished file on disk, for handing to the OS share sheet
   // without round-tripping the video through base64.
   fileUri?(): string | null;
+  // Native only: a URL the <video> can stream the finished file from, so the
+  // whole recording is never loaded into the web view's memory.
+  playbackUrl?(): string | null;
+  // Tear down camera / mic / music without exporting (a failed start or a
+  // failed stop). Never rejects.
+  cancel?(): Promise<void>;
+  // The phone stopped the recording itself (call, app switch, camera taken).
+  onInterrupted?(cb: (reason: string) => void): void;
 }
 
 export interface VoiceRecorderLike {
@@ -122,6 +139,15 @@ export interface KarateAppDeps {
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
   introStepMs?: number;
+  // Yes/no question (plan downgrade). Defaults to window.confirm.
+  confirm?(message: string): boolean;
+  // Opens this app's page in iOS Settings (camera / mic permission denied).
+  openSettings?(): void;
+  // Hands a file to the OS share sheet (voice backup export on native).
+  exportFile?(filename: string, blob: Blob): Promise<void>;
+  // Parental gate before anything leaves the app (sharing the video). Defaults
+  // to the overlay gate; tests inject a stub.
+  askParentalGate?(root: HTMLElement): Promise<boolean>;
 }
 
 
@@ -130,18 +156,21 @@ export class KarateApp {
   private videoRecorder: VideoRecorderLike | null = null;
   private recElapsedMs = 0;
   private cueCount = 0;
-  private drillCount = 0;
+  // Drills (not 休憩) that ran down to 0 this session, in order, and their menu
+  // rows. Only these raise 強さ (and so the menu's belt); skipped drills don't.
+  private finishedDrills: string[] = [];
+  private finishedRows = new Set<number>();
+  private currentRow = -1;
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
   private paused = false;
   private characterState: CharacterState;
   private overlayLog: OverlayEventLog | null = null;
   private diagnostics: DiagnosticsLog | null = null;
   private activeTab: NavTab = "train";
-  // E4: the active member's ファイト コメント, snapshotted at session start so it's
-  // stable for the whole practice. "" → fall back to the generic encourage toast.
-  private fightComment = "";
-  // Preset currently reflected in the setup screen's dropdown (undefined = none picked).
-  private selectedPresetId: string | undefined;
+  // Object URL made for the done screen's <video>, revoked when leaving it.
+  private doneVideoUrl: string | null = null;
+  // Removes the session's visibilitychange listener.
+  private detachVisibility: (() => void) | null = null;
 
   constructor(private root: HTMLElement, private deps: KarateAppDeps) {
     // Family-shared base storage (member list + classes/presets live here).
@@ -167,20 +196,37 @@ export class KarateApp {
     return PLAN_LIMITS[loadPlan(this.base())];
   }
 
-  // Plan-derived 工夫 cap (0 = 工夫 disabled).
-  private kufuLimit(): number {
-    return this.limits().kufu;
+  // Plan-derived 工夫 caps: per 種目, and in total for the member.
+  private kufuCaps(): KufuCaps {
+    const l = this.limits();
+    return { perDrill: l.kufuPerDrill, total: l.kufuTotal };
   }
 
-  // Plan-derived cap on how many DISTINCT 種目 may have a saved 工夫 at once
-  // (Free plan: 1; Premium/Family: unlimited).
-  private maxKufuDrills(): number {
-    return this.limits().maxKufuDrills;
-  }
-
-  // Cap on the family-shared presets (menus).
+  // Cap on the family-shared presets (menus): so many per usable kid.
   private familyPresetLimit(): number {
-    return this.limits().presets;
+    return this.limits().presetsPerMember * this.usableMembers().length;
+  }
+
+  // The presets the plan lets the household use: the oldest N. Extras (after a
+  // downgrade) stay stored, locked, and come back on upgrade.
+  private usablePresets(): Preset[] {
+    return loadPresets(this.base()).slice(0, this.familyPresetLimit());
+  }
+
+  // The saved menu the active member practices: the dropdown shows it and its
+  // 帯 / 強さ fill. Remembered per member; null when none is picked (or the
+  // plan locked it).
+  private linkedPreset(): Preset | null {
+    const id = getSelectedPreset(this.mem());
+    return id ? this.usablePresets().find((p) => p.id === id) ?? null : null;
+  }
+
+  private confirm(message: string): boolean {
+    if (this.deps.confirm) return this.deps.confirm(message);
+    // jsdom's unimplemented confirm returns undefined: treat as yes.
+    return typeof window !== "undefined" && typeof window.confirm === "function"
+      ? window.confirm(message) !== false
+      : true;
   }
 
   // Members the plan lets the household use: the first N in the list. Extra
@@ -202,7 +248,7 @@ export class KarateApp {
   // preset list so a dangling record never drives a menu.
   private assignedClassFor(memberId: string): string | null {
     const base = this.base();
-    return getAssignedClass(loadPresets(base), scopedStorage(base, memberId));
+    return getAssignedClass(this.usablePresets(), scopedStorage(base, memberId));
   }
 
   // The active member's assigned class name (for the setup-screen label), or
@@ -210,7 +256,7 @@ export class KarateApp {
   private activeClassName(): string | null {
     const id = this.assignedClassFor(getActiveId(this.base()));
     if (!id) return null;
-    return loadPresets(this.base()).find((p) => p.id === id)?.name ?? null;
+    return this.usablePresets().find((p) => p.id === id)?.name ?? null;
   }
 
   // Assign (or clear, when id is null) a member's class. Assigning also copies
@@ -221,8 +267,11 @@ export class KarateApp {
     const memStorage = scopedStorage(base, memberId);
     setAssignedClass(presetId, memStorage);
     if (presetId !== null) {
-      const preset = loadPresets(base).find((p) => p.id === presetId);
-      if (preset) saveMenu(structuredClone(preset.menu), memStorage);
+      const preset = this.usablePresets().find((p) => p.id === presetId);
+      if (preset) {
+        saveMenu(structuredClone(preset.menu), memStorage);
+        setSelectedPreset(presetId, memStorage);   // the class menu's belt fills
+      }
     }
     // If the class was assigned to the active member, refresh the working menu.
     if (memberId === getActiveId(base)) this.menu = loadMenu(this.mem());
@@ -232,7 +281,15 @@ export class KarateApp {
     this.showSetup();
   }
 
-  private showSetup(message?: string): void {
+  // action: an optional button under the message (e.g. open iOS Settings).
+  private showSetup(message?: string, action?: { label: string; run(): void }): void {
+    // Notes left behind by rows deleted/renamed in older builds would hold the
+    // Free plan's 工夫 slot forever; keep only names some menu still uses.
+    pruneKufu([
+      ...this.menu.map((d) => d.name),
+      ...loadPresets(this.base()).flatMap((p) => p.menu.map((d) => d.name)),
+    ], this.mem());
+    const linked = this.linkedPreset();
     renderSetupScreen(this.root, {
       menu: this.menu,
       onChange: (menu) => {
@@ -251,27 +308,44 @@ export class KarateApp {
       },
       onOpenVoice: () => this.showVoice(),
       // Presets = classes, family-shared → base storage.
-      presets: loadPresets(this.base()),
-      selectedPresetId: this.selectedPresetId,
+      presets: this.usablePresets(),
+      selectedPresetId: linked?.id,
       onSavePreset: () => {
         const ask = this.deps.promptName
           ?? ((d: string) => (typeof window !== "undefined" ? window.prompt("メニュー名", d) : null));
         const name = ask("新しいメニュー")?.trim();
         if (!name) return;
+        const atLimit = loadPresets(this.base()).length >= this.familyPresetLimit();
         const saved = savePreset(name, this.menu, this.base(), this.familyPresetLimit());
-        this.showSetup(saved ? undefined : "プランの上限です。アップグレードしてね");
+        if (saved) setSelectedPreset(saved.id, this.mem());
+        this.showSetup(saved ? undefined
+          : atLimit ? "プランの上限です。上書き保存するか、アップグレードしてね"
+            : "保存できませんでした（端末の空き容量を確認してください）");
+      },
+      onOverwritePreset: (id) => {
+        const ok = updatePreset(id, this.menu, this.base());
+        this.showSetup(ok ? "メニューを上書き保存しました" : "保存できませんでした（端末の空き容量を確認してください）");
       },
       onLoadPreset: (id) => {
-        const preset = loadPresets(this.base()).find((p) => p.id === id);
+        const preset = this.usablePresets().find((p) => p.id === id);
         if (!preset) return;
         this.menu = structuredClone(preset.menu);
         saveMenu(this.menu, this.mem());
-        this.selectedPresetId = id;
+        setSelectedPreset(id, this.mem());
+        this.showSetup();
+      },
+      onNewMenu: () => {
+        setSelectedPreset(null, this.mem());
         this.showSetup();
       },
       onDeletePreset: (id) => {
         deletePreset(id, this.base());
-        if (this.selectedPresetId === id) this.selectedPresetId = undefined;
+        // Every member's belt for that menu goes with it.
+        for (const m of loadMembers(this.base())) {
+          const s = scopedStorage(this.base(), m.id);
+          removeMenuBelt(id, s);
+          if (getSelectedPreset(s) === id) setSelectedPreset(null, s);
+        }
         this.showSetup();
       },
       bgmMuted: this.deps.bgm ? getBgmMuted(this.base()) : undefined,
@@ -290,11 +364,14 @@ export class KarateApp {
         this.showSetup();
       },
       characterState: this.characterState,
-      belt: loadBelt(this.mem()),
-      // E3: the active member's assigned くらす name (read-only label).
+      // The picked saved menu's 帯 (bars = its lowest drill level).
+      belt: linked ? beltStateFor(loadMenuBelt(linked.id, this.mem()), linked.menu) : undefined,
+      beltHint: "メニューを保存すると、帯と強さがたまるよ",
+      // E3: the active member's assigned menu name (read-only label).
       className: this.activeClassName(),
       // E4: the parent's 感想コメント for the active member (top banner).
       kansou: loadComments(this.mem()).kansou,
+      kansouBy: loadComments(this.mem()).kansouBy,
       // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
       // its parental gate for adding/removing members and changing plans.
       members: this.usableMembers(),
@@ -307,10 +384,17 @@ export class KarateApp {
       },
       // 工夫 written by the kid from the 💡 button on each row. Same store and
       // plan caps as the done screen, so they apply identically.
-      kufuEnabled: this.kufuLimit() > 0,
-      latestKufuFor: (name) => latestKufu(name, this.mem()),
-      canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.maxKufuDrills()),
-      onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
+      kufuEnabled: this.kufuCaps().perDrill > 0,
+      kufuPerDrill: this.kufuCaps().perDrill,
+      kufuFor: (name) => kufuNotes(name, this.mem(), this.kufuCaps()),
+      canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.kufuCaps()),
+      onAddKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuCaps()); },
+      onRemoveKufu: (name, index) => removeKufuAt(name, index, this.mem()),
+      // Once the card closes, re-render so every row's 💡 reflects the change.
+      onKufuChanged: () => this.showSetup(),
+      // Row deletion re-renders through onChange right after.
+      onDeleteKufu: (name) => removeKufu(name, this.mem()),
+      onRenameKufu: (from, to) => { renameKufu(from, to, this.mem()); this.showSetup(); },
     });
 
     if (message) {
@@ -319,6 +403,15 @@ export class KarateApp {
       note.className = "setup-status";
       note.setAttribute("role", "alert");
       note.textContent = message;
+      if (action) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "setup-status-action";
+        btn.dataset.setupStatusAction = "";
+        btn.textContent = action.label;
+        btn.addEventListener("click", () => action.run());
+        note.append(" ", btn);
+      }
       this.root.prepend(note);
     }
 
@@ -335,6 +428,8 @@ export class KarateApp {
       active,
       onSelect: (tab) => {
         if (tab === this.activeTab) return;
+        // The gate covers one visit: leaving 家族 locks it again.
+        if (this.activeTab === "family") this.familyUnlocked = false;
         if (tab === "train") this.showSetup();
         else if (tab === "strength") this.showStrength();
         else this.showFamily();
@@ -344,7 +439,9 @@ export class KarateApp {
   }
 
   private showStrength(): void {
-    renderStrengthScreen(this.root, { storage: this.mem() });
+    renderStrengthScreen(this.root, {
+      storage: this.mem(), menus: this.usablePresets(), selectedId: this.linkedPreset()?.id,
+    });
     this.mountTabNav("strength");
   }
 
@@ -375,57 +472,61 @@ export class KarateApp {
         addMember(name, base); this.reloadForActiveMember(); this.showFamily();
       },
       onRemoveMember: (id) => {
+        // Removing deletes that child's belt, 強さ, 工夫 and menu for good.
+        const name = members.find((m) => m.id === id)?.name ?? "";
+        if (!this.confirm(`「${name}」を削除すると、帯・強さ・工夫などの記録もすべて消えます。削除しますか？`)) return;
         removeMember(id, base); this.clampActiveMember(); this.reloadForActiveMember(); this.showFamily();
       },
       onSelectMember: (id) => {
         if (!this.usableMembers().some((m) => m.id === id)) return;   // locked by plan
         setActive(id, base); this.reloadForActiveMember(); this.showFamily();
       },
+      onRenameMember: (id, name) => { renameMember(id, name, base); this.showFamily(); },
       activePlan: loadPlan(base),
-      onSelectPlan: (plan) => { this.changePlan(plan); this.showFamily(); },
+      onSelectPlan: (plan) => {
+        const cur = PLAN_LIMITS[loadPlan(base)];
+        const next = PLAN_LIMITS[plan];
+        const lower = next.members < cur.members || next.presetsPerMember < cur.presetsPerMember
+          || next.kufuPerDrill < cur.kufuPerDrill || next.kufuTotal < cur.kufuTotal;
+        if (lower && !this.confirm("プランを下げると、上限をこえたメンバー・メニュー・工夫は使えなくなります（データは消えず、プランを戻すとまた使えます）。変更しますか？")) return;
+        this.changePlan(plan);
+        this.showFamily();
+      },
       // E3: くらす assignment. Classes are the family-shared presets; each
       // member's assignment maps memberId → presetId (or null when unassigned).
-      classes: loadPresets(base),
+      classes: this.usablePresets(),
       assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
       onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
-      // 帯: parents can set any member's belt directly (the meter starts over).
-      belts: Object.fromEntries(members.map((m) => [m.id, loadBelt(scopedStorage(base, m.id)).index])),
-      onSetBelt: (memberId, index) => { setBelt(index, scopedStorage(base, memberId)); this.showFamily(); },
+      // 帯: one per saved menu for the active member; setting one starts its 強さ over.
+      menuBelts: this.usablePresets().map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt })),
+      onSetMenuBelt: (presetId, index) => { setMenuBelt(presetId, index, this.mem()); this.showFamily(); },
       // E4: 応援コメント for the active member (per-member via mem()). Free on
       // every plan. Saving re-renders so the input reflects the trimmed value.
       comments: loadComments(this.mem()),
       onSaveComment: (kind, text) => { saveComment(kind, text, this.mem()); this.showFamily(); },
+      // 「工夫をぜんぶけす」 for the active member.
+      // LINE・SNS: which kids may send their videos out.
+      shareAllowed: Object.fromEntries(members.map((m) => [m.id, getShareAllowed(scopedStorage(base, m.id))])),
+      onSetShareAllowed: (memberId, allowed) => { setShareAllowed(allowed, scopedStorage(base, memberId)); this.showFamily(); },
+      kufuCount: countKufu(this.mem()),
+      onClearAllKufu: () => {
+        const name = loadMembers(base).find((m) => m.id === getActiveId(base))?.name ?? "";
+        if (!this.confirm(`${name} の工夫を ${countKufu(this.mem())}件 ぜんぶけします。いいですか？`)) return;
+        clearAllKufu(this.mem());
+        this.showFamily();
+      },
     });
   }
 
-  // Set the household plan and enforce the new caps immediately
-  // (delete-on-downgrade): trim every member's 工夫 history and the
-  // family-shared presets to the plan, and move the active member back inside
-  // the plan's kid limit. Members over the limit are locked, never deleted.
+  // Set the household plan. The new caps apply by locking, never deleting:
+  // members, presets and 工夫 past the limit stay stored but unusable
+  // (usableMembers / usablePresets / the kufu store's maxDrills) and come back
+  // when the household upgrades again — which is also what an expired
+  // subscription must do once real purchases exist.
   private changePlan(plan: Plan): void {
     setPlan(plan, this.base());
-    this.trimKufuToLimit();
-    this.trimPresetsToFamilyLimit();
     this.clampActiveMember();
     this.reloadForActiveMember();
-  }
-
-  // Drop every member's 工夫 history down to the plan caps (0 clears all; a
-  // lower maxKufuDrills also drops whole 種目 down to that count).
-  private trimKufuToLimit(): void {
-    const base = this.base();
-    const { kufu, maxKufuDrills } = this.limits();
-    loadMembers(base).forEach((m) => trimKufuHistory(kufu, scopedStorage(base, m.id), maxKufuDrills));
-  }
-
-  // Trim family-shared presets to the plan's cap.
-  private trimPresetsToFamilyLimit(): void {
-    const limit = this.familyPresetLimit();
-    const list = loadPresets(this.base());
-    if (list.length > limit) {
-      // Keep the oldest `limit` presets (stable, predictable for parents).
-      list.slice(limit).forEach((p) => deletePreset(p.id, this.base()));
-    }
   }
 
   // Re-read the active member's per-member state after a member switch.
@@ -439,26 +540,44 @@ export class KarateApp {
       store: this.deps.voiceStore,
       makeRecorder: () => this.deps.makeVoiceRecorder(),
       onBack: () => this.showSetup(),
+      exportFile: this.deps.exportFile,
     });
   }
 
   private async beginTraining(): Promise<void> {
-    // Snapshot the active member's ファイト コメント for this session (E4). Used in
-    // place of the generic encourage toast when the parent has written one.
-    this.fightComment = loadComments(this.mem()).fight;
+    // Past the limit the video gets too big to save and share (the setup
+    // screen already disables 開始; this guards any other way in).
+    if (totalSeconds(this.menu) > MAX_RECORD_SECONDS) {
+      this.showSetup(`録画は${MAX_RECORD_SECONDS / 60}分までです。種目か秒数をへらしてね`);
+      return;
+    }
 
     // Show a loading screen while the camera warms up (can take a moment).
     renderLoadingScreen(this.root);
 
     const recorder = this.deps.makeVideoRecorder();
+    // Saving needs room for the raw capture, the voice and the finished video
+    // at once; running out mid-export would lose the practice.
+    let free: number | null = null;
+    try {
+      free = (await recorder.freeDiskBytes?.()) ?? null;
+    } catch {
+      free = null;
+    }
+    const need = recordingBytesNeeded(totalSeconds(this.menu));
+    if (free !== null && free < need) {
+      this.showSetup(`iPhoneの空き容量が足りません。あと約${Math.max(0.1, (need - free) / 1e9).toFixed(1)}GB あけてね`);
+      return;
+    }
     let stream: MediaStream;
     try {
       stream = await recorder.startCamera();
       await this.deps.wakeGuard.acquire();
     } catch {
+      await recorder.cancel?.();
       await this.deps.wakeGuard.release();
       this.videoRecorder = null;
-      this.showSetup("カメラを開始できませんでした。権限を確認してください");
+      this.showCameraError();
       return;
     }
     this.videoRecorder = recorder;
@@ -482,7 +601,18 @@ export class KarateApp {
     // timestamps here and burned into the file afterward (finishSession()).
     this.overlayLog = new OverlayEventLog();
     this.overlayLog.start();
-    await recorder.startRecording();
+    try {
+      await recorder.startRecording();
+    } catch {
+      // Without this the loading screen stayed up forever with the camera
+      // live and the screen kept awake.
+      this.overlayLog = null;
+      await recorder.cancel?.();
+      await this.deps.wakeGuard.release();
+      this.videoRecorder = null;
+      this.showCameraError();
+      return;
+    }
 
     // Temporary on-device diagnostics for the iPhone Safari video-freeze bug
     // (image stalls while audio keeps recording). No Mac is available for
@@ -507,8 +637,11 @@ export class KarateApp {
 
     this.recElapsedMs = 0;
     this.cueCount = 0;
-    this.drillCount = 0;
+    this.finishedDrills = [];
+    this.finishedRows = new Set();
+    this.currentRow = -1;
     this.paused = false;
+    this.sessionEnding = false;
     view.setPaused(false);
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
     view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
@@ -540,7 +673,7 @@ export class KarateApp {
 
     const handlers: SchedulerHandlers = {
       onDrillStart: (drill: Drill, index: number, total: number) => {
-        this.drillCount = index + 1;
+        this.currentRow = index;
         view.setDrill(drill, index + 1, total);
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
@@ -556,18 +689,11 @@ export class KarateApp {
       },
       onEncourage: () => {
         this.cueCount++;
-        // E4: the parent's ファイト コメント, when set, is shown and burned in.
-        // The generic 「ファイト！」 toast is gone: it predates the talking
-        // characters and only repeated what the speech bubble already says.
-        const cue = this.fightComment;
-        const clip = view.showCue(cue);
+        // A talking character cheers; its speech bubble carries the words.
+        const clip = view.showCue("");
         if (clip) {
           this.deps.playCheerVoice?.(clip.audio);
           this.overlayLog?.logSound({ kind: "clip", src: clip.audio });
-        }
-        if (cue) {
-          this.overlayLog?.setState({ cue });
-          setTimeout(() => this.overlayLog?.setState({ cue: "" }), 1800);
         }
         // The character's own voice is the encouragement now. Playing the
         // generic cue as well was the stray extra voice heard during cheers.
@@ -577,34 +703,52 @@ export class KarateApp {
         this.cueCount++;
         void cuePlayer.countdown(n);
       },
-      onDrillEnd: () => { /* no-op */ },
+      // A skipped drill just doesn't level up; 休憩 never does.
+      onDrillEnd: (drill: Drill, finished: boolean) => {
+        if (drill.kind === "rest" || !finished) return;
+        this.finishedDrills.push(drill.name);
+        this.finishedRows.add(this.currentRow);
+      },
       onSessionEnd: () => { void this.finishSession(true); },
     };
 
     const scheduler = new SessionScheduler(this.menu, handlers);
 
-    view.onPause(() => {
-      if (!this.paused) {
-        this.paused = true;
+    // ⏸ stops the drill timer and the music; the camera keeps recording.
+    const setPaused = (paused: boolean) => {
+      if (this.paused === paused || this.sessionEnding) return;
+      this.paused = paused;
+      if (paused) {
         scheduler.pause();
         this.stopRecTimer();
-        view.setPaused(true);
       } else {
-        this.paused = false;
         scheduler.resume();
         this.startRecTimer(view);
-        view.setPaused(false);
       }
-    });
+      const musicOn = !paused && !getBgmMuted(this.base());
+      this.deps.bgm?.setMuted(!musicOn);
+      if (this.deps.bgm) this.overlayLog?.logSound({ kind: "bgm", playing: musicOn });
+      view.setPaused(paused);
+    };
+    view.onPause(() => setPaused(!this.paused));
+    // Leaving the app mid-practice pauses it, so the timer doesn't run on
+    // without the child (native also reports the recording interruption).
+    if (typeof document !== "undefined") {
+      const onVisibility = () => { if (document.visibilityState === "hidden") setPaused(true); };
+      document.addEventListener("visibilitychange", onVisibility);
+      this.detachVisibility = () => document.removeEventListener("visibilitychange", onVisibility);
+    }
+    recorder.onInterrupted?.(() => { void this.finishSession(false, true); });
     view.onSkip(() => scheduler.skip());
     // 終了 partway: the video is still saved, but nothing counts toward progress.
     view.onStop(() => { void this.finishSession(false); });
     view.onToggleBgm(() => {
-      const next = !(this.deps.bgm?.isMuted() ?? false);
-      this.deps.bgm?.setMuted(next);
-      this.overlayLog?.logSound({ kind: "bgm", playing: !next });
+      const next = !getBgmMuted(this.base());
       setBgmMuted(next, this.base());
       view.setBgmMuted(next);
+      if (this.paused) return;   // stays silent until ▶ 再開
+      this.deps.bgm?.setMuted(next);
+      this.overlayLog?.logSound({ kind: "bgm", playing: !next });
     });
 
     this.scheduler = scheduler;
@@ -622,10 +766,22 @@ export class KarateApp {
 
   private scheduler: SessionScheduler | null = null;
 
+  private showCameraError(): void {
+    this.showSetup(
+      "カメラかマイクを開始できませんでした。設定でカメラとマイクを許可してください",
+      this.deps.openSettings ? { label: "設定をひらく", run: () => this.deps.openSettings!() } : undefined,
+    );
+  }
+
+  private leaveDoneScreen(): void {
+    if (this.doneVideoUrl) URL.revokeObjectURL(this.doneVideoUrl);
+    this.doneVideoUrl = null;
+  }
+
   // 工夫 caption for a drill: the child's latest saved note for this 種目,
   // shown on-screen and burned into the recording.
   private captionFor(drill: Drill): string {
-    return latestKufu(drill.name, this.mem());
+    return latestKufu(drill.name, this.mem(), this.kufuCaps());
   }
 
   private startRecTimer(view: TrainingView): void {
@@ -646,9 +802,12 @@ export class KarateApp {
   private sessionEnding = false;
 
   // completed: the menu ran to its end (true) or was stopped with 終了 (false).
-  private async finishSession(completed: boolean): Promise<void> {
+  // interrupted: the phone stopped the recording (call, app switch).
+  private async finishSession(completed: boolean, interrupted = false): Promise<void> {
     if (this.sessionEnding) return;
     this.sessionEnding = true;
+    this.detachVisibility?.();
+    this.detachVisibility = null;
 
     this.scheduler?.stop();
     this.deps.rafLoop.stop();
@@ -665,6 +824,8 @@ export class KarateApp {
       // (which start at overlayLog.start(), before the intro), silently
       // dropping every trailing overlay segment during burn-in. See
       // overlay-event-log.ts's elapsedMs() and overlay-burner.ts's toSegments().
+      // Past the last drill: the video's 特訓一覧 marks every row done.
+      if (completed) this.overlayLog?.setState({ drillIndex: this.menu.length });
       const events = this.overlayLog?.getEvents() ?? [];
       const sounds = this.overlayLog?.getSounds() ?? [];
       const recordedDurationMs = Math.floor(this.overlayLog?.elapsedMs() ?? 0);
@@ -678,12 +839,22 @@ export class KarateApp {
       // returns, which takes several seconds. Without this the training screen
       // just froze after 終了 with no sign anything was happening.
       renderLoadingScreen(this.root, "動画を保存中…");
-      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds, kind }) => ({ name, seconds, kind }));
+      // Each drill's 強さ for the video's 特訓一覧: its level before this
+      // practice, and whether this row earns one more (lit once it's done).
+      const linked = this.linkedPreset();
+      const before = linked ? loadMenuBelt(linked.id, this.mem()) : null;
+      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds, kind }, i) => (
+        before && kind !== "rest" && name.trim()
+          ? { name, seconds, kind, level: levelOf(before, name), gained: completed && this.finishedRows.has(i) }
+          : { name, seconds, kind }
+      ));
       const blob = recorder ? await recorder.stop(events, recordedDurationMs, menu, sounds) : new Blob();
       await this.deps.wakeGuard.release();
 
       const ext = recorder ? recorder.fileExtension() : "webm";
-      const videoUrl = URL.createObjectURL(blob);
+      const nativeUrl = recorder?.playbackUrl?.() ?? null;
+      const videoUrl = nativeUrl ?? URL.createObjectURL(blob);
+      this.doneVideoUrl = nativeUrl ? null : videoUrl;
       // burnOverlay() only calls onError on failure, so resolveBurnInError(null)
       // covers both "succeeded" and "no burnOverlay dep at all" once the burn-in
       // promise settles without having already reported a failure message.
@@ -696,23 +867,28 @@ export class KarateApp {
 
       const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
-      // Deduped list of the drills practiced this session (rest excluded), each
-      // with its latest saved 工夫 pre-filled for editing.
+      // Deduped list of the drills practiced this session (rest excluded).
       const seen = new Set<string>();
       const kufuDrills = this.menu
         .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
-        .map((d) => ({
-          name: d.name,
-          current: latestKufu(d.name, this.mem()),
-          canAdd: canAddKufu(d.name, this.mem(), this.maxKufuDrills()),
-        }));
+        .map((d) => ({ name: d.name }));
 
-      // Only a practice finished to the end counts: each practiced drill gets
-      // +1 toward its 強さ level and the belt meter fills one bar.
-      let beltResult = { completed, bars: 0, promotedTo: null as string | null };
-      if (completed) {
-        bumpDrills(kufuDrills.map((d) => d.name), this.mem());
-        const { state, promoted } = addSessionBar(this.mem());
+      // Only a practice run to the end counts (終了 partway adds nothing): each
+      // drill that ran down to 0 gains a level in the picked saved menu, whose
+      // belt bars are its lowest drill level. An unsaved menu has no belt.
+      const missed: BeltMissReason | undefined = interrupted ? "interrupted"
+        : !completed ? undefined
+        : !linked ? "no-menu"
+          : this.finishedDrills.length === 0 ? "no-drills"
+            : undefined;
+      let beltResult: DoneBeltResult = {
+        completed,
+        bars: before && linked ? beltStateFor(before, linked.menu).bars : 0,
+        promotedTo: null,
+        missed,
+      };
+      if (completed && linked && !missed) {
+        const { state, promoted } = recordPractice(linked.id, linked.menu, this.finishedDrills, this.mem());
         beltResult = { completed, bars: state.bars, promotedTo: promoted ? BELTS[state.index].name : null };
       }
 
@@ -726,20 +902,39 @@ export class KarateApp {
         diagnosticsText,
         stats: {
           time: formatMMSS(elapsedSeconds),
-          drills: this.drillCount,
+          drills: this.finishedDrills.length,
           cues: this.cueCount,
         },
         characterId: this.characterState.selectedId,
         beltResult,
         kufuDrills,
-        kufuEnabled: this.kufuLimit() > 0,
-        onSaveKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuLimit(), this.maxKufuDrills()); },
+        kufuEnabled: this.kufuCaps().perDrill > 0,
+        kufuPerDrill: this.kufuCaps().perDrill,
+        kufuFor: (name) => kufuNotes(name, this.mem(), this.kufuCaps()),
+        canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.kufuCaps()),
+        onAddKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuCaps()); },
+        onRemoveKufu: (name, index) => removeKufuAt(name, index, this.mem()),
+        // The share sheet can send the video (the child's face) anywhere, so a
+        // parent has to pass the gate first.
+        // A parent allowed this kid on the 家族 tab (itself gated), so sending
+        // goes straight to the share sheet.
+        shareAllowed: getShareAllowed(this.mem()),
+        onSend: (burnedBlob) => {
+          void Promise.resolve(this.deps.shareRecording(burnedBlob ?? blobForShare, ext, shareFileUri))
+            .catch((e) => console.error("shareRecording failed", e));
+        },
         onShare: (burnedBlob) => {
-          void this.deps.shareRecording(burnedBlob ?? blobForShare, ext, shareFileUri).catch((e) => {
+          const gate = this.deps.askParentalGate ?? askParentalGate;
+          void gate(this.root).then((ok) => {
+            if (!ok) return;
+            return this.deps.shareRecording(burnedBlob ?? blobForShare, ext, shareFileUri);
+          }).catch((e) => {
             console.error("shareRecording failed", e);
           });
         },
+        confirm: this.deps.confirm,
         onAgain: () => {
+          this.leaveDoneScreen();
           this.sessionEnding = false;
           this.videoRecorder = null;
           this.scheduler = null;
@@ -752,6 +947,9 @@ export class KarateApp {
       // never reaching renderDoneScreen() — the 終了 button appeared to do
       // nothing and the training screen stayed up with no visible error.
       console.error("finishSession failed", e);
+      // Make sure the camera, mic and keep-awake don't stay on.
+      await this.videoRecorder?.cancel?.();
+      await this.deps.wakeGuard.release().catch(() => { /* ignore */ });
       this.diagnostics = null;
       this.overlayLog = null;
       this.sessionEnding = false;

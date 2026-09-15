@@ -1,9 +1,6 @@
-// Belt store: each member's 帯 (belt) and the 10-bar meter toward the next one.
-// Finishing a whole practice fills one bar; the 10th bar moves up to the next
-// belt and the meter starts over. Stopping a practice partway fills nothing
-// (see KarateApp.finishSession). Parents can set any belt from the 家族 tab,
-// which also resets the meter. Stored per-member through mem(), like menu /
-// kufu / progress.
+// Belt store: the belt ladder, and each member's belt from before belts were
+// per menu. That old belt is now only read as the starting belt of a menu seen
+// for the first time — progress lives in menu-belt-store.
 
 import { loadCharacterState } from "./character-store";
 
@@ -77,28 +74,4 @@ export function loadBelt(storage: Storage = localStorage): BeltState {
   } catch {
     return { ...DEFAULT };
   }
-}
-
-// One finished practice: fill a bar, moving up a belt on the 10th.
-export function addSessionBar(storage: Storage = localStorage): { state: BeltState; promoted: boolean } {
-  const cur = loadBelt(storage);
-  let state: BeltState;
-  let promoted = false;
-  if (cur.index === LAST) {
-    state = { index: LAST, bars: Math.min(BARS_PER_BELT, cur.bars + 1) };
-  } else if (cur.bars + 1 >= BARS_PER_BELT) {
-    state = { index: cur.index + 1, bars: 0 };
-    promoted = true;
-  } else {
-    state = { index: cur.index, bars: cur.bars + 1 };
-  }
-  save(state, storage);
-  return { state, promoted };
-}
-
-// Parent sets a belt directly; the meter starts over.
-export function setBelt(index: number, storage: Storage = localStorage): BeltState {
-  const state: BeltState = { index: clampIndex(index), bars: 0 };
-  save(state, storage);
-  return state;
 }

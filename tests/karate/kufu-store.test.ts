@@ -1,5 +1,8 @@
 import { it, expect, beforeEach } from "vitest";
-import { loadKufu, latestKufu, addKufu, trimKufuHistory, canAddKufu, KUFU_MAX_LEN } from "../../karate-trainer/src/kufu-store";
+import {
+  loadKufu, kufuNotes, latestKufu, addKufu, canAddKufu, removeKufu, removeKufuAt, clearAllKufu, countKufu,
+  renameKufu, pruneKufu, KUFU_MAX_LEN, type KufuCaps,
+} from "../../karate-trainer/src/kufu-store";
 
 function memStorage(): Storage {
   const m = new Map<string, string>();
@@ -13,6 +16,9 @@ function memStorage(): Storage {
   } as Storage;
 }
 
+const FREE: KufuCaps = { perDrill: 1, total: 1 };
+const PREMIUM: KufuCaps = { perDrill: 3, total: 150 };
+
 let s: Storage;
 beforeEach(() => { s = memStorage(); });
 
@@ -23,97 +29,87 @@ it("stores newest-first and returns the latest", () => {
   expect(latestKufu("前蹴り", s)).toBe("軸足まっすぐ");
 });
 
-it("keeps at most 10 per drill", () => {
-  for (let i = 1; i <= 13; i++) addKufu("回し蹴り", `工夫${i}`, s);
-  const list = loadKufu("回し蹴り", s);
-  expect(list).toHaveLength(10);
-  expect(list[0]).toBe("工夫13");        // newest
-  expect(list[9]).toBe("工夫4");         // oldest kept
-});
-
-it("caps each note at 15 chars and trims", () => {
-  const long = "あ".repeat(30);
-  addKufu("突き", `  ${long}  `, s);
+it("caps each note at 15 chars, trims, and ignores empty input", () => {
+  addKufu("突き", `  ${"あ".repeat(30)}  `, s);
   expect(latestKufu("突き", s)).toHaveLength(KUFU_MAX_LEN);
-});
-
-it("ignores empty / whitespace-only input", () => {
   addKufu("蹴り", "   ", s);
   expect(loadKufu("蹴り", s)).toEqual([]);
-});
-
-it("returns empty for unknown drills", () => {
   expect(latestKufu("知らない種目", s)).toBe("");
-  expect(loadKufu("知らない種目", s)).toEqual([]);
 });
 
-it("saves nothing when the plan limit is 0", () => {
-  addKufu("前蹴り", "腰を落とす", s, 0);
+it("allows 3 工夫 per 種目; the 4th is refused until one is erased", () => {
+  for (const t of ["a", "b", "c", "d"]) addKufu("前蹴り", t, s, PREMIUM);
+  expect(kufuNotes("前蹴り", s, PREMIUM)).toEqual(["c", "b", "a"]);
+  expect(canAddKufu("前蹴り", s, PREMIUM)).toBe(false);
+  expect(canAddKufu("回し蹴り", s, PREMIUM)).toBe(true);
+  removeKufuAt("前蹴り", 1, s);
+  expect(kufuNotes("前蹴り", s, PREMIUM)).toEqual(["c", "a"]);
+  expect(canAddKufu("前蹴り", s, PREMIUM)).toBe(true);
+});
+
+it("stops at the member's total across 種目", () => {
+  const caps: KufuCaps = { perDrill: 3, total: 4 };
+  for (const t of ["a", "b", "c"]) addKufu("前蹴り", t, s, caps);
+  addKufu("回し蹴り", "x", s, caps);
+  addKufu("回し蹴り", "y", s, caps);
+  expect(kufuNotes("回し蹴り", s, caps)).toEqual(["x"]);
+  expect(canAddKufu("突き", s, caps)).toBe(false);
+});
+
+it("Free: one 工夫 in all; erasing it lets another 種目 have one", () => {
+  addKufu("前蹴り", "ひざ", s, FREE);
+  addKufu("前蹴り", "こし", s, FREE);
+  addKufu("突き", "ひき", s, FREE);
+  expect(loadKufu("前蹴り", s)).toEqual(["ひざ"]);
+  expect(loadKufu("突き", s)).toEqual([]);
+  removeKufu("前蹴り", s);
+  expect(addKufu("突き", "ひき", s, FREE)).toEqual(["ひき"]);
+});
+
+it("a plan with 0 工夫 per 種目 saves nothing", () => {
+  addKufu("前蹴り", "ひざ", s, { perDrill: 0, total: 0 });
   expect(loadKufu("前蹴り", s)).toEqual([]);
 });
 
-it("keeps at most `limit` entries when a plan limit is given", () => {
-  addKufu("突き", "A", s, 1);
-  addKufu("突き", "B", s, 1);
-  expect(loadKufu("突き", s)).toEqual(["B"]);   // Standard: only the newest
+it("a downgrade locks 工夫 past the caps without deleting them", () => {
+  for (const t of ["a1", "a2", "a3"]) addKufu("突き", t, s);
+  addKufu("蹴り", "b1", s);
+  expect(kufuNotes("突き", s, FREE)).toEqual(["a3"]);
+  expect(kufuNotes("蹴り", s, FREE)).toEqual([]);
+  expect(latestKufu("蹴り", s, FREE)).toBe("");
+  expect(loadKufu("突き", s)).toHaveLength(3);        // still stored
+  expect(kufuNotes("蹴り", s, PREMIUM)).toEqual(["b1"]);  // back on upgrade
 });
 
-it("trims existing over-limit history on the next write (downgrade)", () => {
-  for (let i = 1; i <= 5; i++) addKufu("蹴り", `n${i}`, s);   // 5 entries at default cap
-  addKufu("蹴り", "new", s, 1);                                // downgrade to limit 1
-  expect(loadKufu("蹴り", s)).toEqual(["new"]);
-});
-
-it("trimKufuHistory trims every drill's history down to the limit", () => {
-  for (let i = 1; i <= 5; i++) addKufu("突き", `a${i}`, s);
-  for (let i = 1; i <= 5; i++) addKufu("蹴り", `b${i}`, s);
-  trimKufuHistory(2, s);
-  expect(loadKufu("突き", s)).toEqual(["a5", "a4"]);
-  expect(loadKufu("蹴り", s)).toEqual(["b5", "b4"]);
-});
-
-it("trimKufuHistory with limit 0 clears all history (Free downgrade)", () => {
-  addKufu("突き", "x", s);
-  addKufu("蹴り", "y", s);
-  trimKufuHistory(0, s);
+it("erasing the last 工夫 of a 種目 removes it; clearAllKufu erases everything", () => {
+  addKufu("前蹴り", "ひざ", s);
+  addKufu("突き", "ひき", s);
+  addKufu("突き", "こし", s);
+  expect(countKufu(s)).toBe(3);
+  removeKufuAt("前蹴り", 0, s);
+  removeKufuAt("前蹴り", 5, s);   // out of range: no-op
+  expect(countKufu(s)).toBe(2);
+  clearAllKufu(s);
+  expect(countKufu(s)).toBe(0);
   expect(loadKufu("突き", s)).toEqual([]);
-  expect(loadKufu("蹴り", s)).toEqual([]);
 });
 
-// --- maxDrills (Free plan: 1 種目 total may have any saved 工夫) ---
-
-it("addKufu allows a first drill to get a note under maxDrills 1", () => {
-  addKufu("前蹴り", "腰を落とす", s, 1, 1);
-  expect(loadKufu("前蹴り", s)).toEqual(["腰を落とす"]);
+it("renameKufu moves notes to the new name (existing notes on the new name win)", () => {
+  addKufu("新しい種目", "ひざ", s);
+  renameKufu("新しい種目", "前蹴り", s);
+  expect(loadKufu("新しい種目", s)).toEqual([]);
+  expect(latestKufu("前蹴り", s, FREE)).toBe("ひざ");
+  addKufu("突き", "こし", s);
+  renameKufu("前蹴り", "突き", s);
+  expect(loadKufu("突き", s)).toEqual(["こし"]);
+  expect(loadKufu("前蹴り", s)).toEqual([]);
 });
 
-it("addKufu refuses a NEW drill once maxDrills is reached, leaving it unchanged", () => {
-  addKufu("前蹴り", "腰を落とす", s, 1, 1);
-  addKufu("回し蹴り", "高く上げる", s, 1, 1);
-  expect(loadKufu("前蹴り", s)).toEqual(["腰を落とす"]);
-  expect(loadKufu("回し蹴り", s)).toEqual([]);
-});
-
-it("addKufu still allows updating a drill that already has the used slot", () => {
-  addKufu("前蹴り", "腰を落とす", s, 1, 1);
-  addKufu("前蹴り", "軸足まっすぐ", s, 1, 1);
-  expect(loadKufu("前蹴り", s)).toEqual(["軸足まっすぐ"]);
-});
-
-it("canAddKufu is true for an already-used drill and false for a new one at the cap", () => {
-  addKufu("前蹴り", "腰を落とす", s, 1, 1);
-  expect(canAddKufu("前蹴り", s, 1)).toBe(true);
-  expect(canAddKufu("回し蹴り", s, 1)).toBe(false);
-});
-
-it("canAddKufu is true for any drill when no drill has used a slot yet", () => {
-  expect(canAddKufu("前蹴り", s, 1)).toBe(true);
-});
-
-it("trimKufuHistory drops extra drills down to maxDrills on a plan downgrade", () => {
-  addKufu("突き", "a", s, 10, Infinity);
-  addKufu("蹴り", "b", s, 10, Infinity);
-  trimKufuHistory(10, s, 1);
-  const remaining = [loadKufu("突き", s), loadKufu("蹴り", s)].filter((h) => h.length);
-  expect(remaining).toHaveLength(1);
+it("pruneKufu drops notes for names no menu uses", () => {
+  addKufu("消えた種目", "ひざ", s);
+  addKufu("前蹴り", "こし", s);
+  pruneKufu(["前蹴り"], s);
+  expect(loadKufu("消えた種目", s)).toEqual([]);
+  expect(loadKufu("前蹴り", s)).toEqual(["こし"]);
+  expect(canAddKufu("突き", s, { perDrill: 3, total: 2 })).toBe(true);
 });

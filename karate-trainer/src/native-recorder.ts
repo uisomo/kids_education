@@ -7,8 +7,21 @@
 // native plugin captures with AVCaptureMovieFileOutput and burns the overlay
 // with AVFoundation's Core Animation compositor, so neither failure mode
 // exists here. See ios/App/App/KarateRecorder/.
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import type { OverlayEvent, OverlayMenuItem, SoundEvent } from "./overlay-event-log";
+
+export interface NativeStopResult {
+  uri: string;
+  burnedIn: boolean;
+  burnError?: string;
+  // "burned" (overlay + sound), "mixed" (sound, no overlay — burn-in failed),
+  // or "raw" (the silent camera file — every export failed).
+  exportMode?: "burned" | "mixed" | "raw";
+  soundMixed?: boolean;
+  mixError?: string;
+  // Set when the system cut the recording short (see onInterrupted()).
+  interruption?: string;
+}
 
 export interface KarateRecorderPluginLike {
   startPreview(): Promise<void>;
@@ -19,7 +32,19 @@ export interface KarateRecorderPluginLike {
     totalDurationMs: number;
     menu: OverlayMenuItem[];
     sounds: SoundEvent[];
-  }): Promise<{ uri: string; burnedIn: boolean; burnError?: string }>;
+  }): Promise<NativeStopResult>;
+  // Stops recording/preview/voice/music and deletes the session's temp files.
+  // Optional so older native builds (and test fakes) without it still type.
+  cancelRecording?(): Promise<void>;
+  // Opens this app's page in the iOS Settings app (camera/mic permissions).
+  openSettings?(): Promise<void>;
+  // Free space on the phone ("important usage" capacity), in bytes.
+  freeDiskSpace?(): Promise<{ bytes: number }>;
+  // Capacitor's event subscription; "recordingInterrupted" carries { reason }.
+  addListener?(
+    eventName: "recordingInterrupted",
+    listener: (data: { reason?: string }) => void,
+  ): Promise<PluginListenerHandle>;
   // Native playback (AudioController): one engine for music and character
   // voices, so neither interrupts the other and the volume really applies.
   playMusic(opts: { src: string; volume: number }): Promise<void>;
@@ -32,8 +57,7 @@ export interface NativeRecorderDeps {
   plugin?: KarateRecorderPluginLike;
   // Maps a file:// URI to something the web view can load. Capacitor's
   // convertFileSrc in production; injected in tests.
-  toWebPath?: (uri: string) => string | Promise<string>;
-  fetchBlob?: (url: string) => Promise<Blob>;
+  toWebPath?: (uri: string) => string;
   // Toggles the transparency class on <html>. Injected in tests, which have no
   // real document to mutate.
   setPreviewClass?: (on: boolean) => void;
@@ -64,12 +88,30 @@ export function karateRecorderPlugin(): KarateRecorderPluginLike {
   return (sharedPlugin ??= registerPlugin<KarateRecorderPluginLike>("KarateRecorder"));
 }
 
+// Opens the app's page in iOS Settings, e.g. after camera permission was
+// denied. A no-op off native; never rejects.
+export async function openAppSettings(
+  deps: { plugin?: KarateRecorderPluginLike; isNative?: boolean } = {},
+): Promise<void> {
+  const isNative = deps.isNative ?? Capacitor.isNativePlatform();
+  if (!isNative) return;
+  try {
+    const plugin = deps.plugin ?? karateRecorderPlugin();
+    await plugin.openSettings?.();
+  } catch (e) {
+    console.warn("openAppSettings failed", e);
+  }
+}
+
 export class NativeVideoRecorder {
   private plugin: KarateRecorderPluginLike | null = null;
   private deps: NativeRecorderDeps;
   private lastUri: string | null = null;
+  private lastPlaybackUrl: string | null = null;
   private lastBurnError: string | null = null;
   private burnedIn = false;
+  private interruptCallback: ((reason: string) => void) | null = null;
+  private listener: Promise<PluginListenerHandle | undefined> | null = null;
 
   constructor(deps: NativeRecorderDeps = {}) {
     this.deps = deps;
@@ -98,10 +140,9 @@ export class NativeVideoRecorder {
   }
 
   fileExtension(): string {
-    // AVAssetExportSession writes .mp4; the raw-capture fallback is .mov, but
-    // both play and share as MP4-family video, and the share sheet keys off
-    // the file's own extension rather than this.
-    return "mp4";
+    // The export writes .mp4; when every export failed the raw capture (.mov)
+    // comes back instead.
+    return this.lastUri && /\.mov$/i.test(this.lastUri) ? "mov" : "mp4";
   }
 
   // The native preview layer renders behind the (transparent) web view, so
@@ -117,13 +158,55 @@ export class NativeVideoRecorder {
     return emptyStream();
   }
 
+  // Bytes free for a recording, or null when unknown (older native build,
+  // or iOS didn't say). Never rejects.
+  async freeDiskBytes(): Promise<number | null> {
+    try {
+      const plugin = this.getPlugin();
+      if (typeof plugin.freeDiskSpace !== "function") return null;
+      const result = await plugin.freeDiskSpace();
+      return typeof result?.bytes === "number" && Number.isFinite(result.bytes) ? result.bytes : null;
+    } catch {
+      return null;
+    }
+  }
+
   async startRecording(): Promise<void> {
     const plugin = this.getPlugin();
     await plugin.startRecording();
   }
 
+  // Called when the system cuts the recording short (camera interrupted, app
+  // sent to the background, a phone call). The caller should wind the session
+  // down and still call stop(), which returns what was captured.
+  onInterrupted(cb: (reason: string) => void): void {
+    this.interruptCallback = cb;
+    if (this.listener) return;
+    const plugin = this.getPlugin();
+    if (typeof plugin.addListener !== "function") return;
+    this.listener = Promise.resolve()
+      .then(() => plugin.addListener?.("recordingInterrupted", (data) => {
+        this.interruptCallback?.(data?.reason ?? "unknown");
+      }))
+      .catch((e: unknown) => {
+        console.warn("native interruption listener failed", e);
+        return undefined;
+      });
+  }
+
+  private removeInterruptListener(): void {
+    this.interruptCallback = null;
+    const pending = this.listener;
+    this.listener = null;
+    void pending?.then((handle) => handle?.remove()).catch(() => { /* best-effort */ });
+  }
+
   // Overlay burn-in happens natively inside this call, so unlike the web path
   // there is no separate burnOverlay() step afterwards.
+  //
+  // Resolves an EMPTY Blob: the finished video can be hundreds of MB, and
+  // reading it into the web view is what risked the app being killed. Use
+  // playbackUrl() for the <video> and fileUri() for sharing.
   async stop(
     events: OverlayEvent[] = [],
     totalDurationMs = 0,
@@ -131,24 +214,53 @@ export class NativeVideoRecorder {
     sounds: SoundEvent[] = [],
   ): Promise<Blob> {
     const plugin = this.getPlugin();
-    const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds });
-    this.lastUri = result.uri;
-    this.burnedIn = result.burnedIn;
-    this.lastBurnError = result.burnError ?? null;
+    this.removeInterruptListener();
+    try {
+      const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds });
+      this.lastUri = result.uri;
+      this.burnedIn = result.burnedIn;
+      this.lastBurnError = result.burnError ?? null;
+      const toWebPath = this.deps.toWebPath ?? defaultToWebPath;
+      this.lastPlaybackUrl = toWebPath(result.uri);
+      return new Blob([], { type: this.fileExtension() === "mov" ? "video/quicktime" : "video/mp4" });
+    } finally {
+      // Even when stopping failed: otherwise the camera and mic stay on.
+      await plugin.stopPreview().catch(() => { /* teardown is best-effort */ });
+      this.setPreviewClass(false);
+    }
+  }
 
-    await plugin.stopPreview().catch(() => { /* teardown is best-effort */ });
-    this.setPreviewClass(false);
-
-    const toWebPath = this.deps.toWebPath ?? defaultToWebPath;
-    const webPath = await toWebPath(result.uri);
-    const fetchBlob = this.deps.fetchBlob ?? ((u: string) => fetch(u).then((r) => r.blob()));
-    return fetchBlob(webPath);
+  // Abandons the session — e.g. startRecording() failed — stopping camera, mic
+  // and music and deleting its temp files. Safe in any state; never rejects.
+  async cancel(): Promise<void> {
+    this.removeInterruptListener();
+    try {
+      const plugin = this.getPlugin();
+      try {
+        if (typeof plugin.cancelRecording !== "function") throw new Error("cancelRecording unavailable");
+        await plugin.cancelRecording();
+      } catch {
+        await plugin.stopPreview().catch(() => { /* best-effort */ });
+      }
+    } catch {
+      /* no plugin at all: nothing to tear down */
+    }
+    try {
+      this.setPreviewClass(false);
+    } catch {
+      /* no document */
+    }
   }
 
   // The on-disk file, for handing straight to the OS share sheet instead of
   // round-tripping the whole video through base64.
   fileUri(): string | null {
     return this.lastUri;
+  }
+
+  // A URL the web view can load the finished video from (for <video src>).
+  playbackUrl(): string | null {
+    return this.lastPlaybackUrl;
   }
 
   didBurnIn(): boolean {

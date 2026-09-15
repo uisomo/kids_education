@@ -169,6 +169,33 @@ it("selecting a preset in the dropdown fires onLoadPreset and reveals its delete
   expect(onLoadPreset).toHaveBeenCalledWith("p2");
 });
 
+it("a new menu offers only 保存; a saved menu offers only 上書き保存 and メニュー削除", () => {
+  const presets = [{ id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) }];
+  const fresh = document.createElement("div");
+  renderSetupScreen(fresh, deps({ presets, onOverwritePreset: vi.fn() }));
+  expect(fresh.querySelector("[data-preset-select]")!.querySelector("option")!.textContent).toBe("＋ 新しいメニューを作る");
+  expect(fresh.querySelector("[data-preset-save]")!.textContent).toBe("保存");
+  expect(fresh.querySelector("[data-preset-overwrite]")).toBeNull();
+  expect(fresh.querySelector("[data-preset-del]")).toBeNull();
+
+  const picked = document.createElement("div");
+  renderSetupScreen(picked, deps({ presets, selectedPresetId: "p1", onOverwritePreset: vi.fn() }));
+  expect(picked.querySelector("[data-preset-save]")).toBeNull();
+  expect(picked.querySelector("[data-preset-overwrite]")!.textContent).toBe("上書き保存");
+  expect(picked.querySelector("[data-preset-del]")!.textContent).toBe("メニュー削除");
+});
+
+it("choosing ＋ 新しいメニューを作る fires onNewMenu", () => {
+  const root = document.createElement("div");
+  const onNewMenu = vi.fn();
+  const presets = [{ id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) }];
+  renderSetupScreen(root, deps({ presets, selectedPresetId: "p1", onNewMenu }));
+  const select = root.querySelector<HTMLSelectElement>("[data-preset-select]")!;
+  select.value = "";
+  select.dispatchEvent(new Event("change"));
+  expect(onNewMenu).toHaveBeenCalledOnce();
+});
+
 it("save button fires onSavePreset", () => {
   const root = document.createElement("div");
   const onSavePreset = vi.fn();
@@ -217,7 +244,7 @@ it("shows the assigned class name when className is provided", () => {
   renderSetupScreen(root, deps({ className: "基礎" }));
   const label = root.querySelector<HTMLElement>("[data-class-label]");
   expect(label).not.toBeNull();
-  expect(label!.textContent).toContain("基礎");
+  expect(label!.textContent).toBe("メニュー: 基礎");
 });
 
 it("omits the class label when className is null/absent", () => {
@@ -228,14 +255,14 @@ it("omits the class label when className is null/absent", () => {
   expect(root.querySelector("[data-class-label]")).toBeNull();
 });
 
-// --- E4: 感想コメント banner (top of screen) ---
-it("shows the 感想 comment banner at the very top when provided", () => {
+// --- E4: 感想コメント banner (right above the start button) ---
+it("shows the 感想 comment banner right above the start button when provided", () => {
   const root = document.createElement("div");
   renderSetupScreen(root, deps({ kansou: "いつも がんばってるね" }));
   const banner = root.querySelector<HTMLElement>("[data-kansou-banner]");
   expect(banner).not.toBeNull();
-  expect(banner!.textContent).toContain("いつも がんばってるね");
-  expect(root.firstElementChild).toBe(banner);   // above the belt card / header
+  expect(banner!.textContent).toBe("✉️ いつも がんばってるね");   // a letter, no 💛
+  expect(banner!.nextElementSibling).toBe(root.querySelector("[data-start]"));
 });
 
 it("omits the 感想 banner when kansou is empty/absent", () => {
@@ -284,65 +311,6 @@ it("omits the member band when no members are provided", () => {
   expect(root.querySelector("[data-member-band]")).toBeNull();
 });
 
-// --- 工夫 button per row (opens the centered popup card) ---
-it("renders a 工夫 button per row, lit only for drills that already have a note", () => {
-  const root = document.createElement("div");
-  const menu = structuredClone(DEFAULT_MENU);
-  renderSetupScreen(root, deps({
-    menu,
-    kufuEnabled: true,
-    latestKufuFor: (name: string) => (name === menu[0].name ? "こしをまわす" : ""),
-  }));
-  const buttons = root.querySelectorAll<HTMLElement>("[data-kufu-open]");
-  expect(buttons).toHaveLength(menu.length);
-  expect(buttons[0].classList.contains("is-lit")).toBe(true);
-  expect(buttons[1].classList.contains("is-lit")).toBe(false);
-});
-
-it("omits the 工夫 buttons when kufuEnabled is false (Free plan)", () => {
-  const root = document.createElement("div");
-  renderSetupScreen(root, deps({ kufuEnabled: false, latestKufuFor: () => "" }));
-  expect(root.querySelector("[data-kufu-open]")).toBeNull();
-});
-
-it("tapping a 工夫 button opens the centered card for that drill", () => {
-  const root = document.createElement("div");
-  const menu = structuredClone(DEFAULT_MENU);
-  renderSetupScreen(root, deps({ menu, kufuEnabled: true, latestKufuFor: () => "" }));
-  root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]")[0].click();
-  const card = root.querySelector<HTMLElement>("[data-kufu-modal]");
-  expect(card).not.toBeNull();
-  expect(card!.textContent).toContain(menu[0].name);
-});
-
-it("saving from the card calls onSaveKufu and lights that row's button", () => {
-  const root = document.createElement("div");
-  const menu = structuredClone(DEFAULT_MENU);
-  const onSaveKufu = vi.fn();
-  renderSetupScreen(root, deps({ menu, kufuEnabled: true, latestKufuFor: () => "", onSaveKufu }));
-  const button = root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]")[0];
-  button.click();
-  root.querySelector<HTMLInputElement>("[data-kufu-modal-input]")!.value = "ひざを上げる";
-  root.querySelector<HTMLButtonElement>("[data-kufu-modal-save]")!.click();
-  expect(onSaveKufu).toHaveBeenCalledWith(menu[0].name, "ひざを上げる");
-  expect(button.classList.contains("is-lit")).toBe(true);
-  expect(root.querySelector("[data-kufu-modal]")).toBeNull();
-});
-
-it("disables (not hides) a row's 工夫 button when canAddKufuFor says no (Free plan slot used elsewhere)", () => {
-  const root = document.createElement("div");
-  const menu = structuredClone(DEFAULT_MENU);
-  renderSetupScreen(root, deps({
-    menu,
-    kufuEnabled: true,
-    latestKufuFor: () => "",
-    canAddKufuFor: (name: string) => name === menu[0].name,
-  }));
-  const buttons = root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]");
-  expect(buttons[0].disabled).toBe(false);
-  expect(buttons[1].disabled).toBe(true);
-});
-
 // --- 帯 card ---
 it("draws the member's belt with its bars and what comes next", () => {
   const root = document.createElement("div");
@@ -353,7 +321,7 @@ it("draws the member's belt with its bars and what comes next", () => {
   expect(card.querySelectorAll(".belt-bar")).toHaveLength(10);
   expect(card.querySelectorAll(".belt-bar.lit")).toHaveLength(7);
   expect(card.querySelector("[data-belt-next]")!.textContent).toContain("💎 ダイヤモンドの帯");
-  expect(card.querySelector("[data-belt-next]")!.textContent).toContain("あと 3回");
+  expect(card.querySelector("[data-belt-next]")!.textContent).toContain("Lv.10");
 });
 
 it("colored belts have no RPG frame, and the top belt says so", () => {
@@ -366,4 +334,138 @@ it("colored belts have no RPG frame, and the top belt says so", () => {
   const top = document.createElement("div");
   renderSetupScreen(top, deps({ belt: { index: 13, bars: 10 } }));
   expect(top.querySelector("[data-belt-next]")!.textContent).toBe("さいこうの帯！");
+});
+
+// --- freeing a 工夫 slot from the setup screen ---
+it("deleting the last row of a 種目 erases its 工夫; a duplicate row keeps it", () => {
+  const root = document.createElement("div");
+  const onDeleteKufu = vi.fn();
+  const menu = [
+    { id: "a", name: "前蹴り", seconds: 30, kind: "drill" as const },
+    { id: "b", name: "前蹴り", seconds: 30, kind: "drill" as const },
+    { id: "c", name: "突き", seconds: 30, kind: "drill" as const },
+  ];
+  renderSetupScreen(root, deps({ menu, confirmDelete: () => true, onDeleteKufu }));
+  const dels = root.querySelectorAll<HTMLButtonElement>(".row-del");
+  dels[0].click();
+  expect(onDeleteKufu).not.toHaveBeenCalled();
+  dels[2].click();
+  expect(onDeleteKufu).toHaveBeenCalledWith("突き");
+});
+
+it("committing a rename carries the 工夫 to the new name", () => {
+  const root = document.createElement("div");
+  const onRenameKufu = vi.fn();
+  const menu = [{ id: "a", name: "新しい種目", seconds: 30, kind: "drill" as const }];
+  renderSetupScreen(root, deps({ menu, onRenameKufu }));
+  const name = root.querySelector<HTMLInputElement>(".drill-name")!;
+  name.value = "前蹴り";
+  name.dispatchEvent(new Event("input"));
+  name.dispatchEvent(new Event("change"));
+  expect(onRenameKufu).toHaveBeenCalledWith("新しい種目", "前蹴り");
+});
+
+it("a 休憩 row's toggle reads ☕休憩 and keeps the name input", () => {
+  const root = document.createElement("div");
+  const menu = [{ id: "r", name: "水のむ", seconds: 30, kind: "rest" as const }];
+  renderSetupScreen(root, deps({ menu }));
+  expect(root.querySelector("[data-kind-toggle]")!.textContent).toBe("☕休憩");
+  expect(root.querySelector<HTMLInputElement>(".drill-name")!.value).toBe("水のむ");
+});
+
+it("the 感想 banner is signed with who wrote it", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ kansou: "がんばったね", kansouBy: "おかあさん" }));
+  expect(root.querySelector("[data-kansou-by]")!.textContent).toBe("by おかあさん");
+});
+
+it("without a saved menu the belt card becomes a hint", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ beltHint: "メニューを保存すると、帯と強さがたまるよ" }));
+  expect(root.querySelector(".belt-status-card")).toBeNull();
+  expect(root.querySelector("[data-belt-hint]")!.textContent).toContain("メニューを保存");
+});
+
+it("a menu over 10 minutes turns the total red and can't start; shortening it re-enables 開始", () => {
+  const root = document.createElement("div");
+  const menu = [{ id: "a", name: "型", seconds: 601, kind: "drill" as const }];
+  renderSetupScreen(root, deps({ menu }));
+  const start = root.querySelector<HTMLButtonElement>("[data-start]")!;
+  expect(start.disabled).toBe(true);
+  expect(start.textContent).toBe("10分までにしてね");
+  expect(root.querySelector(".total .is-over")).not.toBeNull();
+
+  const secs = root.querySelector<HTMLInputElement>(".drill-secs")!;
+  secs.value = "600";
+  secs.dispatchEvent(new Event("input"));
+  expect(start.disabled).toBe(false);
+  expect(start.textContent).toBe("稽古 開始 ▶");
+  expect(root.querySelector(".total .is-over")).toBeNull();
+});
+
+// --- 💡 工夫 card per row ---
+function kufuDeps(notes: Record<string, string[]>, over: Record<string, unknown> = {}) {
+  const menu = [
+    { id: "a", name: "前蹴り", seconds: 30, kind: "drill" as const },
+    { id: "r", name: "休憩", seconds: 15, kind: "rest" as const },
+    { id: "b", name: "回し蹴り", seconds: 30, kind: "drill" as const },
+  ];
+  const onAddKufu = vi.fn((name: string, text: string) => { notes[name] = [text, ...(notes[name] ?? [])]; });
+  const onRemoveKufu = vi.fn((name: string, i: number) => { notes[name].splice(i, 1); });
+  const onKufuChanged = vi.fn();
+  return {
+    ...deps({
+      menu, kufuEnabled: true, kufuPerDrill: 3,
+      kufuFor: (name: string) => notes[name] ?? [],
+      canAddKufuFor: (name: string) => (notes[name]?.length ?? 0) < 3,
+      ...over,
+    }),
+    onAddKufu, onRemoveKufu, onKufuChanged,
+  };
+}
+
+it("renders a 💡 per drill row (none on 休憩), lit only when the 種目 has a 工夫", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, kufuDeps({ 前蹴り: ["こしをまわす"] }));
+  const bulbs = root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]");
+  expect(bulbs).toHaveLength(2);
+  expect(bulbs[0].classList.contains("is-lit")).toBe(true);
+  expect(bulbs[1].classList.contains("is-lit")).toBe(false);
+});
+
+it("omits the 💡 when kufuEnabled is false", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, kufuDeps({}, { kufuEnabled: false }));
+  expect(root.querySelector("[data-kufu-open]")).toBeNull();
+});
+
+it("adding a 工夫 keeps the card open; とじる lights the 💡 and asks for a re-render", () => {
+  const root = document.createElement("div");
+  const d = kufuDeps({});
+  renderSetupScreen(root, d);
+  const bulb = root.querySelectorAll<HTMLButtonElement>("[data-kufu-open]")[1];
+  bulb.click();
+  expect(root.querySelector("[data-kufu-modal]")!.textContent).toContain("回し蹴り");
+  root.querySelector<HTMLInputElement>("[data-kufu-modal-input]")!.value = "ひざを上げる";
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-save]")!.click();
+  expect(d.onAddKufu).toHaveBeenCalledWith("回し蹴り", "ひざを上げる");
+  expect(root.querySelector("[data-kufu-modal]")).not.toBeNull();   // stays open
+  expect(d.onKufuChanged).not.toHaveBeenCalled();
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-close]")!.click();
+  expect(root.querySelector("[data-kufu-modal]")).toBeNull();
+  expect(bulb.classList.contains("is-lit")).toBe(true);
+  expect(d.onKufuChanged).toHaveBeenCalledOnce();
+});
+
+it("a full 種目's 💡 still opens so a 工夫 can be erased", () => {
+  const root = document.createElement("div");
+  const d = kufuDeps({ 前蹴り: ["a", "b", "c"] });
+  renderSetupScreen(root, d);
+  const bulb = root.querySelector<HTMLButtonElement>("[data-kufu-open]")!;
+  expect(bulb.disabled).toBe(false);
+  bulb.click();
+  expect(root.querySelector("[data-kufu-modal-input]")).toBeNull();
+  root.querySelector<HTMLButtonElement>('[data-kufu-modal-remove="1"]')!.click();
+  expect(d.onRemoveKufu).toHaveBeenCalledWith("前蹴り", 1);
+  expect(root.querySelector("[data-kufu-modal-input]")).not.toBeNull();
 });

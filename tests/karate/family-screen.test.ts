@@ -119,25 +119,27 @@ function classDeps(over: Record<string, unknown> = {}) {
   });
 }
 
-it("renders a class select per member with the assigned class selected", () => {
+it("shows the メニュー select only for the member picked in 設定したいメンバー", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, classDeps());
-  const rows = root.querySelectorAll("[data-class-row]");
-  expect(rows).toHaveLength(2);
-  const m1 = root.querySelector<HTMLSelectElement>('[data-class-select="m1"]')!;
-  expect(m1.value).toBe("p1");
-  const m2 = root.querySelector<HTMLSelectElement>('[data-class-select="m2"]')!;
-  expect(m2.value).toBe("");   // なし (unassigned)
+  expect(root.querySelectorAll("[data-class-row]")).toHaveLength(1);
+  expect(root.querySelector<HTMLSelectElement>('[data-class-select="m1"]')!.value).toBe("p1");
+  expect(root.querySelector('[data-class-select="m2"]')).toBeNull();
+  expect(root.textContent).not.toContain("くらす");
+
+  const other = document.createElement("div");
+  renderFamilyScreen(other, classDeps({ activeId: "m2" }));
+  expect(other.querySelector<HTMLSelectElement>('[data-class-select="m2"]')!.value).toBe("");   // なし
 });
 
 it("changing a member's class fires onAssignClass with the preset id", () => {
   const root = document.createElement("div");
   const onAssignClass = vi.fn();
   renderFamilyScreen(root, classDeps({ onAssignClass }));
-  const m2 = root.querySelector<HTMLSelectElement>('[data-class-select="m2"]')!;
-  m2.value = "p2";
-  m2.dispatchEvent(new Event("change"));
-  expect(onAssignClass).toHaveBeenCalledWith("m2", "p2");
+  const m1 = root.querySelector<HTMLSelectElement>('[data-class-select="m1"]')!;
+  m1.value = "p2";
+  m1.dispatchEvent(new Event("change"));
+  expect(onAssignClass).toHaveBeenCalledWith("m1", "p2");
 });
 
 it("selecting なし fires onAssignClass with null", () => {
@@ -173,13 +175,12 @@ function commentDeps(over: Record<string, unknown> = {}) {
   });
 }
 
-it("renders 感想 / ファイト inputs prefilled with the active member's comments", () => {
+it("renders the 感想 input prefilled, and no ファイト input", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, commentDeps());
   const kansou = root.querySelector<HTMLInputElement>("[data-comment-kansou]")!;
-  const fight = root.querySelector<HTMLInputElement>("[data-comment-fight]")!;
   expect(kansou.value).toBe("がんばってるね");
-  expect(fight.value).toBe("あと ちょっと");
+  expect(root.querySelector("[data-comment-fight]")).toBeNull();
 });
 
 it("saving 感想 fires onSaveComment with kind and text", () => {
@@ -192,16 +193,6 @@ it("saving 感想 fires onSaveComment with kind and text", () => {
   expect(onSaveComment).toHaveBeenCalledWith("kansou", "だいすき");
 });
 
-it("saving ファイト fires onSaveComment with kind and text", () => {
-  const root = document.createElement("div");
-  const onSaveComment = vi.fn();
-  renderFamilyScreen(root, commentDeps({ onSaveComment }));
-  const fight = root.querySelector<HTMLInputElement>("[data-comment-fight]")!;
-  fight.value = "まけるな";
-  root.querySelector<HTMLButtonElement>("[data-comment-save-fight]")!.click();
-  expect(onSaveComment).toHaveBeenCalledWith("fight", "まけるな");
-});
-
 it("omits the comment section for callers without comment wiring", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps());   // no comments/onSaveComment
@@ -210,21 +201,107 @@ it("omits the comment section for callers without comment wiring", () => {
 });
 
 // --- 帯 section (parent-controlled) ---
-it("lets the parent pick each member's belt", () => {
+it("lets the parent pick the active member's belt for each saved menu", () => {
   const root = document.createElement("div");
-  const onSetBelt = vi.fn();
-  renderFamilyScreen(root, deps({ belts: { m1: 11, m2: 0 }, onSetBelt }));
-  const s1 = root.querySelector<HTMLSelectElement>('[data-belt-select="m1"]')!;
+  const onSetMenuBelt = vi.fn();
+  renderFamilyScreen(root, deps({
+    menuBelts: [{ id: "p1", name: "基本", belt: 11 }, { id: "p2", name: "型", belt: 0 }],
+    onSetMenuBelt,
+  }));
+  expect(root.querySelector('[data-belt-row="p1"]')!.textContent).toContain("基本");
+  const s1 = root.querySelector<HTMLSelectElement>('[data-belt-select="p1"]')!;
   expect(s1.value).toBe("11");
   expect(s1.options).toHaveLength(14);
-  const s2 = root.querySelector<HTMLSelectElement>('[data-belt-select="m2"]')!;
+  const s2 = root.querySelector<HTMLSelectElement>('[data-belt-select="p2"]')!;
   s2.value = "12";
   s2.dispatchEvent(new Event("change"));
-  expect(onSetBelt).toHaveBeenCalledWith("m2", 12);
+  expect(onSetMenuBelt).toHaveBeenCalledWith("p2", 12);
 });
 
 it("omits the belt section without belt wiring", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps());
   expect(root.querySelector("[data-belt-list]")).toBeNull();
+});
+
+it("the 感想 form has a second 'by' line, and 保存 saves both", () => {
+  const root = document.createElement("div");
+  const onSaveComment = vi.fn();
+  renderFamilyScreen(root, commentDeps({ onSaveComment, comments: { kansou: "えらい", kansouBy: "パパ", fight: "" } }));
+  const by = root.querySelector<HTMLInputElement>("[data-comment-kansou-by]")!;
+  expect(by.value).toBe("パパ");
+  by.value = "ママ";
+  root.querySelector<HTMLButtonElement>("[data-comment-save-kansou]")!.click();
+  expect(onSaveComment).toHaveBeenCalledWith("kansouBy", "ママ");
+  expect(onSaveComment).toHaveBeenCalledWith("kansou", "えらい");
+});
+
+it("manages members first, then frames the picked member's settings, then the plan", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({
+    classes: [{ id: "p1", name: "基本", menu: [] }], assignments: { m1: "p1" }, onAssignClass: vi.fn(),
+    comments: { kansou: "", kansouBy: "", fight: "" }, onSaveComment: vi.fn(),
+  }));
+  const labels = [...root.querySelectorAll(".family-section-label, .family-label")].map((e) => e.textContent);
+  expect(labels[0]).toBe("メンバーを管理する");
+  const box = root.querySelector("[data-member-settings]")!;
+  expect(box.textContent).toContain("設定したいメンバー");
+  expect(box.querySelector("[data-class-select]")).not.toBeNull();
+  expect(box.querySelector("[data-comment-kansou]")).not.toBeNull();
+  expect(box.querySelector("[data-plan-cards]")).toBeNull();
+  const listPos = root.querySelector("[data-member-list]")!.compareDocumentPosition(box);
+  expect(listPos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("a member name can be changed with 変更", () => {
+  const root = document.createElement("div");
+  const onRenameMember = vi.fn();
+  renderFamilyScreen(root, deps({ onRenameMember }));
+  const input = root.querySelector<HTMLInputElement>('[data-member-name="m2"]')!;
+  const button = root.querySelector<HTMLButtonElement>('[data-member-rename="m2"]')!;
+  expect(input.value).toBe("たろう");
+  expect(button.disabled).toBe(true);
+  input.value = "  じろう ";
+  input.dispatchEvent(new Event("input"));
+  expect(button.disabled).toBe(false);
+  button.click();
+  expect(onRenameMember).toHaveBeenCalledWith("m2", "じろう");
+});
+
+it("plan cards list menus and 工夫, per kid on Family", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());
+  const feats = (plan: string) => root.querySelector(`[data-plan-card="${plan}"] .family-plan-feats`)!.textContent!;
+  expect(feats("free")).toContain("メニュー 1");
+  expect(feats("premium")).toContain("メニュー 5");
+  expect(feats("premium")).toContain("工夫 150");
+  expect(feats("family")).toContain("メニュー 5/人");
+  expect(feats("family")).toContain("工夫 150/人");
+});
+
+it("「工夫をぜんぶけす」 shows the count and asks the app to clear; disabled with none", () => {
+  const root = document.createElement("div");
+  const onClearAllKufu = vi.fn();
+  renderFamilyScreen(root, deps({ kufuCount: 4, onClearAllKufu }));
+  const btn = root.querySelector<HTMLButtonElement>("[data-kufu-clear-all]")!;
+  expect(btn.textContent).toContain("4件");
+  btn.click();
+  expect(onClearAllKufu).toHaveBeenCalledOnce();
+
+  const none = document.createElement("div");
+  renderFamilyScreen(none, deps({ kufuCount: 0, onClearAllKufu }));
+  expect(none.querySelector<HTMLButtonElement>("[data-kufu-clear-all]")!.disabled).toBe(true);
+});
+
+it("LINE・SNS: a checkbox for the picked member reports changes", () => {
+  const root = document.createElement("div");
+  const onSetShareAllowed = vi.fn();
+  renderFamilyScreen(root, deps({ activeId: "m2", shareAllowed: { m1: true, m2: false }, onSetShareAllowed }));
+  expect(root.querySelector('[data-share-allowed="m1"]')).toBeNull();
+  const m2 = root.querySelector<HTMLInputElement>('[data-share-allowed="m2"]')!;
+  expect(m2.checked).toBe(false);
+  expect(root.querySelector('[data-share-row="m2"]')!.textContent).toContain("LINE・SNSで送るボタンを表示する");
+  m2.checked = true;
+  m2.dispatchEvent(new Event("change"));
+  expect(onSetShareAllowed).toHaveBeenCalledWith("m2", true);
 });

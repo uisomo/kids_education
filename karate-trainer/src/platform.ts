@@ -56,7 +56,7 @@ export async function shareRecording(
   // get the app killed.
   if (native && fileUri) {
     const { Share } = await import("@capacitor/share");
-    await Share.share({ title: "空手稽古", url: fileUri });
+    await Share.share({ title: "アランの空手", url: fileUri });
     return;
   }
 
@@ -72,7 +72,7 @@ export async function shareRecording(
       data,
       directory: Directory.Cache,
     });
-    await Share.share({ title: "空手稽古", url: written.uri });
+    await Share.share({ title: "アランの空手", url: written.uri });
     return;
   }
 

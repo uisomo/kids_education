@@ -106,3 +106,82 @@ it("ignores keys other than the arrows", () => {
   pressKey(container.querySelector<HTMLElement>("[data-drag]")!, "Enter");
   expect(onReorder).not.toHaveBeenCalled();
 });
+
+// --- attachDragReorder(): pointer path with stubbed geometry ---
+// Rows are 40px tall on a 50px pitch; `scroll.y` shifts everything in the
+// viewport the way a page scroll would.
+function geometricRows(n: number, scroll: { y: number }): HTMLElement {
+  const container = buildRows(n);
+  container.getBoundingClientRect = () => ({ top: -scroll.y, height: n * 50 } as DOMRect);
+  container.querySelectorAll<HTMLElement>("[data-row]").forEach((row, i) => {
+    row.getBoundingClientRect = () => ({ top: i * 50 - scroll.y, height: 40 } as DOMRect);
+  });
+  document.body.append(container);
+  return container;
+}
+
+function pointer(target: EventTarget, type: string, clientY: number, pointerId = 1): void {
+  const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientY });
+  Object.defineProperty(ev, "pointerId", { value: pointerId });
+  target.dispatchEvent(ev);
+}
+
+it("a pointer drag past the next row's midpoint reorders on release", () => {
+  const container = geometricRows(3, { y: 0 });
+  const onReorder = vi.fn();
+  attachDragReorder(container, { onReorder });
+  pointer(container.querySelector("[data-drag]")!, "pointerdown", 20);
+  pointer(window, "pointermove", 75);
+  pointer(window, "pointerup", 75);
+  expect(onReorder).toHaveBeenCalledWith(0, 1);
+  container.remove();
+});
+
+it("pointercancel reverts the drag without calling onReorder", () => {
+  const container = geometricRows(3, { y: 0 });
+  const onReorder = vi.fn();
+  attachDragReorder(container, { onReorder });
+  const rows = container.querySelectorAll<HTMLElement>("[data-row]");
+  pointer(container.querySelector("[data-drag]")!, "pointerdown", 20);
+  pointer(window, "pointermove", 130);
+  expect(rows[0].style.transform).not.toBe("");
+  pointer(window, "pointercancel", 130);
+  expect(onReorder).not.toHaveBeenCalled();
+  rows.forEach((r) => expect(r.style.transform).toBe(""));
+  expect(rows[0].classList.contains("is-dragging")).toBe(false);
+  expect(container.classList.contains("is-reordering")).toBe(false);
+  // Listeners are gone: a later release does nothing.
+  pointer(window, "pointerup", 130);
+  expect(onReorder).not.toHaveBeenCalled();
+  container.remove();
+});
+
+it("ignores events from a different pointer than the one dragging", () => {
+  const container = geometricRows(3, { y: 0 });
+  const onReorder = vi.fn();
+  attachDragReorder(container, { onReorder });
+  pointer(container.querySelector("[data-drag]")!, "pointerdown", 20, 1);
+  pointer(window, "pointermove", 130, 2);    // second finger: ignored
+  pointer(window, "pointerup", 130, 2);      // second finger lifts: ignored
+  expect(onReorder).not.toHaveBeenCalled();
+  expect(container.classList.contains("is-reordering")).toBe(true);
+  pointer(window, "pointermove", 130, 1);
+  pointer(window, "pointerup", 130, 1);
+  expect(onReorder).toHaveBeenCalledWith(0, 2);
+  container.remove();
+});
+
+it("accounts for page scroll during a drag", () => {
+  const scroll = { y: 0 };
+  const container = geometricRows(3, scroll);
+  const onReorder = vi.fn();
+  attachDragReorder(container, { onReorder });
+  pointer(container.querySelector("[data-drag]")!, "pointerdown", 20);
+  // The finger stays still but the page scrolls 55px down: the row has
+  // travelled 55px through the list, past row 1's midpoint.
+  scroll.y = 55;
+  window.dispatchEvent(new Event("scroll"));
+  pointer(window, "pointerup", 20);
+  expect(onReorder).toHaveBeenCalledWith(0, 1);
+  container.remove();
+});

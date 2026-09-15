@@ -6,12 +6,15 @@ import type { Member } from "../member-store";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { BELTS } from "../belt-store";
+import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
 
 export interface FamilyDeps {
   members: Member[];
   activeId: string;
   onAddMember(name: string): void;
   onRemoveMember(id: string): void;
+  // 「変更」 next to a name box. Absent → names are plain text.
+  onRenameMember?(id: string, name: string): void;
   onSelectMember(id: string): void;
   activePlan: Plan;             // the household's plan (one plan covers every member)
   onSelectPlan(plan: Plan): void;
@@ -24,15 +27,22 @@ export interface FamilyDeps {
   classes?: Preset[];
   assignments?: Record<string, string | null>;
   onAssignClass?(memberId: string, presetId: string | null): void;
-  // 帯 (parent-controlled): `belts` maps memberId → belt index. Optional so
+  // 帯 (parent-controlled): the active member's belt per saved menu. Optional so
   // earlier callers/tests keep working (section is hidden if absent).
-  belts?: Record<string, number>;
-  onSetBelt?(memberId: string, index: number): void;
+  menuBelts?: { id: string; name: string; belt: number }[];
+  onSetMenuBelt?(presetId: string, index: number): void;
   // E4 応援コメント (parent, for the active member). `comments` = the active
   // member's saved 感想 / ファイト messages. Optional so pre-E4 callers/tests keep
   // working (section is hidden if either is absent). Free on every plan.
-  comments?: { kansou: string; fight: string };
-  onSaveComment?(kind: "kansou" | "fight", text: string): void;
+  comments?: { kansou: string; kansouBy?: string; fight: string };
+  onSaveComment?(kind: "kansou" | "kansouBy" | "fight", text: string): void;
+  // 「工夫をぜんぶけす」 for the active member. Section hidden if absent.
+  // Per kid: may the done screen show 「LINE・SNSで送る」 (sent with no gate).
+  // Section hidden if absent.
+  shareAllowed?: Record<string, boolean>;
+  onSetShareAllowed?(memberId: string, allowed: boolean): void;
+  kufuCount?: number;
+  onClearAllKufu?(): void;
 }
 
 const PLAN_ORDER: Plan[] = ["free", "premium", "family"];
@@ -55,7 +65,11 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   const activeLabel = document.createElement("label");
   activeLabel.className = "family-label";
-  activeLabel.textContent = "いま つかう人";
+  activeLabel.textContent = "設定したいメンバー";
+
+  const activeNote = document.createElement("div");
+  activeNote.className = "family-plan-note";
+  activeNote.textContent = "えらんだメンバーの設定だけが、この下に出ます";
 
   const select = document.createElement("select");
   select.className = "family-select";
@@ -70,12 +84,12 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   });
   select.addEventListener("change", () => deps.onSelectMember(select.value));
 
-  activeCard.append(activeLabel, select);
+  activeCard.append(activeLabel, select, activeNote);
 
   // --- Member list with remove buttons ---
   const listTitle = document.createElement("div");
   listTitle.className = "family-section-label";
-  listTitle.textContent = "メンバー";
+  listTitle.textContent = "メンバーを管理する";
 
   const list = document.createElement("div");
   list.className = "family-member-list";
@@ -86,9 +100,33 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     row.className = `family-member-row${m.id === deps.activeId ? " active" : ""}${locked ? " locked" : ""}`;
     row.dataset.memberRow = m.id;
 
-    const name = document.createElement("span");
-    name.className = "family-member-name";
-    name.textContent = locked ? `🔒 ${m.name}` : m.name;
+    // A name box + 「変更」 (locked kids just show their name).
+    let name: HTMLElement;
+    let rename: HTMLButtonElement | null = null;
+    if (locked || !deps.onRenameMember) {
+      name = document.createElement("span");
+      name.className = "family-member-name";
+      name.textContent = locked ? `🔒 ${m.name}` : m.name;
+    } else {
+      const onRename = deps.onRenameMember;
+      const input = document.createElement("input");
+      input.className = "family-member-name-input";
+      input.dataset.memberName = m.id;
+      input.maxLength = NAME_MAX_LEN;
+      input.value = m.name;
+      const button = document.createElement("button");
+      button.className = "family-member-rename";
+      button.dataset.memberRename = m.id;
+      button.textContent = "変更";
+      button.disabled = true;
+      const changed = () => { const v = input.value.trim(); return v && v !== m.name ? v : null; };
+      input.addEventListener("input", () => { button.disabled = !changed(); });
+      const commit = () => { const v = changed(); if (v) onRename(m.id, v); };
+      button.addEventListener("click", commit);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); });
+      name = input;
+      rename = button;
+    }
 
     const del = document.createElement("button");
     del.className = "family-member-del";
@@ -98,22 +136,23 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     del.disabled = deps.members.length <= 1;   // can't remove the last member
     del.addEventListener("click", () => deps.onRemoveMember(m.id));
 
-    row.append(name, del);
+    row.append(name, ...(rename ? [rename] : []), del);
     list.append(row);
   });
 
   // --- Add member ---
   const addRow = document.createElement("div");
-  addRow.className = "family-add-row";
+  // Same look as the member rows above: name box, button, and a gap where ✕ sits.
+  addRow.className = "family-member-row family-add-member";
 
   const nameInput = document.createElement("input");
-  nameInput.className = "family-add-input";
+  nameInput.className = "family-member-name-input";
   nameInput.dataset.memberAddInput = "";
   nameInput.maxLength = NAME_MAX_LEN;
-  nameInput.placeholder = "なまえ";
+  nameInput.placeholder = "新しいメンバーの名前";
 
   const addBtn = document.createElement("button");
-  addBtn.className = "family-add-btn";
+  addBtn.className = "family-member-rename";
   addBtn.dataset.memberAdd = "";
   addBtn.textContent = "＋ 追加";
   addBtn.addEventListener("click", () => {
@@ -122,7 +161,10 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     deps.onAddMember(name);
   });
 
-  addRow.append(nameInput, addBtn);
+  const addSpacer = document.createElement("span");
+  addSpacer.className = "family-add-spacer";
+  addSpacer.setAttribute("aria-hidden", "true");
+  addRow.append(nameInput, addBtn, addSpacer);
   nameInput.disabled = addBtn.disabled = deps.members.length >= cap;
 
   // Why adding is off, or why some members are locked.
@@ -175,9 +217,10 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
     const feats = document.createElement("div");
     feats.className = "family-plan-feats";
-    const kufuText = limits.kufu === 0 ? "工夫なし" : `工夫 ${limits.kufu}件`;
+    const perKid = limits.members > 1 ? "/人" : "";
     const kidsText = limits.members === 1 ? "1人" : `${limits.members}人まで`;
-    feats.textContent = `${kidsText}\nメニュー ${limits.presets}\n${kufuText}`;
+    const kufuText = limits.kufuPerDrill === 0 ? "工夫なし" : `工夫 ${limits.kufuTotal}${perKid}`;
+    feats.textContent = `${kidsText}\nメニュー ${limits.presetsPerMember}${perKid}\n${kufuText}`;
 
     if (isActive) {
       const badge = document.createElement("div");
@@ -201,60 +244,138 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   // --- 応援コメント section (E4, active member) ---
   const commentNodes = buildCommentSection(deps);
+  const kufuNodes = buildKufuSection(deps);
+  const shareNodes = buildShareSection(deps);
 
-  root.append(title, activeCard, listTitle, list, addRow, memberHint, ...classNodes, ...beltNodes, ...commentNodes, planTitle, planNote, planCards);
+  // 1) メンバーを管理する (everyone), 2) 設定したいメンバー and, framed together,
+  // only that member's settings, 3) the household plan.
+  const memberSettings = document.createElement("div");
+  memberSettings.className = "family-member-settings";
+  memberSettings.dataset.memberSettings = "";
+  memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes);
+
+  root.append(title, listTitle, list, addRow, memberHint, memberSettings, planTitle, planNote, planCards);
 }
 
-// Parent-controlled 帯: each member gets a <select> of every belt. Picking one
-// sets that belt directly (its 10-bar meter starts over). Returns [] when the
-// belt wiring is absent (earlier callers).
+// Parent-controlled 帯, per saved menu of the active member: each menu gets a
+// <select> of every belt. Picking one sets that menu's belt and starts its
+// 強さ over. Returns [] when the belt wiring is absent (earlier callers).
 function buildBeltSection(deps: FamilyDeps): Node[] {
-  if (!deps.onSetBelt || !deps.belts) return [];
-  const onSet = deps.onSetBelt;
-  const belts = deps.belts;
-
-  const sectionTitle = document.createElement("div");
-  sectionTitle.className = "family-section-label";
-  sectionTitle.textContent = "帯";
+  if (!deps.onSetMenuBelt || !deps.menuBelts) return [];
+  const onSet = deps.onSetMenuBelt;
+  const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
 
   const note = document.createElement("div");
-  note.className = "family-plan-note";
-  note.textContent = "稽古を10回さいごまでやると、つぎの帯に上がります。ここで変えるとバーは0から。";
+  note.className = "family-plan-note family-belt-note";
+  note.textContent = deps.menuBelts.length
+    ? `${activeName} の帯はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると強さは0から。`
+    : "メニューを保存すると、メニューごとの帯を変えられます。";
 
   const list = document.createElement("div");
   list.className = "family-class-list";
   list.dataset.beltList = "";
 
-  deps.members.forEach((m) => {
+  deps.menuBelts.forEach((mb) => {
     const row = document.createElement("div");
-    row.className = "family-class-row";
-    row.dataset.beltRow = m.id;
+    row.className = "family-belt-row";
+    row.dataset.beltRow = mb.id;
 
-    const name = document.createElement("span");
-    name.className = "family-class-member";
-    name.textContent = m.name;
+    const name = document.createElement("div");
+    name.className = "family-section-label family-belt-title";
+    name.textContent = `${mb.name}の帯を変える`;
 
     const select = document.createElement("select");
     select.className = "family-class-select";
-    select.dataset.beltSelect = m.id;
+    select.dataset.beltSelect = mb.id;
     BELTS.forEach((b, i) => {
       const opt = document.createElement("option");
       opt.value = String(i);
       opt.textContent = b.icon ? `${b.icon} ${b.name}` : b.name;
-      if (i === (belts[m.id] ?? 0)) opt.selected = true;
+      if (i === mb.belt) opt.selected = true;
       select.append(opt);
     });
-    select.addEventListener("change", () => onSet(m.id, Number(select.value)));
+    select.addEventListener("change", () => onSet(mb.id, Number(select.value)));
 
     row.append(name, select);
+    list.append(row);
+  });
+
+  return [list, note];
+}
+
+// LINE・SNS: a checkbox for the kid picked in 設定したい人. Checked shows 「LINE・SNSで送る」 on that kid's
+// done screen (no gate there — this tab is already behind it). Returns [] when
+// the wiring is absent.
+function buildShareSection(deps: FamilyDeps): Node[] {
+  if (!deps.onSetShareAllowed || !deps.shareAllowed) return [];
+  const onSet = deps.onSetShareAllowed;
+  const allowed = deps.shareAllowed;
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "LINE・SNS";
+
+  const note = document.createElement("div");
+  note.className = "family-plan-note";
+  note.textContent = "チェックすると、稽古のあとに練習動画を連携するボタンを表示します。";
+
+  const list = document.createElement("div");
+  list.className = "family-class-list";
+  list.dataset.shareList = "";
+
+  deps.members.filter((m) => m.id === deps.activeId).forEach((m) => {
+    const row = document.createElement("label");
+    row.className = "family-class-row family-share-row";
+    row.dataset.shareRow = m.id;
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.className = "family-share-check";
+    box.dataset.shareAllowed = m.id;
+    box.checked = !!allowed[m.id];
+    box.addEventListener("change", () => onSet(m.id, box.checked));
+
+    // The member is already picked above, so just the checkbox and its label.
+    const text = document.createElement("span");
+    text.className = "family-share-text";
+    text.textContent = "LINE・SNSで送るボタンを表示する";
+
+    row.append(box, text);
     list.append(row);
   });
 
   return [sectionTitle, note, list];
 }
 
-// Per-active-member 応援コメント: two labelled inputs (感想 / ファイト) each with a
-// save button. Returns the nodes to append, or [] when E4 wiring is absent.
+// 「工夫をぜんぶけす」 for the active member (the caller confirms first).
+// Returns [] when the wiring is absent.
+function buildKufuSection(deps: FamilyDeps): Node[] {
+  if (!deps.onClearAllKufu || deps.kufuCount === undefined) return [];
+  const onClear = deps.onClearAllKufu;
+  const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "工夫をけす";
+
+  const note = document.createElement("div");
+  note.className = "family-plan-note";
+  note.textContent = "相談してからけすようにしてください";
+
+  const btn = document.createElement("button");
+  btn.className = "family-kufu-clear";
+  btn.dataset.kufuClearAll = "";
+  btn.disabled = deps.kufuCount === 0;
+  btn.textContent = deps.kufuCount === 0
+    ? `${activeName} の工夫はありません`
+    : `${activeName} の工夫をぜんぶけす（${deps.kufuCount}件）`;
+  btn.addEventListener("click", () => onClear());
+
+  return [sectionTitle, note, btn];
+}
+
+// Per-active-member 応援コメント: the 感想 input with a save button (shown to the
+// kid above the 稽古 開始 button). The ファイト comment was dropped. Returns the nodes to append, or [] when E4 wiring is absent.
 function buildCommentSection(deps: FamilyDeps): Node[] {
   if (!deps.onSaveComment || !deps.comments) return [];
   const onSave = deps.onSaveComment;
@@ -273,61 +394,67 @@ function buildCommentSection(deps: FamilyDeps): Node[] {
   wrap.className = "family-comment-list";
   wrap.dataset.commentList = "";
 
-  const makeRow = (
-    kind: "kansou" | "fight",
-    label: string,
-    placeholder: string,
-  ): HTMLElement => {
-    const row = document.createElement("div");
-    row.className = "family-comment-row";
+  // Two lines: [text……] [保存] / by [name]. The text box starts at the left
+  // edge; "by" sits just left of the name box below it.
+  const row = document.createElement("div");
+  row.className = "family-comment-row";
 
-    const lab = document.createElement("label");
-    lab.className = "family-comment-label";
-    lab.textContent = label;
+  const input = document.createElement("input");
+  input.className = "family-comment-input";
+  input.dataset.commentKansou = "";
+  input.maxLength = COMMENT_MAX_LEN;
+  input.value = comments.kansou;
+  input.placeholder = "いつも がんばってるね";
 
-    const input = document.createElement("input");
-    input.className = "family-comment-input";
-    input.dataset[kind === "kansou" ? "commentKansou" : "commentFight"] = "";
-    input.value = comments[kind];
-    input.placeholder = placeholder;
+  const byLab = document.createElement("label");
+  byLab.className = "family-comment-label family-comment-by-label";
+  byLab.textContent = "by";
 
-    const save = document.createElement("button");
-    save.className = "family-comment-save";
-    save.dataset[kind === "kansou" ? "commentSaveKansou" : "commentSaveFight"] = "";
-    save.textContent = "保存";
-    save.addEventListener("click", () => onSave(kind, input.value));
+  const byInput = document.createElement("input");
+  byInput.className = "family-comment-input";
+  byInput.dataset.commentKansouBy = "";
+  byInput.maxLength = COMMENT_BY_MAX_LEN;
+  byInput.value = comments.kansouBy ?? "";
+  byInput.placeholder = "おかあさん";
 
-    row.append(lab, input, save);
-    return row;
-  };
+  const save = document.createElement("button");
+  save.className = "family-comment-save";
+  save.dataset.commentSaveKansou = "";
+  save.textContent = "保存";
+  save.addEventListener("click", () => {
+    const text = input.value;
+    const by = byInput.value;
+    onSave("kansouBy", by);
+    onSave("kansou", text);
+  });
 
-  wrap.append(
-    makeRow("kansou", "感想", "いつも がんばってるね"),
-    makeRow("fight", "ファイト", "あと ちょっと！"),
-  );
+  input.setAttribute("aria-label", "感想");
+  row.append(input, save, byLab, byInput);
+  wrap.append(row);
 
   return [sectionTitle, note, wrap];
 }
 
-// Per-member くらす (class) assignment: each member gets a <select> of the
-// family's saved menus (presets) plus a "なし" (unassigned) option. Returns the
-// nodes to append, or [] when E3 wiring is absent (pre-E3 callers).
+// The picked kid's メニュー (a saved menu, formerly "くらす"): a <select> of the
+// family's saved menus plus "なし". Only the kid chosen in 設定したい人 is shown.
+// Returns [] when the wiring is absent.
 function buildClassSection(deps: FamilyDeps): Node[] {
   if (!deps.onAssignClass || !deps.classes || !deps.assignments) return [];
   const onAssign = deps.onAssignClass;
-  const assignments = deps.assignments;
   const classes = deps.classes;
+  const active = deps.members.find((m) => m.id === deps.activeId);
+  if (!active) return [];
 
   const classTitle = document.createElement("div");
   classTitle.className = "family-section-label";
-  classTitle.textContent = "くらす";
+  classTitle.textContent = "メニュー";
 
-  // No saved menus yet → nothing to assign. Guide the parent to make one.
+  // No saved menus yet → nothing to pick. Guide the parent to make one.
   if (classes.length === 0) {
     const hint = document.createElement("div");
     hint.className = "family-class-hint";
     hint.dataset.classHint = "";
-    hint.textContent = "メニューを保存してくらすにしてね";
+    hint.textContent = "メニューを保存すると、ここでえらべます";
     return [classTitle, hint];
   }
 
@@ -335,39 +462,32 @@ function buildClassSection(deps: FamilyDeps): Node[] {
   classList.className = "family-class-list";
   classList.dataset.classList = "";
 
-  deps.members.forEach((m) => {
-    const row = document.createElement("div");
-    row.className = "family-class-row";
-    row.dataset.classRow = m.id;
+  const row = document.createElement("div");
+  row.className = "family-class-row";
+  row.dataset.classRow = active.id;
 
-    const name = document.createElement("span");
-    name.className = "family-class-member";
-    name.textContent = m.name;
+  const select = document.createElement("select");
+  select.className = "family-class-select";
+  select.dataset.classSelect = active.id;
 
-    const select = document.createElement("select");
-    select.className = "family-class-select";
-    select.dataset.classSelect = m.id;
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "なし";
+  select.append(none);
 
-    const none = document.createElement("option");
-    none.value = "";
-    none.textContent = "なし";
-    select.append(none);
-
-    const assigned = assignments[m.id] ?? null;
-    classes.forEach((c) => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.name;
-      if (c.id === assigned) opt.selected = true;
-      select.append(opt);
-    });
-    if (assigned === null) none.selected = true;
-
-    select.addEventListener("change", () => onAssign(m.id, select.value || null));
-
-    row.append(name, select);
-    classList.append(row);
+  const assigned = deps.assignments[active.id] ?? null;
+  classes.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name;
+    if (c.id === assigned) opt.selected = true;
+    select.append(opt);
   });
+  if (assigned === null) none.selected = true;
 
+  select.addEventListener("change", () => onAssign(active.id, select.value || null));
+
+  row.append(select);
+  classList.append(row);
   return [classTitle, classList];
 }

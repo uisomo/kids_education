@@ -22,6 +22,16 @@ final class AudioController {
     private var musicShouldPlay = false
     private let queue = DispatchQueue(label: "karate.audio")
     private var configObserver: NSObjectProtocol?
+    private var interruptionObserver: NSObjectProtocol?
+    /// True between start() and stop(). A configuration change or interruption
+    /// that was queued before stop() must not switch the microphone back on.
+    private var active = false
+    /// Input format the voice tap was installed with (queue-confined).
+    private var tapFormat: AVAudioFormat?
+
+    /// Called (on an arbitrary queue) when iOS interrupts the audio session —
+    /// a phone call, Siri, an alarm — which stops the engine and the voice.
+    var onInterruptionBegan: (() -> Void)?
 
     private let voiceLock = NSLock()
     private var voiceFile: AVAudioFile?
@@ -29,6 +39,14 @@ final class AudioController {
     private var voiceBuffers = 0
     private var voicePeak: Float = 0
     private var voiceStartHostSeconds: Double?
+    /// Frames written to the file so far (including inserted silence), in the
+    /// file's own sample rate. Used to place each buffer at its host time.
+    private var voiceFramesWritten: AVAudioFramePosition = 0
+    private var voiceGapSeconds: Double = 0
+    /// Converts buffers whose format changed mid-session (a Bluetooth headset
+    /// switched the mic to 16 kHz) to the format the file was opened with.
+    private var voiceConverter: AVAudioConverter?
+    private var voiceWriteErrors = 0
 
     private(set) var voiceProcessing = false
 
@@ -41,6 +59,10 @@ final class AudioController {
         let startHostSeconds: Double?
     }
 
+    /// Longest stretch of silence inserted for one gap; anything longer is a
+    /// bogus timestamp, not a real pause.
+    private static let maxGapSeconds: Double = 600
+
     private func log(_ message: String) {
         print("⚡️  [KarateRecorder] audio: \(message)")
     }
@@ -49,6 +71,22 @@ final class AudioController {
 
     func start() {
         queue.sync {
+            active = true
+            if configObserver == nil {
+                configObserver = NotificationCenter.default.addObserver(
+                    forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
+                ) { [weak self] _ in
+                    self?.handleConfigurationChange()
+                }
+            }
+            if interruptionObserver == nil {
+                interruptionObserver = NotificationCenter.default.addObserver(
+                    forName: AVAudioSession.interruptionNotification,
+                    object: AVAudioSession.sharedInstance(), queue: nil
+                ) { [weak self] note in
+                    self?.handleInterruption(note)
+                }
+            }
             guard !engine.isRunning else { return }
             if !engine.attachedNodes.contains(musicNode) {
                 engine.attach(musicNode)
@@ -74,26 +112,23 @@ final class AudioController {
             } catch {
                 log("engine failed to start: \(error.localizedDescription)")
             }
-            if configObserver == nil {
-                configObserver = NotificationCenter.default.addObserver(
-                    forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
-                ) { [weak self] _ in
-                    self?.handleConfigurationChange()
-                }
-            }
         }
     }
 
     func stop() {
         queue.sync {
+            active = false
             musicGeneration += 1
             musicShouldPlay = false
             musicNode.stop()
             clipNodes.forEach { $0.stop() }
             engine.inputNode.removeTap(onBus: 0)
+            tapFormat = nil
             engine.stop()
             if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
             configObserver = nil
+            if let interruptionObserver { NotificationCenter.default.removeObserver(interruptionObserver) }
+            interruptionObserver = nil
             log("engine stopped")
         }
     }
@@ -104,18 +139,76 @@ final class AudioController {
     /// track silent until the music restarted the engine at Go!!, ~3.6s later.
     private func handleConfigurationChange() {
         queue.async {
+            guard self.active else {
+                self.log("engine configuration changed after stop; ignored")
+                return
+            }
+            // A route change (AirPods, a Bluetooth headset) can change the mic's
+            // sample rate. The old tap keeps the old format, so put a fresh one on
+            // before restarting; appendVoice converts to the file's format.
+            if self.isCapturingVoice,
+               self.engine.inputNode.outputFormat(forBus: 0) != self.tapFormat {
+                self.installVoiceTap()
+            }
             guard !self.engine.isRunning else {
                 self.log("engine configuration changed; still running")
                 return
             }
-            do {
-                self.engine.prepare()
-                try self.engine.start()
-                if self.musicShouldPlay { self.musicNode.play() }
-                self.log("engine configuration changed; restarted (music resumed=\(self.musicShouldPlay))")
-            } catch {
-                self.log("engine configuration changed; restart failed: \(error.localizedDescription)")
+            self.restartEngine(because: "engine configuration changed")
+        }
+    }
+
+    private func handleInterruption(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        switch type {
+        case .began:
+            // A stale "began" delivered because the app was suspended earlier
+            // isn't a new interruption.
+            if #available(iOS 16.0, *) {
+                if let reason = note.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt,
+                   AVAudioSession.InterruptionReason(rawValue: reason) == .appWasSuspended { return }
             }
+            log("audio session interrupted")
+            queue.async {
+                guard self.active else { return }
+                self.onInterruptionBegan?()
+            }
+        case .ended:
+            queue.async {
+                guard self.active else { return }
+                try? AVAudioSession.sharedInstance().setActive(true)
+                if self.isCapturingVoice { self.installVoiceTap() }
+                guard !self.engine.isRunning else { return }
+                self.restartEngine(because: "audio interruption ended")
+            }
+        @unknown default:
+            break
+        }
+    }
+
+    /// Call on `queue`.
+    private func restartEngine(because why: String) {
+        do {
+            engine.prepare()
+            try engine.start()
+            if musicShouldPlay { musicNode.play() }
+            log("\(why); restarted (music resumed=\(musicShouldPlay))")
+        } catch {
+            log("\(why); restart failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Starts the engine if it isn't running. Call on `queue`.
+    private func ensureEngineRunning() -> Bool {
+        if engine.isRunning { return true }
+        do {
+            engine.prepare()
+            try engine.start()
+            return true
+        } catch {
+            log("engine failed to start: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -149,8 +242,14 @@ final class AudioController {
 
     func setMusicPaused(_ paused: Bool) {
         queue.sync {
-            if paused { musicNode.pause() } else { musicNode.play() }
             musicShouldPlay = !paused
+            if paused {
+                musicNode.pause()
+            } else if ensureEngineRunning() {
+                // play() on a node whose engine isn't running raises an
+                // Objective-C exception and crashes the app.
+                musicNode.play()
+            }
         }
     }
 
@@ -178,6 +277,30 @@ final class AudioController {
 
     // MARK: - Voice capture
 
+    private var isCapturingVoice: Bool {
+        voiceLock.lock()
+        defer { voiceLock.unlock() }
+        return voiceFile != nil
+    }
+
+    /// (Re)installs the tap with the input's current format. `format: nil`
+    /// always matches the hardware, so a changed route can't trip the
+    /// format-mismatch assertion. Call on `queue`.
+    private func installVoiceTap() {
+        let input = engine.inputNode
+        input.removeTap(onBus: 0)
+        tapFormat = nil
+        let format = input.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            log("no microphone input format; voice tap not installed")
+            return
+        }
+        input.installTap(onBus: 0, bufferSize: 4096, format: nil) { [weak self] buffer, when in
+            self?.appendVoice(buffer, at: when)
+        }
+        tapFormat = format
+    }
+
     func startVoiceCapture() {
         queue.sync {
             let input = engine.inputNode
@@ -197,11 +320,13 @@ final class AudioController {
                 voiceBuffers = 0
                 voicePeak = 0
                 voiceStartHostSeconds = nil
+                voiceFramesWritten = 0
+                voiceGapSeconds = 0
+                voiceConverter = nil
+                voiceWriteErrors = 0
                 voiceLock.unlock()
-                input.removeTap(onBus: 0)
-                input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, when in
-                    self?.appendVoice(buffer, at: when)
-                }
+                installVoiceTap()
+                if active { _ = ensureEngineRunning() }
                 log("voice capture started: \(format)")
             } catch {
                 log("voice capture failed: \(error.localizedDescription)")
@@ -213,20 +338,105 @@ final class AudioController {
         voiceLock.lock()
         defer { voiceLock.unlock() }
         guard let voiceFile else { return }
-        if voiceBuffers == 0, when.isHostTimeValid {
-            voiceStartHostSeconds = AVAudioTime.seconds(forHostTime: when.hostTime)
+        let fileFormat = voiceFile.processingFormat
+        let fileRate = fileFormat.sampleRate
+
+        if when.isHostTimeValid {
+            let hostSeconds = AVAudioTime.seconds(forHostTime: when.hostTime)
+            if let start = voiceStartHostSeconds {
+                // The engine stopping (a configuration change, an interruption)
+                // leaves a hole. Writing the next buffer straight after the last
+                // one would pull everything after it earlier than the video, so
+                // fill the hole with silence first.
+                let expected = start + Double(voiceFramesWritten) / fileRate
+                let gap = hostSeconds - expected
+                let bufferSeconds = Double(buffer.frameLength) / buffer.format.sampleRate
+                if gap > bufferSeconds {
+                    let fill = min(gap, Self.maxGapSeconds)
+                    writeSilence(seconds: fill, to: voiceFile)
+                    voiceGapSeconds += fill
+                }
+            } else {
+                voiceStartHostSeconds = hostSeconds
+            }
         }
-        try? voiceFile.write(from: buffer)
+
+        let output: AVAudioPCMBuffer
+        if buffer.format == fileFormat {
+            output = buffer
+        } else if let converted = convert(buffer, to: fileFormat) {
+            output = converted
+        } else {
+            return
+        }
+        do {
+            try voiceFile.write(from: output)
+            voiceFramesWritten += AVAudioFramePosition(output.frameLength)
+        } catch {
+            voiceWriteErrors += 1
+            if voiceWriteErrors == 1 { log("voice write failed: \(error.localizedDescription)") }
+        }
         voiceBuffers += 1
-        if let channel = buffer.floatChannelData?[0] {
-            for i in 0..<Int(buffer.frameLength) { voicePeak = max(voicePeak, abs(channel[i])) }
+        if let channel = output.floatChannelData?[0] {
+            for i in 0..<Int(output.frameLength) { voicePeak = max(voicePeak, abs(channel[i])) }
         }
+    }
+
+    /// Call with voiceLock held.
+    private func writeSilence(seconds: Double, to file: AVAudioFile) {
+        let format = file.processingFormat
+        var remaining = AVAudioFrameCount(seconds * format.sampleRate)
+        let chunk: AVAudioFrameCount = 16384
+        guard remaining > 0, let silence = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: min(chunk, remaining)) else { return }
+        // A fresh buffer's memory is zeroed, i.e. silence for float and int PCM.
+        while remaining > 0 {
+            let n = min(chunk, remaining)
+            silence.frameLength = n
+            do {
+                try file.write(from: silence)
+            } catch {
+                log("voice gap fill failed: \(error.localizedDescription)")
+                return
+            }
+            voiceFramesWritten += AVAudioFramePosition(n)
+            remaining -= n
+        }
+    }
+
+    /// Call with voiceLock held.
+    private func convert(_ buffer: AVAudioPCMBuffer, to format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        if voiceConverter?.inputFormat != buffer.format {
+            voiceConverter = AVAudioConverter(from: buffer.format, to: format)
+            log("voice input format changed to \(buffer.format); converting")
+        }
+        guard let converter = voiceConverter else { return nil }
+        let ratio = format.sampleRate / buffer.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 64
+        guard let out = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return nil }
+        var fed = false
+        var error: NSError?
+        let status = converter.convert(to: out, error: &error) { _, inputStatus in
+            if fed {
+                inputStatus.pointee = .noDataNow
+                return nil
+            }
+            fed = true
+            inputStatus.pointee = .haveData
+            return buffer
+        }
+        if status == .error {
+            if voiceWriteErrors == 0 { log("voice conversion failed: \(error?.localizedDescription ?? "unknown")") }
+            voiceWriteErrors += 1
+            return nil
+        }
+        return out
     }
 
     /// Stops recording the voice track and closes its file.
     func stopVoiceCapture() -> VoiceCapture? {
         return queue.sync { () -> VoiceCapture? in
             engine.inputNode.removeTap(onBus: 0)
+            tapFormat = nil
             voiceLock.lock()
             defer { voiceLock.unlock() }
             guard let url = voiceURL else { return nil }
@@ -235,7 +445,8 @@ final class AudioController {
                                       peakDb: peakDb, startHostSeconds: voiceStartHostSeconds)
             voiceFile = nil   // closes the file
             voiceURL = nil
-            log("voice capture stopped: \(result.buffers) buffers, peak \(String(format: "%.1f", peakDb)) dB, voiceProcessing=\(result.voiceProcessing)")
+            voiceConverter = nil
+            log("voice capture stopped: \(result.buffers) buffers, peak \(String(format: "%.1f", peakDb)) dB, gaps filled \(String(format: "%.2f", voiceGapSeconds)) s, write errors \(voiceWriteErrors), voiceProcessing=\(result.voiceProcessing)")
             return result
         }
     }

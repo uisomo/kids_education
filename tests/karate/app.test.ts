@@ -5,10 +5,11 @@ import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store
 import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
 import { getActiveId, loadMembers } from "../../karate-trainer/src/member-store";
 import { loadPlan } from "../../karate-trainer/src/plan-store";
-import { addKufu, loadKufu } from "../../karate-trainer/src/kufu-store";
+import { addKufu, loadKufu, latestKufu } from "../../karate-trainer/src/kufu-store";
 import { loadBelt } from "../../karate-trainer/src/belt-store";
 import { countFor } from "../../karate-trainer/src/progress-store";
-import { saveComment } from "../../karate-trainer/src/comment-store";
+import { savePreset } from "../../karate-trainer/src/preset-store";
+import { loadMenuBelt, beltStateFor, setSelectedPreset } from "../../karate-trainer/src/menu-belt-store";
 
 function memKv(): KvAdapter {
   const m = new Map<string, unknown>();
@@ -185,6 +186,7 @@ it("passes the recorded blob to shareRecording when save is pressed", async () =
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording,
+    askParentalGate: vi.fn().mockResolvedValue(true),   // the parent passes the gate
     introStepMs: 0,   // skip the Ready→Go intro delay in tests
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
@@ -196,9 +198,10 @@ it("passes the recorded blob to shareRecording when save is pressed", async () =
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
 
-  // done screen shown → press save → share fires directly (kids save their own video)
+  // done screen shown → press save → parental gate → share sheet
   const save = root.querySelector<HTMLButtonElement>("[data-download]")!;
   save.click();
+  await new Promise((r) => setTimeout(r, 0));
 
   expect(shareRecording).toHaveBeenCalledOnce();
   expect(shareRecording.mock.calls[0][0]).toBe(recordedBlob);
@@ -301,51 +304,13 @@ function memStorage(): Storage {
   } as Storage;
 }
 
-// E4: when the parent has written a ファイト コメント for the active member, the
-// in-practice encourage cue uses it (and burns it into the recording) instead
-// of the generic "ファイト！" toast.
-it("uses the parent's ファイト comment as the practice cue", async () => {
+it("a finished practice on a saved menu levels its drills up and the 強さ tab shows them", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const storage = memStorage();
-  saveComment("fight", "まけるな たろう", scopedStorage(storage, getActiveId(storage)));
-
-  let loopCb: ((d: number) => void) | null = null;
-  const store = new VoiceStore(memKv());
-  await store.init();
-
-  const app = new KarateApp(root, {
-    voiceStore: store,
-    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
-    makeVideoRecorder: () => ({
-      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
-      startRecording: vi.fn(),
-      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
-      fileExtension: () => "mp4",
-    }),
-    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
-    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
-    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
-    shareRecording: vi.fn().mockResolvedValue(undefined),
-    storage,
-    introStepMs: 0,
-    menuOverride: [{ id: "a", name: "前蹴り", seconds: 20, kind: "drill" }],
-  });
-  await app.start();
-
-  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
-
-  for (let t = 0; t < 10000; t += 250) loopCb!(250);
-
-  expect(root.querySelector<HTMLElement>("[data-cue]")!.textContent).toBe("まけるな たろう");
-});
-
-it("bumps 強さ counts on session complete and the 強さ tab shows them", async () => {
-  const root = document.createElement("div");
-  document.body.append(root);
-  const storage = memStorage();
+  const kihon = [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" as const }];
+  const preset = savePreset("基本", kihon, storage)!;
+  setSelectedPreset(preset.id, scopedStorage(storage, getActiveId(storage)));
 
   let loopCb: ((d: number) => void) | null = null;
   const store = new VoiceStore(memKv());
@@ -385,11 +350,12 @@ it("bumps 強さ counts on session complete and the 強さ tab shows them", asyn
 
   const row = root.querySelector('[data-strength-row="前蹴り"]');
   expect(row).not.toBeNull();
-  expect(root.querySelector('[data-strength-level="前蹴り"]')!.textContent).toBe("Lv.0");
+  expect(root.querySelector('[data-strength-level="前蹴り"]')!.textContent).toBe("Lv.1");
   expect(row!.querySelectorAll(".strength-bar.lit").length).toBe(1);
 
-  // The finished practice also filled one belt bar.
-  expect(loadBelt(scopedStorage(storage, getActiveId(storage)))).toEqual({ index: 0, bars: 1 });
+  // Its only drill is at Lv.1, so the menu's belt shows one bar.
+  const mem = scopedStorage(storage, getActiveId(storage));
+  expect(beltStateFor(loadMenuBelt(preset.id, mem), kihon)).toEqual({ index: 0, bars: 1 });
 });
 
 // Stopping with 終了 keeps the video but must not count toward 強さ or the belt.
@@ -530,7 +496,7 @@ it("plan kid limits: Family unlocks siblings; downgrading locks them without del
   // 家族 tab → pass the parental gate.
   root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
   const [a, b] = root.querySelector("[data-gate-question]")!.textContent!.match(/\d+/g)!.map(Number);
-  root.querySelector<HTMLInputElement>("[data-gate-input]")!.value = String(a + b);
+  root.querySelector<HTMLInputElement>("[data-gate-input]")!.value = String(a * b);
   root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
 
   // Free: 1 kid, so adding is off.
@@ -546,9 +512,9 @@ it("plan kid limits: Family unlocks siblings; downgrading locks them without del
 
   // たろう saves 3 工夫 across two 種目.
   const taroS = scopedStorage(storage, taro);
-  addKufu("前蹴り", "ひざ", taroS, 10, Infinity);
-  addKufu("前蹴り", "こし", taroS, 10, Infinity);
-  addKufu("正拳突き", "ひき", taroS, 10, Infinity);
+  addKufu("前蹴り", "ひざ", taroS);
+  addKufu("前蹴り", "こし", taroS);
+  addKufu("正拳突き", "ひき", taroS);
   const kufuCount = () => loadKufu("前蹴り", taroS).length + loadKufu("正拳突き", taroS).length;
 
   // Premium: back to 1 kid. たろう is locked but kept; じぶん becomes active.
@@ -556,14 +522,18 @@ it("plan kid limits: Family unlocks siblings; downgrading locks them without del
   expect(loadMembers(storage)).toHaveLength(2);
   expect(getActiveId(storage)).toBe(first);
   expect(root.querySelector(`[data-member-row="${taro}"]`)!.classList.contains("locked")).toBe(true);
-  expect(kufuCount()).toBe(3);   // Premium keeps 10 工夫
+  expect(kufuCount()).toBe(3);   // Premium keeps them all
 
   // The practice screen only offers usable kids.
   root.querySelector<HTMLButtonElement>('[data-navtab="train"]')!.click();
   expect(root.querySelectorAll("[data-member]")).toHaveLength(1);
 
-  // Free trims every member's 工夫 to 1 in 1 種目.
+  // Free locks 工夫 past 1 種目 — nothing is deleted, so upgrading brings it back.
   root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
+  const [c, d] = root.querySelector("[data-gate-question]")!.textContent!.match(/\d+/g)!.map(Number);
+  root.querySelector<HTMLInputElement>("[data-gate-input]")!.value = String(c * d);   // leaving 家族 re-locked the gate
+  root.querySelector<HTMLButtonElement>("[data-gate-submit]")!.click();
   card("free").click();
-  expect(kufuCount()).toBe(1);
+  expect(kufuCount()).toBe(3);
+  expect(latestKufu("正拳突き", taroS, { perDrill: 1, total: 1 })).toBe("");
 });

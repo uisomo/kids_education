@@ -6,7 +6,7 @@
 // (unprefixed) data is migrated once into that member's namespace so existing
 // users keep their progress / 工夫 / XP / menu.
 
-import { scopeKey } from "./scoped-storage";
+import { scopeKey, scopedKeysOf } from "./scoped-storage";
 
 export interface Member {
   id: string;
@@ -34,29 +34,92 @@ function newId(): string {
   return `m${Date.now()}-${seq++}`;
 }
 
-function isState(v: unknown): v is MemberState {
-  return !!v && typeof v === "object"
-    && Array.isArray((v as MemberState).members)
-    && (v as MemberState).members.every((m) => m && typeof m.id === "string" && typeof m.name === "string")
-    && typeof (v as MemberState).activeId === "string";
+function isMember(m: unknown): m is Member {
+  return !!m && typeof m === "object"
+    && typeof (m as Member).id === "string" && (m as Member).id !== ""
+    && typeof (m as Member).name === "string";
 }
 
-function read(storage: Storage): MemberState | null {
+const CORRUPT_KEY = "karate.members.corrupt";
+
+interface ReadResult {
+  state: MemberState | null;
+  // True when a raw value existed but was unparseable or partly invalid, so the
+  // value about to be written differs from what was stored.
+  damaged: boolean;
+  raw: string | null;
+}
+
+// Parse leniently: keep every valid member, drop only bad entries, de-dupe ids,
+// and repair a missing/unknown activeId.
+function read(storage: Storage): ReadResult {
+  let raw: string | null = null;
   try {
-    const raw = storage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return isState(parsed) ? parsed : null;
+    raw = storage.getItem(KEY);
   } catch {
-    return null;
+    return { state: null, damaged: false, raw: null };
+  }
+  if (!raw) return { state: null, damaged: false, raw };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { state: null, damaged: true, raw };
+  }
+  const obj = parsed && typeof parsed === "object" ? parsed as Partial<MemberState> : null;
+  const list = obj && Array.isArray(obj.members) ? obj.members as unknown[] : null;
+  if (!list) return { state: null, damaged: true, raw };
+  const seen = new Set<string>();
+  const members: Member[] = [];
+  for (const m of list) {
+    if (!isMember(m) || seen.has(m.id)) continue;
+    seen.add(m.id);
+    members.push({ id: m.id, name: m.name });
+  }
+  let damaged = members.length !== list.length;
+  if (!members.length) return { state: null, damaged: true, raw };
+  let activeId = obj!.activeId;
+  if (typeof activeId !== "string" || !seen.has(activeId)) {
+    activeId = members[0].id;
+    damaged = true;
+  }
+  return { state: { members, activeId }, damaged, raw };
+}
+
+// Member ids that still own `m:<id>:*` data in storage (in first-seen order).
+function orphanIds(storage: Storage): string[] {
+  const ids: string[] = [];
+  try {
+    const n = Number(storage.length) || 0;
+    if (typeof storage.key !== "function") return ids;
+    for (let i = 0; i < n; i++) {
+      const k = storage.key(i);
+      if (typeof k !== "string" || !k.startsWith("m:")) continue;
+      const end = k.indexOf(":", 2);
+      if (end <= 2) continue;
+      const id = k.slice(2, end);
+      if (!ids.includes(id)) ids.push(id);
+    }
+  } catch {
+    /* not enumerable */
+  }
+  return ids;
+}
+
+// Delete every `m:<id>:*` key of one member (collect first, then remove).
+export function purgeMemberData(id: string, storage: Storage = localStorage): void {
+  for (const k of scopedKeysOf(storage, id)) {
+    try { storage.removeItem(k); } catch { /* ignore */ }
   }
 }
 
-function write(state: MemberState, storage: Storage): void {
+function write(state: MemberState, storage: Storage): boolean {
   try {
     storage.setItem(KEY, JSON.stringify(state));
+    return true;
   } catch {
     /* ignore storage errors */
+    return false;
   }
 }
 
@@ -75,10 +138,29 @@ function migrateInto(memberId: string, storage: Storage): boolean {
   return migrated;
 }
 
-// Ensure a member state exists; create a default member (+ migrate) if not.
+// Ensure a member state exists. Damaged lists are repaired without orphaning
+// anyone's data: valid entries are kept; if none survive but per-member data is
+// still in storage, members are rebuilt from those ids. Only a truly empty
+// install gets a fresh default member (+ migration).
 function ensure(storage: Storage): MemberState {
-  const existing = read(storage);
-  if (existing && existing.members.length) return existing;
+  const { state: existing, damaged, raw } = read(storage);
+  const backupCorrupt = () => {
+    if (!damaged || raw === null) return;
+    try { storage.setItem(CORRUPT_KEY, raw); } catch { /* ignore */ }
+  };
+  if (existing) {
+    if (damaged) { backupCorrupt(); write(existing, storage); }
+    return existing;
+  }
+  const ids = orphanIds(storage);
+  if (ids.length) {
+    backupCorrupt();
+    const members = ids.map((id, i) => ({ id, name: `メンバー${i + 1}` }));
+    const rebuilt: MemberState = { members, activeId: members[0].id };
+    write(rebuilt, storage);
+    return rebuilt;
+  }
+  backupCorrupt();
   const first: Member = { id: newId(), name: DEFAULT_NAME };
   const migrated = migrateInto(first.id, storage);
   // Grandfather pre-E2 users to the Max plan: before plans existed they had
@@ -117,12 +199,25 @@ export function addMember(name: string, storage: Storage = localStorage): Member
   return member;
 }
 
-// Remove a member. The last member cannot be removed. If the active member is
-// removed, the first remaining member becomes active.
+// Remove a member and all of their `m:<id>:*` data. The last member cannot be
+// removed. If the active member is removed, the first remaining member becomes
+// active.
+// Rename a member (trimmed). Empty names and unknown ids are ignored.
+export function renameMember(id: string, name: string, storage: Storage = localStorage): boolean {
+  const clean = name.trim();
+  if (!clean) return false;
+  const state = ensure(storage);
+  if (!state.members.some((m) => m.id === id)) return false;
+  return write({ ...state, members: state.members.map((m) => (m.id === id ? { ...m, name: clean } : m)) }, storage);
+}
+
 export function removeMember(id: string, storage: Storage = localStorage): void {
   const state = ensure(storage);
   if (state.members.length <= 1) return;
   const members = state.members.filter((m) => m.id !== id);
+  if (members.length === state.members.length) return;   // unknown id
   const activeId = state.activeId === id ? members[0].id : state.activeId;
-  write({ members, activeId }, storage);
+  // Only purge once the member is really gone from the list, so a failed write
+  // never leaves a listed member without data.
+  if (write({ members, activeId }, storage)) purgeMemberData(id, storage);
 }

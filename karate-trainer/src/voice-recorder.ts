@@ -32,15 +32,34 @@ export class VoiceRecorder {
     this.recorder.start();
   }
 
+  // Resolves with the recorded audio. Never hangs: if the recorder isn't
+  // recording (never started, already stopped, or stop() throws) it settles
+  // immediately; a recorder error rejects.
   stop(): Promise<Blob> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const rec = this.recorder;
+      this.recorder = undefined;   // a second stop() settles immediately
+      let settled = false;
+      const release = () => this.stream?.getTracks().forEach((t) => t.stop());
       const finish = () => {
-        this.stream?.getTracks().forEach((t) => t.stop());
+        if (settled) return;
+        settled = true;
+        release();
         resolve(new Blob(this.chunks, { type: this.mime || "audio/mp4" }));
       };
-      if (!this.recorder) return finish();
-      this.recorder.onstop = finish;
-      this.recorder.stop();
+      if (!rec || rec.state === "inactive") return finish();
+      rec.onstop = finish;
+      rec.onerror = (ev: Event) => {
+        if (settled) return;
+        settled = true;
+        release();
+        reject((ev as Event & { error?: unknown }).error ?? new Error("recorder error"));
+      };
+      try {
+        rec.stop();
+      } catch {
+        finish();
+      }
     });
   }
 }

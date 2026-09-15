@@ -1,10 +1,26 @@
 import type { CueRole } from "../cue-player";
-import type { VoiceStore } from "../voice-store";
+import type { StoredClip, VoiceStore } from "../voice-store";
 
 export interface VoiceScreenDeps {
   store: VoiceStore;
   makeRecorder(): { start(): Promise<void>; stop(): Promise<Blob> };
   onBack(): void;
+  // Hand the backup file to the platform (e.g. the iOS share sheet). When
+  // absent, falls back to an <a download> link (works in desktop browsers only).
+  exportFile?(filename: string, blob: Blob): Promise<void>;
+}
+
+const ROLE_LABELS: Record<CueRole, string> = {
+  announce: "掛け声（始め）",
+  countdown: "掛け声（数える）",
+  encouragement: "掛け声（励まし）",
+};
+
+// YYYY-MM-DD in the device's local time zone (toISOString is UTC, which is
+// "yesterday" before 9am in Japan).
+export function localDateStamp(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): void {
@@ -27,8 +43,7 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   roles.forEach((role) => {
     const option = document.createElement("option");
     option.value = role;
-    const label = role === "announce" ? "掛け声（始め）" : role === "countdown" ? "掛け声（数える）" : "掛け声（励まし）";
-    option.textContent = label;
+    option.textContent = ROLE_LABELS[role];
     roleSelect.appendChild(option);
   });
   roleSelect.value = "encouragement";
@@ -45,6 +60,12 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   recordBtn.className = "btn-record";
   recordBtn.textContent = "🎙 録音";
 
+  const setIdle = () => {
+    recorder = null;
+    isRecording = false;
+    recordBtn.textContent = "🎙 録音";
+  };
+
   recordBtn.addEventListener("click", async () => {
     // Synchronous re-entrancy guard: ignore clicks while a start/stop is in flight.
     if (busy) return;
@@ -58,9 +79,7 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
         await rec.start();
       } catch {
         // Mic denied or failed: stay idle, surface a message, clear recorder ref.
-        recorder = null;
-        isRecording = false;
-        recordBtn.textContent = "🎙 録音";
+        setIdle();
         status.textContent = "マイクを開始できませんでした";
         busy = false;
         return;
@@ -70,22 +89,24 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
       recordBtn.textContent = "⏹ 停止";
       busy = false;
     } else {
-      // Stop recording and save
+      // Stop recording and save. Whatever fails, the screen returns to idle so
+      // the next tap starts a fresh recording instead of re-stopping this one.
+      const rec = recorder;
       try {
-        if (recorder) {
-          const blob = await recorder.stop();
+        if (rec) {
+          const blob = await rec.stop();
           const role = roleSelect.value as CueRole;
           const label = labelInput.value || `録音 ${new Date().toLocaleTimeString()}`;
           await deps.store.add(role, label, blob);
           labelInput.value = "";
         }
-        recorder = null;
-        isRecording = false;
-        recordBtn.textContent = "🎙 録音";
-        await refresh();
+      } catch {
+        status.textContent = "録音を保存できませんでした";
       } finally {
+        setIdle();
         busy = false;
       }
+      await refresh();
     }
   });
 
@@ -96,35 +117,37 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
 
   // Refresh function to rebuild the list
   const refresh = async () => {
+    let clips: StoredClip[];
+    try {
+      clips = await deps.store.all();
+    } catch {
+      return;
+    }
+    // Clear only after the await so overlapping refreshes can't double-render.
     clipList.textContent = "";
-    const clips = await deps.store.all();
 
-    // Group by role
-    const grouped: { [key in CueRole]: typeof clips } = {
-      announce: [],
-      countdown: [],
-      encouragement: [],
-    };
-    clips.forEach((c) => grouped[c.role].push(c));
+    // Group by role; clips with an unknown role (old / foreign data) are ignored.
+    const grouped = new Map<CueRole, StoredClip[]>(roles.map((r) => [r, []]));
+    clips.forEach((c) => grouped.get(c?.role)?.push(c));
 
     // Render each role section
     roles.forEach((role) => {
-      if (grouped[role].length === 0) return;
+      const inRole = grouped.get(role)!;
+      if (inRole.length === 0) return;
 
       const section = document.createElement("div");
       section.className = "clip-section";
       section.dataset.role = role;
 
       const heading = document.createElement("h3");
-      const roleLabel = role === "announce" ? "掛け声（始め）" : role === "countdown" ? "掛け声（数える）" : "掛け声（励まし）";
-      heading.textContent = roleLabel;
+      heading.textContent = ROLE_LABELS[role];
       section.appendChild(heading);
 
       // Playable URLs only exist on the store.list(role) shape ({id, url}[]),
       // not on StoredClip from store.all(). Look up each clip's url by id.
       const urls = deps.store.list(role);
       const list = document.createElement("ul");
-      grouped[role].forEach((clip) => {
+      inRole.forEach((clip) => {
         const item = document.createElement("li");
         item.className = "clip-item";
 
@@ -140,9 +163,8 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
         if (!url) {
           playBtn.disabled = true;
         } else {
-          playBtn.addEventListener("click", async () => {
-            const audio = new Audio(url);
-            await audio.play();
+          playBtn.addEventListener("click", () => {
+            new Audio(url).play().catch(() => { status.textContent = "再生できませんでした"; });
           });
         }
 
@@ -150,7 +172,11 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
         deleteBtn.className = "btn-delete";
         deleteBtn.textContent = "🗑 削除";
         deleteBtn.addEventListener("click", async () => {
-          await deps.store.remove(clip.id);
+          try {
+            await deps.store.remove(clip.id);
+          } catch {
+            status.textContent = "削除できませんでした";
+          }
           await refresh();
         });
 
@@ -168,34 +194,48 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   exportBtn.className = "btn-export";
   exportBtn.textContent = "📥 エクスポート";
   exportBtn.addEventListener("click", async () => {
-    const blob = await deps.store.export();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `voice-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    // Defer revoke so Safari doesn't race and cancel the download.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    try {
+      const blob = await deps.store.export();
+      const filename = `voice-backup-${localDateStamp()}.json`;
+      if (deps.exportFile) {
+        await deps.exportFile(filename, blob);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      // Defer revoke so Safari doesn't race and cancel the download.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      status.textContent = "エクスポートできませんでした";
+    }
   });
 
   // Import input
   const importInput = document.createElement("input");
   importInput.type = "file";
   importInput.dataset.import = "";
-  importInput.accept = ".json";
+  importInput.accept = ".json,application/json";
   importInput.addEventListener("change", async (e) => {
     const files = (e.target as HTMLInputElement).files;
-    if (files && files[0]) {
-      await deps.store.import(files[0]);
-      await refresh();
+    if (!files || !files[0]) return;
+    try {
+      const { imported, skipped } = await deps.store.import(files[0]);
+      status.textContent = `${imported}件 読み込みました / ${skipped}件 スキップ`;
+    } catch {
+      status.textContent = "ファイルを読み込めませんでした";
+    } finally {
       importInput.value = "";
     }
+    await refresh();
   });
 
   // Caveat line
   const caveat = document.createElement("div");
   caveat.className = "caveat";
-  caveat.textContent = "この端末のSafariにのみ保存されます";
+  caveat.textContent = "この端末にのみ保存されます";
 
   // Back button
   const backBtn = document.createElement("button");
@@ -208,5 +248,5 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   root.append(backBtn, roleSelect, labelInput, recordBtn, status, clipList, exportBtn, importInput, caveat);
 
   // Initial refresh
-  refresh();
+  void refresh();
 }

@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { NativeVideoRecorder, type KarateRecorderPluginLike } from "../../karate-trainer/src/native-recorder";
+import { describe, it, expect, vi } from "vitest";
+import {
+  NativeVideoRecorder,
+  openAppSettings,
+  type KarateRecorderPluginLike,
+} from "../../karate-trainer/src/native-recorder";
 import type { OverlayEvent } from "../../karate-trainer/src/overlay-event-log";
 
 function makePlugin(overrides: Partial<KarateRecorderPluginLike> = {}) {
@@ -27,7 +31,6 @@ function makeRecorder(plugin: KarateRecorderPluginLike, classCalls: boolean[] = 
   return new NativeVideoRecorder({
     plugin,
     toWebPath: (uri) => `capacitor://localhost/_capacitor_file_${uri}`,
-    fetchBlob: async (url) => new Blob([url], { type: "video/mp4" }),
     setPreviewClass: (on) => { classCalls.push(on); },
   });
 }
@@ -102,15 +105,50 @@ describe("NativeVideoRecorder", () => {
     expect(rec.fileExtension()).toBe("mp4");
   });
 
-  it("reads the finished video back through the web-path conversion", async () => {
+  it("does not read the finished video into the web view; exposes a playback URL instead", async () => {
     const { plugin } = makePlugin();
     const rec = makeRecorder(plugin);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
 
+    expect(rec.playbackUrl()).toBeNull();
     await rec.startCamera();
     await rec.startRecording();
     const blob = await rec.stop([], 0);
 
-    expect(await blob.text()).toBe("capacitor://localhost/_capacitor_file_file:///tmp/karate.mp4");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+    expect(blob.size).toBe(0);
+    expect(rec.playbackUrl()).toBe("capacitor://localhost/_capacitor_file_file:///tmp/karate.mp4");
+  });
+
+  it("stops the preview even when stopRecording fails", async () => {
+    const classCalls: boolean[] = [];
+    const { plugin, calls } = makePlugin({
+      async stopRecording() { calls.push("stopRecording"); throw new Error("not recording"); },
+    });
+    const rec = makeRecorder(plugin, classCalls);
+
+    await rec.startCamera();
+    await rec.startRecording();
+    await expect(rec.stop([], 0)).rejects.toThrow("not recording");
+
+    expect(calls).toEqual(["startPreview", "startRecording", "stopRecording", "stopPreview"]);
+    expect(classCalls).toEqual([true, false]);
+    expect(rec.playbackUrl()).toBeNull();
+  });
+
+  it("reports mov when the raw capture came back", async () => {
+    const { plugin } = makePlugin({
+      async stopRecording() { return { uri: "file:///tmp/karate-raw-1.mov", burnedIn: false, exportMode: "raw" as const }; },
+    });
+    const rec = makeRecorder(plugin);
+
+    expect(rec.fileExtension()).toBe("mp4");
+    await rec.startCamera();
+    await rec.startRecording();
+    const blob = await rec.stop([], 0);
+    expect(rec.fileExtension()).toBe("mov");
+    expect(blob.type).toBe("video/quicktime");
   });
 
   it("toggles the transparency class only while the preview is up", async () => {
@@ -135,9 +173,9 @@ describe("NativeVideoRecorder", () => {
 
     await rec.startCamera();
     await rec.startRecording();
-    const blob = await rec.stop([], 0);
+    await rec.stop([], 0);
 
-    expect(blob.size).toBeGreaterThan(0);
+    expect(rec.fileUri()).toBe("file:///tmp/raw.mov");
     expect(rec.didBurnIn()).toBe(false);
     expect(rec.burnError()).toBe("export failed: no disk space");
   });
@@ -151,6 +189,140 @@ describe("NativeVideoRecorder", () => {
     await rec.startCamera();
     await rec.startRecording();
     await expect(rec.stop([], 0)).resolves.toBeInstanceOf(Blob);
+  });
+});
+
+describe("NativeVideoRecorder interruptions", () => {
+  function listenablePlugin() {
+    const base = makePlugin();
+    let listener: ((data: { reason?: string }) => void) | null = null;
+    const removed: string[] = [];
+    base.plugin.addListener = async (eventName, fn) => {
+      base.calls.push(`addListener ${eventName}`);
+      listener = fn;
+      return { remove: async () => { removed.push(eventName); listener = null; } };
+    };
+    const fire = (reason?: string) => listener?.(reason === undefined ? {} : { reason });
+    return { ...base, fire, removed, hasListener: () => listener !== null };
+  }
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it("subscribes once and forwards the reason", async () => {
+    const { plugin, calls, fire } = listenablePlugin();
+    const rec = makeRecorder(plugin);
+    const reasons: string[] = [];
+
+    rec.onInterrupted((r) => reasons.push(r));
+    rec.onInterrupted((r) => reasons.push(`second:${r}`));
+    await flush();
+    fire("background");
+    fire();
+
+    expect(calls.filter((c) => c.startsWith("addListener"))).toEqual(["addListener recordingInterrupted"]);
+    expect(reasons).toEqual(["second:background", "second:unknown"]);
+  });
+
+  it("removes the listener on stop, which still returns the partial recording", async () => {
+    const { plugin, fire, removed, hasListener } = listenablePlugin();
+    plugin.stopRecording = async () => ({ uri: "file:///tmp/karate-training-x.mp4", burnedIn: true, interruption: "background" });
+    const rec = makeRecorder(plugin);
+    const reasons: string[] = [];
+
+    await rec.startCamera();
+    await rec.startRecording();
+    rec.onInterrupted((r) => reasons.push(r));
+    await flush();
+    fire("cameraBackground");
+    await expect(rec.stop([], 1000)).resolves.toBeInstanceOf(Blob);
+    await flush();
+
+    expect(reasons).toEqual(["cameraBackground"]);
+    expect(removed).toEqual(["recordingInterrupted"]);
+    expect(hasListener()).toBe(false);
+    expect(rec.fileUri()).toBe("file:///tmp/karate-training-x.mp4");
+  });
+
+  it("removes the listener on cancel", async () => {
+    const { plugin, removed } = listenablePlugin();
+    const rec = makeRecorder(plugin);
+
+    rec.onInterrupted(() => {});
+    await rec.cancel();
+    await flush();
+
+    expect(removed).toEqual(["recordingInterrupted"]);
+  });
+
+  it("ignores interruption subscription on a plugin without events", () => {
+    const { plugin } = makePlugin();
+    const rec = makeRecorder(plugin);
+    expect(() => rec.onInterrupted(() => {})).not.toThrow();
+  });
+});
+
+describe("NativeVideoRecorder.cancel", () => {
+  it("asks native to cancel and drops the transparency class", async () => {
+    const classCalls: boolean[] = [];
+    const { plugin, calls } = makePlugin({
+      async cancelRecording() { calls.push("cancelRecording"); },
+    });
+    const rec = makeRecorder(plugin, classCalls);
+
+    await rec.startCamera();
+    await rec.cancel();
+
+    expect(calls).toEqual(["startPreview", "cancelRecording"]);
+    expect(classCalls).toEqual([true, false]);
+  });
+
+  it("never rejects, falling back to stopPreview when cancel fails", async () => {
+    const { plugin, calls } = makePlugin({
+      async cancelRecording() { calls.push("cancelRecording"); throw new Error("boom"); },
+      async stopPreview() { calls.push("stopPreview"); throw new Error("gone"); },
+    });
+    const rec = makeRecorder(plugin);
+
+    await expect(rec.cancel()).resolves.toBeUndefined();
+    expect(calls).toEqual(["cancelRecording", "stopPreview"]);
+  });
+
+  it("works with an older native build that has no cancelRecording", async () => {
+    const { plugin, calls } = makePlugin();
+    const rec = makeRecorder(plugin);
+
+    await expect(rec.cancel()).resolves.toBeUndefined();
+    expect(calls).toEqual(["stopPreview"]);
+  });
+
+  it("never rejects even when the class toggle throws", async () => {
+    const { plugin } = makePlugin();
+    const rec = new NativeVideoRecorder({
+      plugin,
+      setPreviewClass: () => { throw new Error("no document"); },
+    });
+    await expect(rec.cancel()).resolves.toBeUndefined();
+  });
+});
+
+describe("openAppSettings", () => {
+  it("is a no-op off native", async () => {
+    const openSettings = vi.fn(async () => {});
+    const { plugin } = makePlugin({ openSettings });
+    await openAppSettings({ plugin, isNative: false });
+    expect(openSettings).not.toHaveBeenCalled();
+  });
+
+  it("defaults to a no-op in the browser test environment", async () => {
+    await expect(openAppSettings()).resolves.toBeUndefined();
+  });
+
+  it("opens settings on native and swallows failures", async () => {
+    const openSettings = vi.fn(async () => { throw new Error("denied"); });
+    const { plugin } = makePlugin({ openSettings });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(openAppSettings({ plugin, isNative: true })).resolves.toBeUndefined();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });
 
@@ -193,6 +365,18 @@ describe("NativeVideoRecorder with a real Capacitor-style plugin proxy", () => {
     await withinMs(rec.startCamera(), 500);
     await withinMs(rec.startRecording(), 500);
     await expect(withinMs(rec.stop([], 0), 500)).resolves.toBeInstanceOf(Blob);
+    expect(calls).not.toContain("then");
+  });
+
+  it("subscribes to interruptions and cancels through the proxy without hanging", async () => {
+    const calls: string[] = [];
+    const rec = makeRecorder(capacitorStyleProxy(calls));
+
+    rec.onInterrupted(() => {});
+    await withinMs(rec.startCamera(), 500);
+    await expect(withinMs(rec.cancel(), 500)).resolves.toBeUndefined();
+    expect(calls).toContain("addListener");
+    expect(calls).toContain("cancelRecording");
     expect(calls).not.toContain("then");
   });
 });

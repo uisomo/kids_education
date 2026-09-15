@@ -6,7 +6,8 @@ import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
 import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
-import { NativeVideoRecorder } from "./native-recorder";
+import { NativeVideoRecorder, openAppSettings } from "./native-recorder";
+import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
 import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
 
@@ -111,7 +112,10 @@ const rafLoop = (() => {
   return {
     start(cb: (d: number) => void) {
       last = performance.now();
-      const step = (t: number) => { cb(t - last); last = t; raf = requestAnimationFrame(step); };
+      // Capped: after the app was in the background rAF resumes with a delta of
+      // seconds or minutes, which would jump the drill timer. The session
+      // pauses itself when hidden, so dropping that time is correct.
+      const step = (t: number) => { cb(Math.min(250, Math.max(0, t - last))); last = t; raf = requestAnimationFrame(step); };
       raf = requestAnimationFrame(step);
     },
     stop() { cancelAnimationFrame(raf); },
@@ -119,7 +123,42 @@ const rafLoop = (() => {
 })();
 
 await store.init();
+
+// Native: localStorage is mirrored into a file so iOS clearing web storage
+// can't wipe the kids' progress (see storage-backup.ts).
+let storage: Storage | undefined;
+if (isNative) {
+  const file = nativeBackupFile();
+  const saved = await file.read();
+  if (saved) restoreIfEmpty(localStorage, saved);
+  const backup = makeBackupScheduler(localStorage, file);
+  storage = mirroredStorage(localStorage, () => backup.schedule());
+  void backup.flush();   // existing installs get a backup right away
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") void backup.flush();
+  });
+}
+void navigator.storage?.persist?.().catch(() => { /* not supported */ });
+
+async function exportFile(filename: string, blob: Blob): Promise<void> {
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
+  const { Share } = await import("@capacitor/share");
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  const written = await Filesystem.writeFile({ path: filename, data: btoa(bin), directory: Directory.Cache });
+  try {
+    await Share.share({ title: "アランの空手", url: written.uri });
+  } catch (e) {
+    // Closing the share sheet rejects with "Share canceled" — not an error.
+    if (!/cancel/i.test(e instanceof Error ? e.message : String(e))) throw e;
+  }
+}
+
 const app = new KarateApp(root, {
+  storage,
+  openSettings: isNative ? () => { void openAppSettings(); } : undefined,
+  exportFile: isNative ? exportFile : undefined,
   voiceStore: store,
   audioSink: new BrowserAudioSink(),
   makeVideoRecorder: () => (isNative ? new NativeVideoRecorder() : new VideoRecorder()),

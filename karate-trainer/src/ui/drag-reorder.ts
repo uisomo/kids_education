@@ -9,7 +9,8 @@
 // in the same row stays tappable/selectable.
 
 export interface DragReorderDeps {
-  // Fired once, on release, only when the row actually changed slots.
+  // Fired once, on release, only when the row actually changed slots. Never
+  // fired for a cancelled gesture (pointercancel).
   onReorder(from: number, to: number): void;
 }
 
@@ -58,9 +59,15 @@ export function attachDragReorder(container: HTMLElement, deps: DragReorderDeps)
     if (from < 0 || rowEls.length < 2) return;
 
     e.preventDefault();
+    // Row geometry is measured once, in coordinates relative to the container,
+    // and the container's own viewport position is re-read on every update: if
+    // the page (or any scroll ancestor) scrolls mid-drag, the rows move with the
+    // container, so subtracting its drift keeps the slot maths correct.
+    const containerTop = () => container.getBoundingClientRect().top;
+    const startContainerTop = containerTop();
     const metrics: RowMetric[] = rowEls.map((el) => {
       const r = el.getBoundingClientRect();
-      return { top: r.top, height: r.height };
+      return { top: r.top - startContainerTop, height: r.height };
     });
     // Distance one row travels when it swaps: the pitch between neighbours
     // (height + the flex gap), so the placeholder animation lines up.
@@ -68,18 +75,20 @@ export function attachDragReorder(container: HTMLElement, deps: DragReorderDeps)
       ? Math.abs(metrics[1].top - metrics[0].top)
       : metrics[0].height;
 
+    const pointerId = e.pointerId;
     const startY = e.clientY;
+    let lastY = startY;
     let to = from;
     rowEls[from].classList.add("is-dragging");
     container.classList.add("is-reordering");
     try {
-      handle.setPointerCapture(e.pointerId);
+      handle.setPointerCapture(pointerId);
     } catch {
       /* jsdom / unsupported — the window listeners below still cover us */
     }
 
-    const move = (ev: PointerEvent) => {
-      const dy = ev.clientY - startY;
+    const update = () => {
+      const dy = (lastY - startY) - (containerTop() - startContainerTop);
       rowEls[from].style.transform = `translateY(${dy}px)`;
       to = slotForOffset(metrics, from, dy);
       // Shift the rows the dragged one has passed, so a gap opens where it lands.
@@ -92,19 +101,35 @@ export function attachDragReorder(container: HTMLElement, deps: DragReorderDeps)
       });
     };
 
-    const end = () => {
+    // Only the pointer that started the drag may move / finish it.
+    const mine = (ev: PointerEvent) => ev.pointerId === pointerId;
+
+    const move = (ev: PointerEvent) => {
+      if (!mine(ev)) return;
+      lastY = ev.clientY;
+      update();
+    };
+    // Scrolling (e.g. iOS edge auto-scroll) moves rows without a pointermove.
+    const onScroll = () => update();
+
+    const finish = (commit: boolean) => {
       window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("scroll", onScroll, true);
       rowEls.forEach((el) => { el.style.transform = ""; });
       rowEls[from].classList.remove("is-dragging");
       container.classList.remove("is-reordering");
-      if (to !== from) deps.onReorder(from, to);
+      if (commit && to !== from) deps.onReorder(from, to);
     };
+    const up = (ev: PointerEvent) => { if (mine(ev)) finish(true); };
+    // A cancelled gesture (system took over, call came in…) reverts silently.
+    const cancel = (ev: PointerEvent) => { if (mine(ev)) finish(false); };
 
     window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
   });
 
   // Keyboard fallback on the same handle: reorder without a pointer gesture.

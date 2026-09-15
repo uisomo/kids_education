@@ -33,6 +33,17 @@ export function saveMenu(menu: Menu, storage: Storage = localStorage): void {
   storage.setItem(KEY, JSON.stringify(menu));
 }
 
+// Longest menu that may be recorded. Saved videos run ~110 MB a minute
+// (measured on the iPhone 16), so 10 minutes is already about 1.1 GB.
+export const MAX_RECORD_SECONDS = 600;
+
+// Free space a recording of `seconds` needs while it is being saved: the raw
+// capture, the voice file and the finished video exist at once (~240 MB a
+// minute), plus headroom.
+export function recordingBytesNeeded(seconds: number): number {
+  return Math.ceil(seconds) * 4_000_000 + 300_000_000;
+}
+
 export function totalSeconds(menu: Menu): number {
   return menu.reduce((sum, d) => sum + d.seconds, 0);
 }

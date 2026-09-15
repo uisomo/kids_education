@@ -22,7 +22,7 @@ let s: Storage;
 beforeEach(() => { s = memStorage(); });
 
 it("defaults to empty strings when nothing saved", () => {
-  expect(loadComments(s)).toEqual<Comments>({ kansou: "", fight: "" });
+  expect(loadComments(s)).toEqual<Comments>({ kansou: "", kansouBy: "", fight: "" });
 });
 
 it("saves and reloads a 感想 comment", () => {
@@ -57,5 +57,13 @@ it("clears a comment when saving empty / whitespace-only text", () => {
 
 it("survives corrupt stored JSON by returning defaults", () => {
   s.setItem("karate.comments", "{not json");
-  expect(loadComments(s)).toEqual<Comments>({ kansou: "", fight: "" });
+  expect(loadComments(s)).toEqual<Comments>({ kansou: "", kansouBy: "", fight: "" });
+});
+
+it("stores who wrote the 感想, capped at 10 chars", () => {
+  saveComment("kansou", "がんばったね", s);
+  saveComment("kansouBy", "  おかあさん  ", s);
+  expect(loadComments(s)).toMatchObject({ kansou: "がんばったね", kansouBy: "おかあさん" });
+  saveComment("kansouBy", "あ".repeat(20), s);
+  expect(loadComments(s).kansouBy).toBe("あ".repeat(10));
 });

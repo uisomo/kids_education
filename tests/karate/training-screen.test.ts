@@ -50,3 +50,9 @@ it("a cue reveals a companion cheer clip with a quote", () => {
   expect(vid.loop).toBe(false);
   expect(root.querySelector("[data-speech]")!.textContent).toContain(":");
 });
+
+it("does not show the アランのからて badge while practicing (it is only burned into the saved video)", () => {
+  const root = document.createElement("div");
+  renderTrainingScreen(root);
+  expect(root.querySelector("[data-alan-badge]")).toBeNull();
+});

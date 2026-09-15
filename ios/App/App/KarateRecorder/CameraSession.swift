@@ -37,7 +37,20 @@ final class CameraSession: NSObject {
     private let sessionQueue = DispatchQueue(label: "karate.recorder.session")
     private var stopContinuation: CheckedContinuation<URL, Error>?
 
-    var isRecording: Bool { movieOutput.isRecording }
+    /// Called (on an arbitrary queue) when the system cuts a recording short:
+    /// the session was interrupted, hit a runtime error, or the file finished
+    /// without anyone asking it to stop.
+    var onRecordingInterrupted: ((String) -> Void)?
+
+    /// Whether a recording is starting or running right now.
+    var isRecording: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        switch state {
+        case .starting, .recording: return true
+        case .idle, .finished: return false
+        }
+    }
 
     // MARK: - Permissions
 
@@ -62,7 +75,22 @@ final class CameraSession: NSObject {
             throw CameraError.permissionDenied("microphone")
         }
 
+        bumpPreviewGeneration()
+
         try configureAudioSession()
+
+        // A second startPreview (the web page re-entering the training screen)
+        // must not stack another preview view or rebuild a running session.
+        if let existing = previewView, existing.superview != nil {
+            webView.isOpaque = false
+            webView.backgroundColor = .clear
+            webView.scrollView.backgroundColor = .clear
+            try await startRunning()
+            observeSessionEvents()
+            return
+        }
+        previewView?.removeFromSuperview()
+
         try await configureCaptureSession()
 
         let container = UIView(frame: webView.bounds)
@@ -123,21 +151,43 @@ final class CameraSession: NSObject {
         let center = NotificationCenter.default
         observers.append(center.addObserver(
             forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
-        ) { note in
+        ) { [weak self] note in
             let error = note.userInfo?[AVCaptureSessionErrorKey] as? NSError
             print("⚡️  [KarateRecorder] capture runtime error: \(error?.localizedDescription ?? "unknown") (\(error?.code ?? 0))")
+            guard let self, self.isRecording else { return }
+            self.onRecordingInterrupted?("cameraError")
         })
         observers.append(center.addObserver(
             forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: nil
-        ) { note in
-            let reason = (note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber)?.intValue ?? -1
-            print("⚡️  [KarateRecorder] capture interrupted, reason \(reason)")
+        ) { [weak self] note in
+            let code = (note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber)?.intValue ?? -1
+            print("⚡️  [KarateRecorder] capture interrupted, reason \(code)")
+            guard let self, self.isRecording else { return }
+            self.onRecordingInterrupted?(Self.interruptionName(code))
         })
         observers.append(center.addObserver(
             forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil
         ) { _ in
             print("⚡️  [KarateRecorder] capture interruption ended")
         })
+    }
+
+    /// Synchronous so the lock is never held across an await.
+    private func bumpPreviewGeneration() {
+        stateLock.lock()
+        previewGeneration += 1
+        stateLock.unlock()
+    }
+
+    private static func interruptionName(_ code: Int) -> String {
+        switch AVCaptureSession.InterruptionReason(rawValue: code) {
+        case .videoDeviceNotAvailableInBackground: return "cameraBackground"
+        case .audioDeviceInUseByAnotherClient: return "cameraAudioInUse"
+        case .videoDeviceInUseByAnotherClient: return "cameraInUse"
+        case .videoDeviceNotAvailableWithMultipleForegroundApps: return "cameraMultitasking"
+        case .videoDeviceNotAvailableDueToSystemPressure: return "cameraSystemPressure"
+        default: return "cameraInterrupted"
+        }
     }
 
     /// The web view and the capture session both want the audio route. Mixing
@@ -223,13 +273,24 @@ final class CameraSession: NSObject {
     func stopPreview() {
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
-        sessionQueue.async { [session] in
+        stateLock.lock()
+        let generation = previewGeneration
+        stateLock.unlock()
+        sessionQueue.async { [weak self, session] in
             if session.isRunning { session.stopRunning() }
+            // Only once capture has really stopped (deactivating with I/O still
+            // running fails), and not if a new preview started in the meantime.
+            guard let self else { return }
+            self.stateLock.lock()
+            let stale = self.previewGeneration != generation
+            self.stateLock.unlock()
+            if !stale {
+                try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+            }
         }
         previewView?.removeFromSuperview()
         previewView = nil
         previewLayer = nil
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
     /// Keeps the preview layer matched to the web view as the device rotates
@@ -243,16 +304,37 @@ final class CameraSession: NSObject {
     // MARK: - Recording
 
     /// Recording state shared between the session queue and AVFoundation's
-    /// delegate callbacks, which arrive on a queue we don't control.
+    /// delegate callbacks, which arrive on a queue we don't control. Every
+    /// read and write of these goes through stateLock.
     private let stateLock = NSLock()
+    private enum RecordingState {
+        case idle
+        case starting
+        case recording
+        /// AVFoundation finished the file without anyone asking it to stop — an
+        /// interruption or runtime error mid-session. stopRecording() returns it
+        /// instead of failing, so a cut-short practice is still saved.
+        case finished(url: URL, usable: Bool, reason: String)
+    }
+    private var state: RecordingState = .idle
     private var startContinuation: CheckedContinuation<URL, Error>?
-    /// A file AVFoundation finished without anyone asking it to stop — an
-    /// interruption or runtime error mid-session. stopRecording() returns it
-    /// instead of failing, so a cut-short practice is still saved.
-    private var unexpectedFinish: (url: URL, usable: Bool, reason: String)?
+    private var previewGeneration = 0
+    private var callbackStartHostSeconds: Double?
+    private var firstFrameHostSeconds: Double?
+
     /// Host-clock time (seconds) when the movie actually started, used to line
-    /// the separately recorded voice up with the first frame.
-    private(set) var recordingStartHostSeconds: Double?
+    /// the separately recorded voice and the overlay up with the first frame.
+    /// The first frame's own timestamp when iOS provides it (18.2+), otherwise
+    /// the moment AVFoundation reported the start.
+    var recordingStartHostSeconds: Double? {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return firstFrameHostSeconds ?? callbackStartHostSeconds
+    }
+
+    private static func hostNow() -> Double {
+        CMClockGetTime(CMClockGetHostTimeClock()).seconds
+    }
 
     /// Resolves only once AVFoundation reports the file has really started, so
     /// a rejected start reaches JS as an error instead of a silent no-op.
@@ -263,15 +345,25 @@ final class CameraSession: NSObject {
                     cont.resume(throwing: CameraError.notRunning)
                     return
                 }
-                guard !movieOutput.isRecording else {
-                    cont.resume(throwing: CameraError.alreadyRecording)
-                    return
-                }
                 let url = FileManager.default.temporaryDirectory
                     .appendingPathComponent("karate-raw-\(UUID().uuidString).mov")
                 stateLock.lock()
+                switch state {
+                case .starting, .recording:
+                    stateLock.unlock()
+                    cont.resume(throwing: CameraError.alreadyRecording)
+                    return
+                case .idle, .finished:
+                    break
+                }
+                if case let .finished(old, _, _) = state {
+                    // Never collected by a stop; don't leave it behind.
+                    try? FileManager.default.removeItem(at: old)
+                }
+                state = .starting
                 startContinuation = cont
-                unexpectedFinish = nil
+                callbackStartHostSeconds = nil
+                firstFrameHostSeconds = nil
                 stateLock.unlock()
                 movieOutput.startRecording(to: url, recordingDelegate: self)
             }
@@ -279,25 +371,37 @@ final class CameraSession: NSObject {
     }
 
     /// Resolves with the finished raw file once AVFoundation has flushed it.
+    ///
+    /// The state check and taking the continuation happen under one lock, so a
+    /// recording that ends on its own at the same moment still resolves this.
     func stopRecording() async throws -> URL {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL, Error>) in
             sessionQueue.async { [self] in
-                if movieOutput.isRecording {
-                    stateLock.lock()
+                stateLock.lock()
+                switch state {
+                case .starting, .recording:
+                    if stopContinuation != nil {
+                        stateLock.unlock()
+                        cont.resume(throwing: CameraError.notRecording)
+                        return
+                    }
                     stopContinuation = cont
                     stateLock.unlock()
+                    // A no-op if AVFoundation already stopped; didFinish will
+                    // still arrive and resume the continuation just stored.
                     movieOutput.stopRecording()
-                    return
-                }
-                stateLock.lock()
-                let finished = unexpectedFinish
-                unexpectedFinish = nil
-                stateLock.unlock()
-                if let finished, finished.usable,
-                   FileManager.default.fileExists(atPath: finished.url.path) {
-                    print("⚡️  [KarateRecorder] recording had already ended (\(finished.reason)); saving what was captured")
-                    cont.resume(returning: finished.url)
-                } else {
+                case let .finished(url, usable, reason):
+                    state = .idle
+                    stateLock.unlock()
+                    if usable, FileManager.default.fileExists(atPath: url.path) {
+                        print("⚡️  [KarateRecorder] recording had already ended (\(reason)); saving what was captured")
+                        cont.resume(returning: url)
+                    } else {
+                        try? FileManager.default.removeItem(at: url)
+                        cont.resume(throwing: CameraError.notRecording)
+                    }
+                case .idle:
+                    stateLock.unlock()
                     cont.resume(throwing: CameraError.notRecording)
                 }
             }
@@ -311,13 +415,44 @@ extension CameraSession: AVCaptureFileOutputRecordingDelegate {
         didStartRecordingTo fileURL: URL,
         from connections: [AVCaptureConnection]
     ) {
-        let startedAt = CMClockGetTime(CMClockGetHostTimeClock()).seconds
+        recordingDidStart(fileURL, firstFrameHostSeconds: nil)
+    }
+
+    /// iOS 18.2+: carries the first written frame's timestamp, which lines the
+    /// voice up more exactly than the moment this callback happens to run.
+    @available(iOS 18.2, *)
+    func fileOutput(
+        _ output: AVCaptureFileOutput,
+        didStartRecordingTo fileURL: URL,
+        startPTS: CMTime,
+        from connections: [AVCaptureConnection]
+    ) {
+        var frameHost: Double?
+        if startPTS.isValid {
+            let host = CMClockGetHostTimeClock()
+            let converted = session.synchronizationClock.map { CMSyncConvertTime(startPTS, from: $0, to: host) } ?? startPTS
+            let seconds = converted.seconds
+            // Guard against a clock we misread: the first frame can only be a
+            // little before now.
+            let now = Self.hostNow()
+            if seconds.isFinite, seconds <= now + 0.05, now - seconds < 2 {
+                frameHost = seconds
+                print(String(format: "⚡️  [KarateRecorder] first frame %.0f ms before the start callback", (now - seconds) * 1000))
+            }
+        }
+        recordingDidStart(fileURL, firstFrameHostSeconds: frameHost)
+    }
+
+    private func recordingDidStart(_ fileURL: URL, firstFrameHostSeconds frameHost: Double?) {
+        let startedAt = Self.hostNow()
         stateLock.lock()
         let cont = startContinuation
         startContinuation = nil
-        recordingStartHostSeconds = startedAt
+        if case .starting = state { state = .recording }
+        if callbackStartHostSeconds == nil { callbackStartHostSeconds = startedAt }
+        if let frameHost { firstFrameHostSeconds = frameHost }
         stateLock.unlock()
-        print("⚡️  [KarateRecorder] recording started")
+        if cont != nil { print("⚡️  [KarateRecorder] recording started") }
         cont?.resume(returning: fileURL)
     }
 
@@ -338,23 +473,27 @@ extension CameraSession: AVCaptureFileOutputRecordingDelegate {
         startContinuation = nil
         let stop = stopContinuation
         stopContinuation = nil
-        if start == nil && stop == nil {
-            unexpectedFinish = (outputFileURL, usable, reason)
-        }
+        let unexpected = start == nil && stop == nil
+        state = unexpected ? .finished(url: outputFileURL, usable: usable, reason: reason) : .idle
         stateLock.unlock()
 
         if let start {
             // Finished before it ever started: AVFoundation rejected the request.
             print("⚡️  [KarateRecorder] recording failed to start: \(reason)")
             start.resume(throwing: error ?? CameraError.notRunning)
-        } else if let stop {
-            if let error, !usable {
+        }
+        if let stop {
+            if start != nil {
+                stop.resume(throwing: error ?? CameraError.notRecording)
+            } else if let error, !usable {
                 stop.resume(throwing: error)
             } else {
                 stop.resume(returning: outputFileURL)
             }
-        } else {
+        }
+        if unexpected {
             print("⚡️  [KarateRecorder] recording ended unexpectedly: \(reason)")
+            onRecordingInterrupted?("recordingEnded")
         }
     }
 }
