@@ -21,6 +21,7 @@
     "@capacitor/share": "^8.0.1",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@revenuecat/purchases-capacitor": "^13.5.1",
     "express": "^5.2.1",
     "zod": "^4.4.3"
   },

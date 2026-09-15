@@ -93,7 +93,7 @@ it("presets past the plan's cap stay stored but are hidden from the dropdown", a
   setPlan("free", storage);
   const { root } = await makeApp({ storage });
   const options = [...root.querySelectorAll<HTMLOptionElement>("[data-preset-select] option")].filter((o) => o.value);
-  expect(options.map((o) => o.textContent)).toEqual(["A"]);
+  expect(options.map((o) => o.textContent)).toEqual(["基本", "A"]);   // built-in 基本 is always offered
   expect(loadPresets(storage)).toHaveLength(3);   // nothing deleted
 });
 

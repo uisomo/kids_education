@@ -12,3 +12,6 @@ karate-trainer/public/characters/*.wav
 # Local agent/tooling state
 .claude/worktrees/
 .serena/cache/
+
+# Local env (RevenueCat SDK keys)
+*.local

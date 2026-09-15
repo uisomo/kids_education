@@ -2,12 +2,18 @@ import type { Drill, Menu } from "./types";
 
 const KEY = "karate.menu";
 
+// 基本: where every new kid starts — five basic moves, 30 s each, with a 30 s
+// 休憩 between them (4:30). Also the built-in 基本 saved menu (preset-store).
 export const DEFAULT_MENU: Menu = [
-  { id: "d1", name: "前蹴り", seconds: 30, kind: "drill" },
-  { id: "d2", name: "回し蹴り", seconds: 30, kind: "drill" },
-  { id: "d3", name: "休憩", seconds: 15, kind: "rest" },
-  { id: "d4", name: "追い突き", seconds: 45, kind: "drill" },
-  { id: "d5", name: "平安初段", seconds: 60, kind: "drill" },
+  { id: "d1", name: "正拳突き", seconds: 30, kind: "drill" },
+  { id: "d2", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d3", name: "上段揚げ受け", seconds: 30, kind: "drill" },
+  { id: "d4", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d5", name: "前蹴り", seconds: 30, kind: "drill" },
+  { id: "d6", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d7", name: "下段払い", seconds: 30, kind: "drill" },
+  { id: "d8", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d9", name: "回し蹴り", seconds: 30, kind: "drill" },
 ];
 
 function isMenu(v: unknown): v is Menu {

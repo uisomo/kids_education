@@ -2010,6 +2010,87 @@ input[data-label] {
   padding: 0.1rem 0.45rem;
 }
 
+/* App Store mode: 月 / 年 buy buttons, restore / manage, subscription terms */
+.family-store-card {
+  cursor: default;
+}
+
+.family-plan-buy {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  min-height: 2.4rem;
+  margin-top: 0.15rem;
+  padding: 0.3rem 0.2rem;
+  color: #1a162b;
+  background: #ffd166;
+  border: 2px solid #ffd166;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.family-plan-buy:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.family-plan-buy.current,
+.family-plan-buy.current:disabled {
+  opacity: 1;
+  color: #ffd166;
+  background: transparent;
+}
+
+.family-plan-free {
+  color: inherit;
+  background: transparent;
+  border-color: var(--ink-dim, #b0a8c8);
+}
+
+.family-billing-status {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #ffd166;
+}
+
+.family-billing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.family-billing-action {
+  flex: 1 1 8rem;
+  word-break: keep-all;
+  line-height: 1.25;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  min-height: 2.75rem;
+  color: inherit;
+  background: rgba(26, 22, 43, 0.5);
+  border: 1px solid var(--ink-dim, #b0a8c8);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.family-billing-action:disabled {
+  opacity: 0.45;
+}
+
+.family-plan-legal {
+  margin: 0;
+  font-size: 0.65rem;
+  line-height: 1.45;
+  color: var(--ink-dim, #b0a8c8);
+}
+
+.family-plan-legal a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 /* --- くらす assignment (E3) --- */
 .family-class-list {
   display: flex;

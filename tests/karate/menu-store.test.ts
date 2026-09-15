@@ -29,7 +29,7 @@ describe("menu store", () => {
     expect(loadMenu(s)).toEqual(DEFAULT_MENU);
   });
   it("sums seconds including rests", () => {
-    expect(totalSeconds(DEFAULT_MENU)).toBe(180);
+    expect(totalSeconds(DEFAULT_MENU)).toBe(270);   // 基本: 5 moves + 4 休憩, 30 s each
   });
   it("formats mm:ss", () => {
     expect(formatMMSS(180)).toBe("3:00");

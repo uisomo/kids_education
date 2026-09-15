@@ -1,6 +1,6 @@
 import type { Menu, Drill } from "./types";
 import { loadMenu, saveMenu, formatMMSS, totalSeconds, MAX_RECORD_SECONDS, recordingBytesNeeded } from "./menu-store";
-import { type Preset, loadPresets, savePreset, deletePreset, updatePreset } from "./preset-store";
+import { type Preset, BASIC_PRESET, BASIC_PRESET_ID, loadPresets, savePreset, deletePreset, updatePreset } from "./preset-store";
 import { SessionScheduler, type SchedulerHandlers } from "./scheduler";
 import { CuePlayer, type CueSink, type ClipSource } from "./cue-player";
 import type { VoiceStore } from "./voice-store";
@@ -8,7 +8,7 @@ import { renderSetupScreen } from "./ui/setup-screen";
 import { renderTrainingScreen, type TrainingView } from "./ui/training-screen";
 import { renderDoneScreen, type BeltMissReason, type DoneBeltResult } from "./ui/done-screen";
 import { renderVoiceScreen } from "./ui/voice-screen";
-import { playCountdownIntro } from "./ui/countdown-intro";
+import { COUNTDOWN_SOUNDS, playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
 import {
   latestKufu, kufuNotes, addKufu, canAddKufu, removeKufu, removeKufuAt, clearAllKufu, countKufu,
@@ -21,11 +21,12 @@ import {
   getSelectedPreset, setSelectedPreset,
 } from "./menu-belt-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
-import { renderFamilyScreen } from "./ui/family-screen";
+import { renderFamilyScreen, type BillingView } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
 import { type Member, getActiveId, loadMembers, addMember, removeMember, renameMember, setActive } from "./member-store";
-import { type Plan, type PlanLimits, PLAN_LIMITS, loadPlan, setPlan } from "./plan-store";
+import { type Plan, type PlanLimits, PLAN_LIMITS, PLAN_META, loadPlan, setPlan } from "./plan-store";
+import { type Billing, type BillingInfo, type ProductId, planOfProduct, renewalText } from "./billing";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import { loadComments, saveComment } from "./comment-store";
@@ -127,6 +128,10 @@ export interface KarateAppDeps {
   // Plays a character's cheer voice (the clip's .m4a). Native routes it through
   // the same engine as the music, so one never pauses the other.
   playCheerVoice?(src: string): void;
+  // Plays a short sound effect file (countdown ぷっ / ぷーん). Native uses the
+  // same engine as the cheer voices, so the export can mix it into the video.
+  // Absent → the countdown falls back to audioSink.beep().
+  playEffect?(src: string): void;
   // Burns overlay text (種目名/countdown/cue/工夫) into the saved recording as
   // an offline post-process, after the raw camera+audio recording has already
   // stopped. Returns null on any failure (unsupported browser, ffmpeg error)
@@ -150,6 +155,9 @@ export interface KarateAppDeps {
   // Parental gate before anything leaves the app (sharing the video). Defaults
   // to the overlay gate; tests inject a stub.
   askParentalGate?(root: HTMLElement): Promise<boolean>;
+  // App Store subscriptions (iOS app). When set, the plan follows what Apple
+  // says was bought; without it (web, tests) the plan cards set it directly.
+  billing?: Billing;
 }
 
 
@@ -178,6 +186,7 @@ export class KarateApp {
     // Family-shared base storage (member list + classes/presets live here).
     // Per-member data is read/written through mem() (scoped by active member).
     this.clampActiveMember();
+    if (!deps.menuOverride) this.ensureStarterMenu();
     this.menu = deps.menuOverride ?? loadMenu(this.mem());
     this.characterState = loadCharacterState(this.mem());
   }
@@ -209,10 +218,25 @@ export class KarateApp {
     return this.limits().presetsPerMember * this.usableMembers().length;
   }
 
-  // The presets the plan lets the household use: the oldest N. Extras (after a
-  // downgrade) stay stored, locked, and come back on upgrade.
+  // The presets the plan lets the household use: built-in 基本, then the oldest
+  // N saved ones. Extras (after a downgrade) stay stored, locked, and come back
+  // on upgrade.
   private usablePresets(): Preset[] {
-    return loadPresets(this.base()).slice(0, this.familyPresetLimit());
+    const saved = loadPresets(this.base());
+    // A family that already saved its own 「基本」 sees the built-in one as
+    // 「基本（標準）」 so the dropdown never shows two identical names.
+    const basic = saved.some((p) => p.name === BASIC_PRESET.name) ? { ...BASIC_PRESET, name: "基本（標準）" } : BASIC_PRESET;
+    return [basic, ...saved.slice(0, this.familyPresetLimit())];
+  }
+
+  // A kid who has never touched a menu starts on 基本, picked, so their very
+  // first practice already fills its 帯 and 強さ. Anyone with a menu or a
+  // choice of their own keeps it.
+  private ensureStarterMenu(): void {
+    const mem = this.mem();
+    if (mem.getItem("karate.menu") !== null || getSelectedPreset(mem) !== null) return;
+    saveMenu(structuredClone(BASIC_PRESET.menu), mem);
+    setSelectedPreset(BASIC_PRESET_ID, mem);
   }
 
   // The saved menu the active member practices: the dropdown shows it and its
@@ -281,15 +305,26 @@ export class KarateApp {
 
   async start(): Promise<void> {
     this.showSetup();
+    const billing = this.deps.billing;
+    if (billing) {
+      billing.onChange((info) => this.applyBilling(info));
+      void this.syncBilling();
+    }
   }
 
   // action: an optional button under the message (e.g. open iOS Settings).
   private showSetup(message?: string, action?: { label: string; run(): void }): void {
+    // A subscription change that arrived during a practice applies here.
+    if (this.pendingPlan) {
+      const plan = this.pendingPlan;
+      this.pendingPlan = null;
+      if (plan !== loadPlan(this.base())) this.changePlan(plan);
+    }
     // Notes left behind by rows deleted/renamed in older builds would hold the
     // Free plan's 工夫 slot forever; keep only names some menu still uses.
     pruneKufu([
       ...this.menu.map((d) => d.name),
-      ...loadPresets(this.base()).flatMap((p) => p.menu.map((d) => d.name)),
+      ...[BASIC_PRESET, ...loadPresets(this.base())].flatMap((p) => p.menu.map((d) => d.name)),
     ], this.mem());
     const linked = this.linkedPreset();
     renderSetupScreen(this.root, {
@@ -325,6 +360,7 @@ export class KarateApp {
             : "保存できませんでした（端末の空き容量を確認してください）");
       },
       onOverwritePreset: (id) => {
+        if (id === BASIC_PRESET_ID) return;   // 基本 is read-only; 保存 makes a copy
         const ok = updatePreset(id, this.menu, this.base());
         this.showSetup(ok ? "メニューを上書き保存しました" : "保存できませんでした（端末の空き容量を確認してください）");
       },
@@ -341,6 +377,7 @@ export class KarateApp {
         this.showSetup();
       },
       onDeletePreset: (id) => {
+        if (id === BASIC_PRESET_ID) return;   // 基本 can't be deleted
         deletePreset(id, this.base());
         // Every member's belt for that menu goes with it.
         for (const m of loadMembers(this.base())) {
@@ -432,7 +469,7 @@ export class KarateApp {
       onSelect: (tab) => {
         if (tab === this.activeTab) return;
         // The gate covers one visit: leaving 家族 locks it again.
-        if (this.activeTab === "family") this.familyUnlocked = false;
+        if (this.activeTab === "family") { this.familyUnlocked = false; this.billingStatus = ""; }
         if (tab === "train") this.showSetup();
         else if (tab === "strength") this.showStrength();
         else this.showFamily();
@@ -454,7 +491,12 @@ export class KarateApp {
     // Gate the 家族 tab once per session so kids can't change members/plans.
     if (!this.familyUnlocked) {
       renderParentalGate(this.root, {
-        onPass: () => { this.familyUnlocked = true; this.showFamily(); },
+        onPass: () => {
+          this.familyUnlocked = true;
+          // Prices that failed to load (offline) get another try each visit.
+          if (this.deps.billing && this.prices && Object.keys(this.prices).length === 0) void this.syncBilling();
+          this.showFamily();
+        },
         onCancel: () => this.showSetup(),
       });
       return;
@@ -486,7 +528,9 @@ export class KarateApp {
       },
       onRenameMember: (id, name) => { renameMember(id, name, base); this.showFamily(); },
       activePlan: loadPlan(base),
+      billing: this.deps.billing ? this.billingView(this.deps.billing) : undefined,
       onSelectPlan: (plan) => {
+        if (this.deps.billing) return;   // plans are bought through Apple
         const cur = PLAN_LIMITS[loadPlan(base)];
         const next = PLAN_LIMITS[plan];
         const lower = next.members < cur.members || next.presetsPerMember < cur.presetsPerMember
@@ -532,8 +576,107 @@ export class KarateApp {
     this.reloadForActiveMember();
   }
 
+  // --- App Store subscriptions (deps.billing) ---
+  private prices: Partial<Record<ProductId, string>> | null = null;   // null = loading
+  private billingInfo: BillingInfo | null = null;
+  private billingBusy = false;
+  private billingStatus = "";
+  // Plan change that arrived mid-practice, applied at the next setup screen so
+  // the active kid can't switch under a running session or its done screen.
+  private pendingPlan: Plan | null = null;
+
+  private async syncBilling(): Promise<void> {
+    const billing = this.deps.billing!;
+    const [info, prices] = await Promise.all([billing.refresh(), billing.prices()]);
+    this.prices = prices;
+    if (info) this.applyBilling(info);
+    else this.refreshFamilyIfOpen();
+  }
+
+  // Apple's answer replaces the cached plan. Losing a plan locks what's past
+  // the new caps (changePlan never deletes).
+  private applyBilling(info: BillingInfo): void {
+    this.billingInfo = info;
+    if (info.plan !== loadPlan(this.base())) {
+      if (this.videoRecorder) this.pendingPlan = info.plan;
+      else this.changePlan(info.plan);
+    }
+    this.refreshFamilyIfOpen();
+  }
+
+  private refreshFamilyIfOpen(): void {
+    if (this.activeTab === "family" && this.familyUnlocked && !this.videoRecorder) this.showFamily();
+  }
+
+  private billingView(billing: Billing): BillingView {
+    return {
+      prices: this.prices,
+      currentProduct: this.billingInfo?.plan === "free" ? null : this.billingInfo?.productId ?? null,
+      renewal: renewalText(this.billingInfo),
+      busy: this.billingBusy,
+      status: this.billingStatus,
+      onBuy: (id) => { void this.buy(billing, id); },
+      onRestore: () => { void this.restore(billing); },
+      onManage: () => { void billing.manage(); },
+      onChooseFree: () => {
+        if (this.confirm("フリーにするには「サブスクリプションを管理」で自動更新を止めてください。いまの期間が終わるとフリーになります（データは消えません）。ひらきますか？")) {
+          void billing.manage();
+        }
+      },
+    };
+  }
+
+  private async buy(billing: Billing, id: ProductId): Promise<void> {
+    if (this.billingBusy) return;
+    this.billingBusy = true;
+    this.billingStatus = "";
+    this.refreshFamilyIfOpen();
+    const out = await billing.purchase(id);
+    this.billingBusy = false;
+    const label = PLAN_META[planOfProduct(id)].label;
+    if (out.status === "purchased") {
+      // Apple applies an upgrade at once, but a downgrade or a 月⇄年 switch
+      // only from the next renewal — the old subscription is still the one active.
+      this.billingStatus = out.info.productId === id
+        ? `${label}になりました。ありがとうございます！`
+        : `${label}（${id.endsWith("_yearly") ? "年" : "月"}ごと）には、次の更新日から切りかわります`;
+      this.applyBilling(out.info);
+      return;
+    }
+    this.billingStatus = out.status === "pending"
+      ? "購入の承認待ちです。承認されると自動で切りかわります"
+      : out.status === "error"
+        ? "購入できませんでした。通信を確認して、もう一度ためしてね"
+        : "";
+    if (out.status === "error") console.error("purchase failed", out.message);
+    this.refreshFamilyIfOpen();
+  }
+
+  private async restore(billing: Billing): Promise<void> {
+    if (this.billingBusy) return;
+    this.billingBusy = true;
+    this.billingStatus = "";
+    this.refreshFamilyIfOpen();
+    const info = await billing.restore();
+    this.billingBusy = false;
+    this.billingStatus = !info
+      ? "復元できませんでした。通信を確認して、もう一度ためしてね"
+      : info.plan === "free"
+        ? "復元できる購入は見つかりませんでした"
+        : `${PLAN_META[info.plan].label}を復元しました`;
+    if (info) this.applyBilling(info);
+    else this.refreshFamilyIfOpen();
+  }
+
+  private playEffect(src: string): void {
+    if (!this.deps.playEffect) { void this.deps.audioSink.beep(); return; }
+    this.deps.playEffect(src);
+    this.overlayLog?.logSound({ kind: "clip", src });
+  }
+
   // Re-read the active member's per-member state after a member switch.
   private reloadForActiveMember(): void {
+    this.ensureStarterMenu();
     this.menu = loadMenu(this.mem());
     this.characterState = loadCharacterState(this.mem());
   }
@@ -649,7 +792,8 @@ export class KarateApp {
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
     view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
 
-    // Ready → 3 → 2 → 1 → Go!! intro. Numbers beep, Ready/Go are spoken.
+    // Ready → 3 → 2 → 1 → Go!! intro. Ready is spoken; 3 / 2 / 1 go 「ぷっ」 and
+    // Go!! a long 「ぷーん」, logged so the saved video has them too.
     // BGM and the drill timer both start on "Go!!".
     await playCountdownIntro(this.root, {
       stepMs: this.deps.introStepMs,
@@ -658,8 +802,7 @@ export class KarateApp {
         // Ready → 3 → 2 → 1 → Go!! the child saw on screen.
         this.overlayLog?.setState({ intro: cue });
         if (cue === "Ready") void this.deps.audioSink.speak("よーい");
-        else if (cue === "Go!!") void this.deps.audioSink.speak("はじめ");
-        else void this.deps.audioSink.beep();
+        else this.playEffect(cue === "Go!!" ? COUNTDOWN_SOUNDS.go : COUNTDOWN_SOUNDS.tick);
       },
     });
 

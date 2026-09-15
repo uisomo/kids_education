@@ -15,6 +15,13 @@ export interface CountdownIntroOpts {
 
 const CUES = ["Ready", "3", "2", "1", "Go!!"];
 
+// Race-start sounds: 「ぷっ」 on 3 / 2 / 1, a long higher 「ぷーん」 on Go!!
+// (made by karate-trainer/tools/make-countdown-sounds.py).
+export const COUNTDOWN_SOUNDS = {
+  tick: "/sounds/countdown-tick.m4a",
+  go: "/sounds/countdown-go.m4a",
+} as const;
+
 export function playCountdownIntro(
   root: HTMLElement,
   opts: CountdownIntroOpts = {}

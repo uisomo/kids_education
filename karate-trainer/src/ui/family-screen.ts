@@ -5,6 +5,7 @@
 import type { Member } from "../member-store";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
+import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
 import { BELTS } from "../belt-store";
 import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
 
@@ -43,6 +44,22 @@ export interface FamilyDeps {
   onSetShareAllowed?(memberId: string, allowed: boolean): void;
   kufuCount?: number;
   onClearAllKufu?(): void;
+  // App Store subscriptions (iOS app). Present → the plan cards buy through
+  // Apple instead of setting the plan, with restore / manage and the required
+  // subscription terms. Absent (web, older callers) → cards call onSelectPlan.
+  billing?: BillingView;
+}
+
+export interface BillingView {
+  prices: Partial<Record<ProductId, string>> | null;   // null while loading
+  currentProduct: string | null;   // the subscription the household has now
+  renewal: string;                 // "2026/10/15 に自動更新" (or "")
+  busy: boolean;                   // a purchase / restore is in progress
+  status: string;                  // result of the last purchase / restore
+  onBuy(id: ProductId): void;
+  onRestore(): void;
+  onManage(): void;
+  onChooseFree(): void;            // Free can't be bought: explains cancelling
 }
 
 const PLAN_ORDER: Plan[] = ["free", "premium", "family"];
@@ -193,7 +210,9 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   planCards.className = "family-plan-cards";
   planCards.dataset.planCards = "";
 
-  PLAN_ORDER.forEach((plan) => {
+  const billing = deps.billing;
+  if (billing) PLAN_ORDER.forEach((plan) => planCards.append(buildStoreCard(plan, deps.activePlan, billing)));
+  else PLAN_ORDER.forEach((plan) => {
     const meta = PLAN_META[plan];
     const limits = PLAN_LIMITS[plan];
     const isActive = plan === deps.activePlan;
@@ -217,10 +236,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
     const feats = document.createElement("div");
     feats.className = "family-plan-feats";
-    const perKid = limits.members > 1 ? "/人" : "";
-    const kidsText = limits.members === 1 ? "1人" : `${limits.members}人まで`;
-    const kufuText = limits.kufuPerDrill === 0 ? "工夫なし" : `工夫 ${limits.kufuTotal}${perKid}`;
-    feats.textContent = `${kidsText}\nメニュー ${limits.presetsPerMember}${perKid}\n${kufuText}`;
+    feats.textContent = planFeatsText(limits);
 
     if (isActive) {
       const badge = document.createElement("div");
@@ -254,7 +270,124 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   memberSettings.dataset.memberSettings = "";
   memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes);
 
-  root.append(title, listTitle, list, addRow, memberHint, memberSettings, planTitle, planNote, planCards);
+  const billingNodes = billing ? buildBillingFooter(billing) : [];
+
+  root.append(title, listTitle, list, addRow, memberHint, memberSettings, planTitle, planNote, planCards, ...billingNodes);
+}
+
+function planFeatsText(limits: (typeof PLAN_LIMITS)[Plan]): string {
+  const perKid = limits.members > 1 ? "/人" : "";
+  const kidsText = limits.members === 1 ? "1人" : `${limits.members}人まで`;
+  const kufuText = limits.kufuPerDrill === 0 ? "工夫なし" : `工夫 ${limits.kufuTotal}${perKid}`;
+  return `${kidsText}\nメニュー ${limits.presetsPerMember}${perKid}\n${kufuText}`;
+}
+
+// App Store mode: a plan card with 月 / 年 buttons at the store's own prices.
+function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTMLElement {
+  const isActive = plan === activePlan;
+  const card = document.createElement("div");
+  card.className = `family-plan-card family-store-card${isActive ? " active" : ""}`;
+  card.dataset.planCard = plan;
+
+  if (isActive) {
+    const badge = document.createElement("div");
+    badge.className = "family-plan-badge";
+    badge.textContent = "いま";
+    card.append(badge);
+  }
+
+  const name = document.createElement("div");
+  name.className = "family-plan-name";
+  name.textContent = PLAN_META[plan].label;
+
+  const feats = document.createElement("div");
+  feats.className = "family-plan-feats";
+  feats.textContent = planFeatsText(PLAN_LIMITS[plan]);
+  card.append(name, feats);
+
+  if (plan === "free") {
+    if (!isActive) {
+      const toFree = document.createElement("button");
+      toFree.className = "family-plan-buy family-plan-free";
+      toFree.dataset.chooseFree = "";
+      toFree.textContent = "フリーにする";
+      toFree.disabled = billing.busy;
+      toFree.addEventListener("click", () => billing.onChooseFree());
+      card.append(toFree);
+    }
+    return card;
+  }
+
+  (["monthly", "yearly"] as Period[]).forEach((period) => {
+    const id = productId(plan, period);
+    const price = billing.prices?.[id];
+    const unit = period === "monthly" ? "月" : "年";
+    const current = id === billing.currentProduct;
+    const buy = document.createElement("button");
+    buy.className = `family-plan-buy${current ? " current" : ""}`;
+    buy.dataset.buy = id;
+    // null prices = still loading; a missing price = not for sale right now.
+    buy.textContent = !billing.prices ? "…" : !price ? "—" : `${current ? "✓ " : ""}${price}/${unit}`;
+    buy.setAttribute("aria-label", `${PLAN_META[plan].label} ${unit}ごと${price ? ` ${price}` : ""}${current ? "（いまのプラン）" : ""}`);
+    buy.disabled = billing.busy || current || !price;
+    buy.addEventListener("click", () => billing.onBuy(id));
+    card.append(buy);
+  });
+  return card;
+}
+
+// Under the cards: renewal date, last result, restore / manage, and the
+// auto-renewal terms App Review requires next to a subscription purchase.
+function buildBillingFooter(billing: BillingView): Node[] {
+  const renewal = document.createElement("div");
+  renewal.className = "family-plan-note";
+  renewal.dataset.billingRenewal = "";
+  renewal.textContent = billing.renewal;
+  renewal.hidden = !billing.renewal;
+
+  const status = document.createElement("div");
+  status.className = "family-billing-status";
+  status.dataset.billingStatus = "";
+  status.setAttribute("role", "status");
+  status.textContent = billing.busy ? "Apple と通信中…" : billing.status;
+  status.hidden = !status.textContent;
+
+  const actions = document.createElement("div");
+  actions.className = "family-billing-actions";
+  const restore = document.createElement("button");
+  restore.className = "family-billing-action";
+  restore.dataset.restore = "";
+  restore.textContent = "購入を復元";
+  restore.disabled = billing.busy;
+  restore.addEventListener("click", () => billing.onRestore());
+  const manage = document.createElement("button");
+  manage.className = "family-billing-action";
+  manage.dataset.manage = "";
+  // Zero-width space: on a narrow iPhone the label wraps before を管理, not
+  // between 管 and 理.
+  manage.textContent = "サブスクリプション\u200Bを管理";
+  manage.setAttribute("aria-label", "サブスクリプションを管理");
+  manage.addEventListener("click", () => billing.onManage());
+  actions.append(restore, manage);
+
+  const legal = document.createElement("p");
+  legal.className = "family-plan-legal";
+  legal.dataset.billingLegal = "";
+  legal.textContent = "プレミアム・ファミリーは自動更新のサブスクリプションです（1か月または1年）。"
+    + "お支払いは Apple ID に請求され、期間が終わる24時間前までに自動更新を止めないと、同じ期間・同じ金額で更新されます。"
+    + "止めるときは「サブスクリプションを管理」から。 ";
+  const links: [string, string][] = [["利用規約", TERMS_URL], ["プライバシーポリシー", PRIVACY_URL]];
+  links.filter(([, url]) => url).forEach(([label, url], i) => {
+    if (i > 0) legal.append(" ・ ");
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = label;
+    legal.append(a);
+  });
+
+  return [renewal, status, actions, legal];
 }
 
 // Parent-controlled 帯, per saved menu of the active member: each menu gets a

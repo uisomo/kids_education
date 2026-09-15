@@ -10,6 +10,7 @@ import { NativeVideoRecorder, openAppSettings } from "./native-recorder";
 import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
 import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
+import { makeRevenueCatBilling } from "./revenuecat-billing";
 
 // iOS App Store build. The native recorder captures with AVFoundation and
 // burns the overlay itself, so neither MediaRecorder nor the ffmpeg.wasm pass
@@ -29,6 +30,7 @@ if (!isNative) mountInstallBanner(document.body, detectEnv());
 // well under the child's own voice in the saved video.
 const BGM_GAIN = 0.2;
 const CHEER_VOICE_VOLUME = 0.9;
+const EFFECT_VOLUME = 0.8;
 const BGM_SRC = `/characters/${encodeURIComponent("君ならできる")}.mp3`;
 
 function makeBgm(): BgmPlayer {
@@ -157,6 +159,10 @@ async function exportFile(filename: string, blob: Blob): Promise<void> {
 
 const app = new KarateApp(root, {
   storage,
+  // App Store subscriptions. The RevenueCat public SDK key comes from
+  // karate-trainer/.env.local (VITE_REVENUECAT_API_KEY): test_… for the Test
+  // Store while developing, appl_… for release.
+  billing: isNative ? makeRevenueCatBilling(import.meta.env.VITE_REVENUECAT_API_KEY ?? "") : undefined,
   openSettings: isNative ? () => { void openAppSettings(); } : undefined,
   exportFile: isNative ? exportFile : undefined,
   voiceStore: store,
@@ -170,6 +176,9 @@ const app = new KarateApp(root, {
   rafLoop,
   shareRecording,
   bgm: isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),
+  playEffect: isNative
+    ? (src) => playNativeClip(src, EFFECT_VOLUME)
+    : (src) => { void new Audio(src).play().catch(() => { /* autoplay blocked */ }); },
   playCheerVoice: isNative
     ? (src) => playNativeClip(src, CHEER_VOICE_VOLUME)
     : (src) => { void new Audio(src).play().catch(() => { /* autoplay blocked */ }); },

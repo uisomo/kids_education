@@ -1,6 +1,7 @@
-// Plan store (Tower E2): the household's subscription plan. Billing is mock (no
-// real payment — localStorage only) but the LIMITS are enforced for real by the
-// app (members) and the preset / kufu stores. One plan covers the whole
+// Plan store (Tower E2): the household's subscription plan. On the iOS app the
+// plan follows App Store subscriptions (billing.ts) and this is its offline
+// cache; without billing (web, tests) the plan cards set it directly. The
+// LIMITS are enforced by the app (members) and the preset / kufu stores. One plan covers the whole
 // household, matching how Apple bills a subscription per Apple ID rather than
 // per child, so it lives unscoped in the base storage.
 //

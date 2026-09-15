@@ -1,10 +1,17 @@
 import type { Drill, Menu } from "./types";
+import { DEFAULT_MENU } from "./menu-store";
 
 export interface Preset {
   id: string;
   name: string;
   menu: Menu;
+  builtIn?: boolean;   // 基本: always there, never stored, overwritten or deleted
 }
+
+// The built-in 基本 menu. It is not in storage, so it never counts toward a
+// plan's menu cap; its 帯 / 強さ are kept under this id like any saved menu.
+export const BASIC_PRESET_ID = "basic";
+export const BASIC_PRESET: Preset = { id: BASIC_PRESET_ID, name: "基本", menu: DEFAULT_MENU, builtIn: true };
 
 const KEY = "karate.presets";
 
@@ -77,7 +84,7 @@ export function savePreset(
 // Overwrite an existing preset's menu (上書き保存) with a deep copy. Returns
 // false if the preset doesn't exist, the menu is malformed, or the write fails.
 export function updatePreset(id: string, menu: Menu, storage: Storage = localStorage): boolean {
-  if (!isMenu(menu)) return false;
+  if (!isMenu(menu) || id === BASIC_PRESET_ID) return false;
   const list = loadPresets(storage);
   const idx = list.findIndex((p) => p.id === id);
   if (idx < 0) return false;

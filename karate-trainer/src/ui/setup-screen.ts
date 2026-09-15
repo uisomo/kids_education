@@ -184,30 +184,32 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   presetBand.append(presetSelect);
 
   const selectedPreset = deps.presets.find((p) => p.id === selectedId);
-  if (selectedPreset && deps.onOverwritePreset) {
+  // Built-in 基本 can't be overwritten or deleted; 「保存」 saves a copy instead.
+  const editable = selectedPreset && !selectedPreset.builtIn ? selectedPreset : undefined;
+  if (editable && deps.onOverwritePreset) {
     const overwrite = document.createElement("button");
     overwrite.className = "preset-save";
-    overwrite.dataset.presetOverwrite = selectedPreset.id;
+    overwrite.dataset.presetOverwrite = editable.id;
     overwrite.textContent = "上書き保存";
-    overwrite.setAttribute("aria-label", `${selectedPreset.name} に上書き保存`);
-    overwrite.addEventListener("click", () => deps.onOverwritePreset!(selectedPreset.id));
+    overwrite.setAttribute("aria-label", `${editable.name} に上書き保存`);
+    overwrite.addEventListener("click", () => deps.onOverwritePreset!(editable.id));
     presetBand.append(overwrite);
   }
-  if (selectedPreset) {
+  if (editable) {
     const del = document.createElement("button");
     del.className = "preset-del";
-    del.dataset.presetDel = selectedPreset.id;
+    del.dataset.presetDel = editable.id;
     del.textContent = "メニュー削除";
-    del.setAttribute("aria-label", `${selectedPreset.name} を削除`);
+    del.setAttribute("aria-label", `${editable.name} を削除`);
     del.addEventListener("click", () => {
-      if (confirmDelete(selectedPreset.name)) deps.onDeletePreset(selectedPreset.id);
+      if (confirmDelete(editable.name)) deps.onDeletePreset(editable.id);
     });
     presetBand.append(del);
   }
 
-  // Fewer buttons: a new menu only offers 「保存」; a saved menu only offers
-  // 「上書き保存」 and 「メニュー削除」.
-  if (!selectedPreset) {
+  // Fewer buttons: a new menu (or 基本) only offers 「保存」; a saved menu only
+  // offers 「上書き保存」 and 「メニュー削除」.
+  if (!editable) {
     const savePreset = document.createElement("button");
     savePreset.className = "preset-save";
     savePreset.dataset.presetSave = "";

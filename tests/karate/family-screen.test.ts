@@ -305,3 +305,97 @@ it("LINE・SNS: a checkbox for the picked member reports changes", () => {
   m2.dispatchEvent(new Event("change"));
   expect(onSetShareAllowed).toHaveBeenCalledWith("m2", true);
 });
+
+// --- App Store mode (billing) ---
+function billingView(over: Record<string, unknown> = {}) {
+  return {
+    prices: { premium_monthly: "¥980", premium_yearly: "¥9,800", family_monthly: "¥1,480", family_yearly: "¥14,800" },
+    currentProduct: null, renewal: "", busy: false, status: "",
+    onBuy: vi.fn(), onRestore: vi.fn(), onManage: vi.fn(), onChooseFree: vi.fn(),
+    ...over,
+  };
+}
+
+it("billing: paid cards offer 月 and 年 at the store's prices and buy that product", () => {
+  const root = document.createElement("div");
+  const billing = billingView();
+  const onSelectPlan = vi.fn();
+  renderFamilyScreen(root, deps({ billing, onSelectPlan }));
+  const buy = (id: string) => root.querySelector<HTMLButtonElement>(`[data-buy="${id}"]`)!;
+  expect(buy("premium_monthly").textContent).toBe("¥980/月");
+  expect(buy("family_yearly").textContent).toBe("¥14,800/年");
+  expect(root.querySelector('[data-plan-card="free"] [data-buy]')).toBeNull();
+  buy("family_monthly").click();
+  expect(billing.onBuy).toHaveBeenCalledWith("family_monthly");
+  // The card itself no longer switches the plan.
+  root.querySelector<HTMLElement>('[data-plan-card="family"]')!.click();
+  expect(onSelectPlan).not.toHaveBeenCalled();
+});
+
+it("billing: loading, unavailable and current products can't be bought", () => {
+  const loading = document.createElement("div");
+  renderFamilyScreen(loading, deps({ billing: billingView({ prices: null }) }));
+  const l = loading.querySelector<HTMLButtonElement>('[data-buy="premium_monthly"]')!;
+  expect(l.textContent).toBe("…");
+  expect(l.disabled).toBe(true);
+
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({
+    activePlan: "premium",
+    billing: billingView({ prices: { premium_monthly: "¥980", premium_yearly: "¥9,800" }, currentProduct: "premium_monthly" }),
+  }));
+  const cur = root.querySelector<HTMLButtonElement>('[data-buy="premium_monthly"]')!;
+  expect(cur.textContent).toBe("✓ ¥980/月");
+  expect(cur.disabled).toBe(true);
+  expect(root.querySelector<HTMLButtonElement>('[data-buy="premium_yearly"]')!.disabled).toBe(false);
+  const missing = root.querySelector<HTMLButtonElement>('[data-buy="family_monthly"]')!;
+  expect(missing.textContent).toBe("—");
+  expect(missing.disabled).toBe(true);
+});
+
+it("billing: busy disables buying and restoring and says so", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ activePlan: "premium", billing: billingView({ busy: true }) }));
+  expect(root.querySelector<HTMLButtonElement>('[data-buy="family_monthly"]')!.disabled).toBe(true);
+  expect(root.querySelector<HTMLButtonElement>("[data-restore]")!.disabled).toBe(true);
+  expect(root.querySelector<HTMLButtonElement>("[data-choose-free]")!.disabled).toBe(true);
+  expect(root.querySelector("[data-billing-status]")!.textContent).toContain("通信中");
+});
+
+it("billing: Free explains cancelling, and restore / manage / status / renewal show", () => {
+  const root = document.createElement("div");
+  const billing = billingView({ status: "プレミアムを復元しました", renewal: "2026/10/15 に自動更新", currentProduct: "premium_yearly" });
+  renderFamilyScreen(root, deps({ activePlan: "premium", billing }));
+  root.querySelector<HTMLButtonElement>("[data-choose-free]")!.click();
+  expect(billing.onChooseFree).toHaveBeenCalledOnce();
+  root.querySelector<HTMLButtonElement>("[data-restore]")!.click();
+  expect(billing.onRestore).toHaveBeenCalledOnce();
+  root.querySelector<HTMLButtonElement>("[data-manage]")!.click();
+  expect(billing.onManage).toHaveBeenCalledOnce();
+  expect(root.querySelector("[data-billing-status]")!.textContent).toBe("プレミアムを復元しました");
+  expect(root.querySelector<HTMLElement>("[data-billing-renewal]")!.hidden).toBe(false);
+
+  // On Free there's nothing to switch to Free.
+  const free = document.createElement("div");
+  renderFamilyScreen(free, deps({ billing: billingView() }));
+  expect(free.querySelector("[data-choose-free]")).toBeNull();
+  expect(free.querySelector<HTMLElement>("[data-billing-status]")!.hidden).toBe(true);
+});
+
+it("billing: shows the auto-renewal terms with a Terms of Use link", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ billing: billingView() }));
+  const legal = root.querySelector("[data-billing-legal]")!;
+  expect(legal.textContent).toContain("自動更新");
+  expect(legal.textContent).toContain("24時間前");
+  const terms = [...legal.querySelectorAll("a")].find((a) => a.textContent === "利用規約")!;
+  expect(terms.getAttribute("href")).toContain("apple.com");
+});
+
+it("without billing there are no buy buttons or subscription terms", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());
+  expect(root.querySelector("[data-buy]")).toBeNull();
+  expect(root.querySelector("[data-restore]")).toBeNull();
+  expect(root.querySelector("[data-billing-legal]")).toBeNull();
+});
