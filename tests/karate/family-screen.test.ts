@@ -69,12 +69,12 @@ it("shows monthly and yearly prices and each plan's kid limit", () => {
   renderFamilyScreen(root, deps({ activePlan: "family" }));
   const fam = root.querySelector('[data-plan-card="family"]')!;
   expect(fam.classList.contains("active")).toBe(true);
-  expect(fam.querySelector(".family-plan-price")!.textContent).toBe("¥1,480/月");
-  expect(fam.querySelector(".family-plan-yearly")!.textContent).toContain("¥14,800/年");
+  expect(fam.querySelector(".family-plan-price")!.textContent).toBe("¥1,500/月");
+  expect(fam.querySelector(".family-plan-yearly")!.textContent).toContain("¥15,000/年");
   expect(fam.querySelector(".family-plan-feats")!.textContent).toContain("5人まで");
   const prem = root.querySelector('[data-plan-card="premium"]')!;
-  expect(prem.querySelector(".family-plan-price")!.textContent).toBe("¥980/月");
-  expect(prem.querySelector(".family-plan-yearly")!.textContent).toContain("¥9,800/年");
+  expect(prem.querySelector(".family-plan-price")!.textContent).toBe("¥1,000/月");
+  expect(prem.querySelector(".family-plan-yearly")!.textContent).toContain("¥10,000/年");
   expect(root.querySelector('[data-plan-card="free"] .family-plan-yearly')).toBeNull();
 });
 
@@ -398,4 +398,45 @@ it("without billing there are no buy buttons or subscription terms", () => {
   expect(root.querySelector("[data-buy]")).toBeNull();
   expect(root.querySelector("[data-restore]")).toBeNull();
   expect(root.querySelector("[data-billing-legal]")).toBeNull();
+});
+
+it("hides the かざり section when the caller doesn't pass one", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());
+  expect(root.querySelector("[data-decor-options]")).toBeNull();
+});
+
+it("marks the chosen かざり and fires onSelectDecor", () => {
+  const root = document.createElement("div");
+  const onSelectDecor = vi.fn();
+  renderFamilyScreen(root, deps({ decor: "banner", onSelectDecor, canRemoveDecor: true }));
+  const options = root.querySelectorAll("[data-decor-options] .decor-option");
+  expect(options).toHaveLength(4);
+  expect(root.querySelector('.decor-option[data-decor="banner"]')!.classList.contains("on")).toBe(true);
+  root.querySelector<HTMLButtonElement>('.decor-option[data-decor="icon"]')!.click();
+  expect(onSelectDecor).toHaveBeenCalledWith("icon");
+});
+
+it("locks 「なし」 on a free household and leaves the rest usable", () => {
+  const root = document.createElement("div");
+  const onSelectDecor = vi.fn();
+  renderFamilyScreen(root, deps({ decor: "frame", onSelectDecor, canRemoveDecor: false }));
+  const none = root.querySelector<HTMLButtonElement>('.decor-option[data-decor="none"]')!;
+  expect(none.disabled).toBe(true);
+  expect(none.textContent).toContain("プレミアム");
+  none.click();
+  expect(onSelectDecor).not.toHaveBeenCalled();
+  root.querySelector<HTMLButtonElement>('.decor-option[data-decor="frame"]')!.click();
+  expect(onSelectDecor).toHaveBeenCalledWith("frame");
+});
+
+it("a paid household can pick 「なし」", () => {
+  const root = document.createElement("div");
+  const onSelectDecor = vi.fn();
+  renderFamilyScreen(root, deps({ decor: "none", onSelectDecor, canRemoveDecor: true }));
+  const none = root.querySelector<HTMLButtonElement>('.decor-option[data-decor="none"]')!;
+  expect(none.disabled).toBe(false);
+  expect(none.classList.contains("on")).toBe(true);
+  none.click();
+  expect(onSelectDecor).toHaveBeenCalledWith("none");
 });

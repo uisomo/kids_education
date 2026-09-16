@@ -333,6 +333,9 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         let totalDurationMs = call.getDouble("totalDurationMs") ?? 0
         let streakLabel = call.getString("streakLabel")
         let beltLabel = call.getString("beltLabel")
+        // 家族タブで選んだ かざり. An unknown or missing value means none, so an
+        // older web build simply gets an undecorated video.
+        let decor = OverlayCompositor.Decor(rawValue: call.getString("decor") ?? "") ?? .none
         let menu: [OverlayCompositor.MenuItem] = (call.getArray("menu", JSObject.self) ?? []).compactMap { entry in
             guard let name = entry["name"] as? String else { return nil }
             return OverlayCompositor.MenuItem(
@@ -446,8 +449,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     try await OverlayCompositor.burn(
                         sourceURL: raw, outputURL: burned, events: events, totalDurationMs: totalMs,
                         menu: menu, sounds: mixedSounds, voice: voiceTrack,
-                        badgeURL: OverlayCompositor.bundledURL(forWebPath: "/characters/alan-badge.mov"),
-                        streakLabel: streakLabel, beltLabel: beltLabel
+                        streakLabel: streakLabel, beltLabel: beltLabel, decor: decor
                     )
                 }
                 finalURL = burned

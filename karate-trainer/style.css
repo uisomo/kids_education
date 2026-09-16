@@ -23,6 +23,31 @@
   --toy-green-dark: #26af5f;
   --toy-purple: #70a1ff;
   --toy-card-bg: #2d264a;
+
+  /* The boxes behind text drawn over the camera. Lit from the top with a gold
+     hairline, matching the panels OverlayCompositor burns into the video. */
+  --overlay-box: linear-gradient(180deg, rgba(42, 32, 74, 0.86) 0%, rgba(13, 10, 30, 0.72) 100%);
+  --overlay-edge: rgba(255, 209, 102, 0.55);
+  --overlay-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* The playful rounded face the whole app is set in. Bundled rather than
+   loaded from Google Fonts: the app runs offline on the phone, and the same
+   files are registered by OverlayCompositor so the burned video matches the
+   screen. M PLUS Rounded 1c, SIL Open Font License. */
+@font-face {
+  font-family: "M PLUS Rounded 1c";
+  src: url("/fonts/MPLUSRounded1c-Medium.ttf") format("truetype");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "M PLUS Rounded 1c";
+  src: url("/fonts/MPLUSRounded1c-ExtraBold.ttf") format("truetype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 * {
@@ -486,9 +511,21 @@ button {
   align-items: center;
   padding: 0.25rem 0.1rem 0.5rem;
 }
+/* The dropdown and the ✕ that lives at its right edge are one control. */
+.preset-select-wrap {
+  position: relative;
+  /* Shrinkable: with `auto` the select claims the width of its longest option
+     (「＋ 新しいメニューを作る」) and pushes 「上書き保存」 onto a line of its own. */
+  flex: 1 1 8rem;
+  min-width: 0;
+  display: flex;
+}
+
 .preset-select {
   flex: 1 1 auto;
-  min-width: 8rem;
+  min-width: 0;
+  width: 100%;
+  text-overflow: ellipsis;
   border: 2px solid var(--panel-line);
   border-radius: 999px;
   background: var(--panel);
@@ -497,6 +534,20 @@ button {
   font-weight: 700;
   padding: 0.4rem 0.85rem;
   cursor: pointer;
+  /* Own chevron, so the ✕ can sit outboard of it inside the same pill. */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffd166' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 0.7rem;
+  padding-right: 2.2rem;
+}
+
+/* Room for the ✕ at the end of the pill, with the chevron just inboard of it. */
+.preset-select.has-del {
+  padding-right: 4.3rem;
+  background-position: right 2.7rem center;
 }
 
 /* 強さ screen only. There the same pill is a direct child of a COLUMN flex
@@ -507,19 +558,38 @@ button {
 .screen.strength .strength-menu-select {
   flex: 0 0 auto;
 }
-/* 保存 / 上書き保存 / メニュー削除: the same yellow pill, same font. */
+/* 「強くなるため ✕」: deleting the menu that is showing, inside the dropdown's
+   own pill. Drawn at 30px so it fits the pill, with an invisible 44px target
+   around it — the same trick the row icons use. */
 .preset-del {
-  flex: 0 0 auto;
-  background: #ffd166;
-  border: none;
-  border-radius: 999px;
-  color: #1a162b;
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 71, 87, 0.2);
+  border: 2px solid rgba(255, 71, 87, 0.65);
+  border-radius: 50%;
+  color: #ff8a98;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 900;
-  padding: 0.45rem 0.95rem;
-  white-space: nowrap;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
+}
+
+.preset-del::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
 .preset-save {
@@ -859,11 +929,28 @@ button {
 /* 稽古 開始 stays on screen. With 9 rows the button sat ~280px below the fold,
    so the one thing the child came to do was invisible until they scrolled past
    the whole menu editor. Sticky keeps it above the tab bar the whole way down
-   and it still settles in place at the end of the list. */
-.screen.setup .btn-start {
+   and it still settles in place at the end of the list. The BGM switch rides
+   along on its right — it is the last thing decided before practice. */
+.screen.setup .start-row {
   position: sticky;
   bottom: calc(0.75rem + 4.5rem + env(safe-area-inset-bottom));
   z-index: 6;
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.start-row .btn-start {
+  flex: 1 1 auto;
+}
+
+/* Squared off and as tall as 稽古 開始, so the two read as one control. */
+.start-row .bgm-toggle-btn {
+  flex: 0 0 auto;
+  min-height: 50px;
+  padding: 0 0.9rem;
+  border-radius: 18px;
+  font-size: 0.8rem;
 }
 
 /* Empty menu: nothing to practice yet. */
@@ -1046,10 +1133,11 @@ button {
   font-size: 1.8rem;
   font-weight: 900;
   text-align: center;
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--overlay-box);
   padding: 0.5rem 1.2rem;
-  border-radius: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 18px;
+  border: 2px solid var(--overlay-edge);
+  box-shadow: var(--overlay-shadow);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
 }
 
@@ -1094,10 +1182,44 @@ button {
   color: #fff;
   font-size: 0.95rem;
   font-weight: 800;
-  background: rgba(0, 0, 0, 0.65);
+  background: var(--overlay-box);
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
+  border: 1px solid var(--overlay-edge);
+  box-shadow: var(--overlay-shadow);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+/* かざりのプレビュー: the same decoration the export burns in, over the camera
+   so a parent can see what it covers before the child stands behind it. Sits
+   under the labels and buttons — this is a guide, not part of the UI. */
+.training-decor {
+  position: absolute;
+  z-index: 9;
+  pointer-events: none;
+}
+
+/* Design space is 720x1280, matching OverlayCompositor. */
+.training-decor-frame {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.training-decor-banner {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+}
+
+.training-decor-icon {
+  right: 2.8%;            /* 20 / 720 */
+  bottom: 2.3%;           /* (1280 - 1250) / 1280 */
+  width: 26.4%;           /* 190 / 720 */
+  height: auto;
 }
 
 .training-controls {
@@ -1486,9 +1608,11 @@ input[data-label] {
   font-weight: 900;
   color: #fff;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-  background: rgba(26, 22, 43, 0.6);
+  background: var(--overlay-box);
   padding: 0.5rem 1.4rem;
   border-radius: 999px;
+  border: 1px solid var(--overlay-edge);
+  box-shadow: var(--overlay-shadow);
 }
 
 /* ---------------------------------------------------------
@@ -1820,6 +1944,50 @@ input[data-label] {
   font-weight: 900;
   color: var(--ink-dim, #b0a8c8);
   margin-top: 0.5rem;
+}
+
+/* どうがのかざり: four choices, 「なし」 locked unless the household pays. */
+.decor-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.decor-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-height: 56px;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 209, 102, 0.28);
+  background: rgba(26, 22, 43, 0.5);
+  color: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.decor-option.on {
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, 0.18);
+}
+
+.decor-option.locked {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.decor-option-name {
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.decor-option-hint {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-dim, #b0a8c8);
 }
 
 .family-member-list {

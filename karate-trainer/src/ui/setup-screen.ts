@@ -181,7 +181,12 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     if (presetSelect.value) deps.onLoadPreset(presetSelect.value);
     else deps.onNewMenu?.();
   });
-  presetBand.append(presetSelect);
+  // The ✕ sits inside the dropdown's own box, at its right edge 「強くなるため ✕」,
+  // so the wrapper is what the band lays out.
+  const selectWrap = document.createElement("div");
+  selectWrap.className = "preset-select-wrap";
+  selectWrap.append(presetSelect);
+  presetBand.append(selectWrap);
 
   const selectedPreset = deps.presets.find((p) => p.id === selectedId);
   // Built-in 基本 can't be overwritten or deleted; 「保存」 saves a copy instead.
@@ -195,27 +200,31 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     overwrite.addEventListener("click", () => deps.onOverwritePreset!(editable.id));
     presetBand.append(overwrite);
   }
-  if (editable) {
-    const del = document.createElement("button");
-    del.className = "preset-del";
-    del.dataset.presetDel = editable.id;
-    del.textContent = "メニュー削除";
-    del.setAttribute("aria-label", `${editable.name} を削除`);
-    del.addEventListener("click", () => {
-      if (confirmDelete(editable.name)) deps.onDeletePreset(editable.id);
-    });
-    presetBand.append(del);
-  }
-
-  // Fewer buttons: a new menu (or 基本) only offers 「保存」; a saved menu only
-  // offers 「上書き保存」 and 「メニュー削除」.
+  // Fewer buttons: a saved menu offers 「上書き保存」, everything else one
+  // button — 「作る」 while writing a new menu, 「保存」 for a copy of 基本.
   if (!editable) {
     const savePreset = document.createElement("button");
     savePreset.className = "preset-save";
     savePreset.dataset.presetSave = "";
-    savePreset.textContent = "保存";
+    savePreset.textContent = selectedId ? "保存" : "作る";
     savePreset.addEventListener("click", () => deps.onSavePreset());
     presetBand.append(savePreset);
+  }
+
+  // Deleting is an ✕ at the right edge of the dropdown itself rather than a
+  // wide 「メニュー削除」 button under it — it belongs to the menu on show.
+  if (editable) {
+    const del = document.createElement("button");
+    del.className = "preset-del";
+    del.dataset.presetDel = editable.id;
+    del.textContent = "✕";
+    del.title = `${editable.name} を削除`;
+    del.setAttribute("aria-label", `${editable.name} を削除`);
+    del.addEventListener("click", () => {
+      if (confirmDelete(editable.name)) deps.onDeletePreset(editable.id);
+    });
+    presetSelect.classList.add("has-del");
+    selectWrap.append(del);
   }
 
   const rows = document.createElement("div");
@@ -362,6 +371,14 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   updateTotal();
   totalRow.append(total);
 
+  // 稽古 開始 and the BGM switch travel together: the sticky row is the last
+  // thing anyone touches before practice, so BGM is decided there rather than
+  // up next to the drill total.
+  const startRow = document.createElement("div");
+  startRow.className = "start-row";
+  startRow.dataset.startRow = "";
+  startRow.append(start);
+
   if (deps.onToggleBgm) {
     const BGM_ON_LABEL = "🎵 BGM";
     const BGM_OFF_LABEL = "🔇 BGM";
@@ -372,7 +389,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     bgmBtn.textContent = deps.bgmMuted ? BGM_OFF_LABEL : BGM_ON_LABEL;
     bgmBtn.setAttribute("aria-label", "練習BGM on/off");
     bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
-    totalRow.append(bgmBtn);
+    startRow.append(bgmBtn);
   }
 
 
@@ -402,5 +419,5 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     }
     root.append(banner);
   }
-  root.append(start);
+  root.append(startRow);
 }

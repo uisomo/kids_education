@@ -7,6 +7,7 @@ import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
 import { BELTS } from "../belt-store";
+import { type Decor, DECORS, DECOR_META } from "../decor-store";
 import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
 
 export interface FamilyDeps {
@@ -44,6 +45,13 @@ export interface FamilyDeps {
   onSetShareAllowed?(memberId: string, allowed: boolean): void;
   kufuCount?: number;
   onClearAllKufu?(): void;
+  // どうがのかざり (household-wide): which decoration is burned into the saved
+  // video. Section hidden when either is absent. 「なし」 is paid-only, so on Free
+  // it is shown locked rather than hidden — that is where the upgrade is worth
+  // explaining.
+  decor?: Decor;
+  onSelectDecor?(decor: Decor): void;
+  canRemoveDecor?: boolean;
   // App Store subscriptions (iOS app). Present → the plan cards buy through
   // Apple instead of setting the plan, with restore / manage and the required
   // subscription terms. Absent (web, older callers) → cards call onSelectPlan.
@@ -262,6 +270,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const commentNodes = buildCommentSection(deps);
   const kufuNodes = buildKufuSection(deps);
   const shareNodes = buildShareSection(deps);
+  const decorNodes = buildDecorSection(deps);
 
   // 1) メンバーを管理する (everyone), 2) 設定したいメンバー and, framed together,
   // only that member's settings, 3) the household plan.
@@ -272,7 +281,52 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   const billingNodes = billing ? buildBillingFooter(billing) : [];
 
-  root.append(title, listTitle, list, addRow, memberHint, memberSettings, planTitle, planNote, planCards, ...billingNodes);
+  root.append(title, listTitle, list, addRow, memberHint, memberSettings,
+              ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+}
+
+/// 動画のかざり: one of Alan's three decorations, or 「なし」 on a paid plan.
+function buildDecorSection(deps: FamilyDeps): Node[] {
+  const { decor, onSelectDecor } = deps;
+  if (!decor || !onSelectDecor) return [];
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "どうがのかざり";
+
+  const note = document.createElement("p");
+  note.className = "family-plan-note";
+  note.textContent = "ほぞんする どうがに つくかざりです。";
+
+  const list = document.createElement("div");
+  list.className = "decor-options";
+  list.dataset.decorOptions = "";
+
+  for (const option of DECORS) {
+    const locked = option === "none" && !deps.canRemoveDecor;
+    const meta = DECOR_META[option];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "decor-option";
+    btn.dataset.decor = option;
+    if (option === decor) btn.classList.add("on");
+    if (locked) {
+      btn.classList.add("locked");
+      btn.disabled = true;
+    }
+
+    const name = document.createElement("span");
+    name.className = "decor-option-name";
+    name.textContent = locked ? `🔒 ${meta.label}` : meta.label;
+    const hint = document.createElement("span");
+    hint.className = "decor-option-hint";
+    hint.textContent = locked ? "プレミアムでえらべます" : meta.hint;
+    btn.append(name, hint);
+    btn.addEventListener("click", () => onSelectDecor(option));
+    list.append(btn);
+  }
+
+  return [sectionTitle, note, list];
 }
 
 function planFeatsText(limits: (typeof PLAN_LIMITS)[Plan]): string {

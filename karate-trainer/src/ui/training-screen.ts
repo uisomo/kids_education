@@ -1,6 +1,15 @@
 import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
 import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
+import type { Decor } from "../decor-store";
+
+// The かざり the saved video will carry, shown live at the same place so a
+// parent can see what it covers before the child is hidden behind it.
+const DECOR_SRC: Record<Exclude<Decor, "none">, string> = {
+  frame: "/images/decor-frame.png",
+  icon: "/images/decor-icon.png",
+  banner: "/images/decor-banner.png",
+};
 
 export interface TrainingView {
   videoEl: HTMLVideoElement;
@@ -21,7 +30,8 @@ export interface TrainingView {
 
 export function renderTrainingScreen(
   root: HTMLElement,
-  characterId: CharacterId = "alan"
+  characterId: CharacterId = "alan",
+  decor: Decor = "none"
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -142,7 +152,16 @@ export function renderTrainingScreen(
   controls.append(pauseBtn, skipBtn, stopBtn);
 
   // Assemble the screen
-  root.append(dojoBg, videoEl, topBar, companionOverlay, centerContent, cueEl, nextEl, captionEl, controls);
+  // Alan's かざり over the camera, exactly where the export burns it.
+  const decorEl = document.createElement("img");
+  decorEl.dataset.decorPreview = decor;
+  decorEl.className = `training-decor training-decor-${decor}`;
+  decorEl.alt = "";
+  decorEl.setAttribute("aria-hidden", "true");
+  if (decor !== "none") decorEl.src = DECOR_SRC[decor];
+
+  root.append(dojoBg, videoEl, topBar, companionOverlay, centerContent, cueEl, nextEl, captionEl,
+              ...(decor === "none" ? [] : [decorEl]), controls);
 
   // Setup state handlers
   let cueTimeout: ReturnType<typeof setTimeout> | null = null;

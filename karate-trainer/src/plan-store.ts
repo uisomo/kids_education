@@ -7,8 +7,8 @@
 //
 // Plans & limits:
 //   Free     ¥0                        kids 1  menus 1       工夫 1
-//   Premium  ¥980/月 or ¥9,800/年      kids 1  menus 5       工夫 3/種目, 150
-//   Family   ¥1,480/月 or ¥14,800/年   kids 5  menus 5/kid   工夫 3/種目, 150/kid
+//   Premium  ¥1,000/月 or ¥10,000/年   kids 1  menus 5       工夫 3/種目, 150
+//   Family   ¥1,500/月 or ¥15,000/年   kids 5  menus 5/kid   工夫 3/種目, 150/kid
 // Menus are household-shared, so the cap is presetsPerMember × usable kids.
 
 import { loadMembers } from "./member-store";
@@ -37,8 +37,8 @@ export interface PlanMeta {
 
 export const PLAN_META: Record<Plan, PlanMeta> = {
   free: { label: "フリー", monthly: "¥0", yearly: null },
-  premium: { label: "プレミアム", monthly: "¥980/月", yearly: "¥9,800/年" },
-  family: { label: "ファミリー", monthly: "¥1,480/月", yearly: "¥14,800/年" },
+  premium: { label: "プレミアム", monthly: "¥1,000/月", yearly: "¥10,000/年" },
+  family: { label: "ファミリー", monthly: "¥1,500/月", yearly: "¥15,000/年" },
 };
 
 const KEY = "karate.householdPlan";

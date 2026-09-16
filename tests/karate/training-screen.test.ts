@@ -56,3 +56,19 @@ it("does not show the アランのからて badge while practicing (it is only b
   renderTrainingScreen(root);
   expect(root.querySelector("[data-alan-badge]")).toBeNull();
 });
+
+it("shows the かざり over the camera, at the same place the export burns it", () => {
+  const root = document.createElement("div");
+  renderTrainingScreen(root, "alan", "icon");
+  const decor = root.querySelector<HTMLImageElement>("[data-decor-preview]")!;
+  expect(decor.dataset.decorPreview).toBe("icon");
+  expect(decor.className).toContain("training-decor-icon");
+  expect(decor.getAttribute("src")).toBe("/images/decor-icon.png");
+  expect(decor.getAttribute("aria-hidden")).toBe("true");
+});
+
+it("draws no かざり preview when the household turned it off", () => {
+  const root = document.createElement("div");
+  renderTrainingScreen(root, "alan", "none");
+  expect(root.querySelector("[data-decor-preview]")).toBeNull();
+});

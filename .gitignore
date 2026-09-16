@@ -15,3 +15,6 @@ karate-trainer/public/characters/*.wav
 
 # Local env (RevenueCat SDK keys)
 *.local
+
+# macOS folder metadata
+.DS_Store

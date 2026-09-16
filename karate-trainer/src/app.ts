@@ -26,6 +26,7 @@ import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
 import { type Member, getActiveId, loadMembers, addMember, removeMember, renameMember, setActive } from "./member-store";
 import { type Plan, type PlanLimits, PLAN_LIMITS, PLAN_META, loadPlan, setPlan } from "./plan-store";
+import { type Decor, canRemoveDecor, effectiveDecor, loadDecor, setDecor } from "./decor-store";
 import { type Billing, type BillingInfo, type ProductId, planOfProduct, renewalText } from "./billing";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
@@ -57,7 +58,7 @@ export interface VideoRecorderLike {
     totalDurationMs?: number,
     menu?: OverlayMenuItem[],
     sounds?: SoundEvent[],
-    labels?: { streakLabel?: string; beltLabel?: string },
+    labels?: { streakLabel?: string; beltLabel?: string; decor?: string },
   ): Promise<Blob>;
   fileExtension(): string;
   // Native only: bytes free on the phone, or null when unknown.
@@ -555,6 +556,9 @@ export class KarateApp {
       // LINE・SNS: which kids may send their videos out.
       shareAllowed: Object.fromEntries(members.map((m) => [m.id, getShareAllowed(scopedStorage(base, m.id))])),
       onSetShareAllowed: (memberId, allowed) => { setShareAllowed(allowed, scopedStorage(base, memberId)); this.showFamily(); },
+      decor: loadDecor(base),
+      canRemoveDecor: canRemoveDecor(loadPlan(base)),
+      onSelectDecor: (decor: Decor) => { setDecor(decor, base); this.showFamily(); },
       kufuCount: countKufu(this.mem()),
       onClearAllKufu: () => {
         const name = loadMembers(base).find((m) => m.id === getActiveId(base))?.name ?? "";
@@ -728,7 +732,8 @@ export class KarateApp {
     }
     this.videoRecorder = recorder;
 
-    const view = renderTrainingScreen(this.root, this.characterState.selectedId);
+    const view = renderTrainingScreen(this.root, this.characterState.selectedId,
+                                      effectiveDecor(loadPlan(this.base()), this.base()));
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -1001,6 +1006,8 @@ export class KarateApp {
       const labels = {
         ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
         ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
+        // Free always carries a decoration; 「なし」 needs a paid plan.
+        decor: effectiveDecor(loadPlan(this.base()), this.base()),
       };
       const blob = recorder ? await recorder.stop(events, recordedDurationMs, menu, sounds, labels) : new Blob();
       await this.deps.wakeGuard.release();

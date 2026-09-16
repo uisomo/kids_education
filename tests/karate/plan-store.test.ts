@@ -60,6 +60,6 @@ it("exposes the plan limits (free/premium/family)", () => {
 
 it("exposes monthly and yearly prices", () => {
   expect(PLAN_META.free).toMatchObject({ monthly: "¥0", yearly: null });
-  expect(PLAN_META.premium).toMatchObject({ monthly: "¥980/月", yearly: "¥9,800/年" });
-  expect(PLAN_META.family).toMatchObject({ monthly: "¥1,480/月", yearly: "¥14,800/年" });
+  expect(PLAN_META.premium).toMatchObject({ monthly: "¥1,000/月", yearly: "¥10,000/年" });
+  expect(PLAN_META.family).toMatchObject({ monthly: "¥1,500/月", yearly: "¥15,000/年" });
 });

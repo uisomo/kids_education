@@ -169,12 +169,12 @@ it("selecting a preset in the dropdown fires onLoadPreset and reveals its delete
   expect(onLoadPreset).toHaveBeenCalledWith("p2");
 });
 
-it("a new menu offers only 保存; a saved menu offers only 上書き保存 and メニュー削除", () => {
+it("a new menu offers only 作る; a saved menu offers 上書き保存 and an ✕", () => {
   const presets = [{ id: "p1", name: "基本稽古", menu: structuredClone(DEFAULT_MENU) }];
   const fresh = document.createElement("div");
   renderSetupScreen(fresh, deps({ presets, onOverwritePreset: vi.fn() }));
   expect(fresh.querySelector("[data-preset-select]")!.querySelector("option")!.textContent).toBe("＋ 新しいメニューを作る");
-  expect(fresh.querySelector("[data-preset-save]")!.textContent).toBe("保存");
+  expect(fresh.querySelector("[data-preset-save]")!.textContent).toBe("作る");
   expect(fresh.querySelector("[data-preset-overwrite]")).toBeNull();
   expect(fresh.querySelector("[data-preset-del]")).toBeNull();
 
@@ -182,7 +182,14 @@ it("a new menu offers only 保存; a saved menu offers only 上書き保存 and 
   renderSetupScreen(picked, deps({ presets, selectedPresetId: "p1", onOverwritePreset: vi.fn() }));
   expect(picked.querySelector("[data-preset-save]")).toBeNull();
   expect(picked.querySelector("[data-preset-overwrite]")!.textContent).toBe("上書き保存");
-  expect(picked.querySelector("[data-preset-del]")!.textContent).toBe("メニュー削除");
+  const del = picked.querySelector<HTMLButtonElement>("[data-preset-del]")!;
+  expect(del.textContent).toBe("✕");
+  expect(del.getAttribute("aria-label")).toBe("基本稽古 を削除");
+  // ✕ sits inside the dropdown's own pill 「強くなるため ✕」, not in a row of its own.
+  const wrap = picked.querySelector(".preset-select-wrap")!;
+  expect(wrap.lastElementChild).toBe(del);
+  expect(wrap.querySelector("[data-preset-select]")).not.toBeNull();
+  expect(picked.querySelector("[data-preset-select]")!.classList.contains("has-del")).toBe(true);
 });
 
 it("choosing ＋ 新しいメニューを作る fires onNewMenu", () => {
@@ -262,7 +269,10 @@ it("shows the 感想 comment banner right above the start button when provided",
   const banner = root.querySelector<HTMLElement>("[data-kansou-banner]");
   expect(banner).not.toBeNull();
   expect(banner!.textContent).toBe("✉️ いつも がんばってるね");   // a letter, no 💛
-  expect(banner!.nextElementSibling).toBe(root.querySelector("[data-start]"));
+  // 稽古 開始 now shares its sticky row with the BGM switch.
+  const startRow = root.querySelector("[data-start-row]")!;
+  expect(banner!.nextElementSibling).toBe(startRow);
+  expect(startRow.firstElementChild).toBe(root.querySelector("[data-start]"));
 });
 
 it("omits the 感想 banner when kansou is empty/absent", () => {
@@ -476,4 +486,21 @@ it("shows 🔥 N日継続中 at the top right when there is a streak, nothing at
   expect(root.querySelector(".toybox-header [data-streak]")!.textContent).toBe("🔥 3日継続中");
   renderSetupScreen(root, deps({ streakDays: 0 }));
   expect(root.querySelector("[data-streak]")).toBeNull();
+});
+
+it("keeps the BGM switch next to 稽古 開始, not up by the drill total", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ bgmMuted: false, onToggleBgm: vi.fn() }));
+  const row = root.querySelector("[data-start-row]")!;
+  const bgm = root.querySelector<HTMLButtonElement>("[data-bgm-toggle]")!;
+  expect(bgm.parentElement).toBe(row);
+  expect(row.firstElementChild).toBe(root.querySelector("[data-start]"));
+  expect(row.lastElementChild).toBe(bgm);
+  expect(root.querySelector(".total [data-bgm-toggle]")).toBeNull();
+});
+
+it("hides the BGM switch when no player is wired up", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps());
+  expect(root.querySelector("[data-bgm-toggle]")).toBeNull();
 });

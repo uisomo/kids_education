@@ -35,6 +35,8 @@ export interface KarateRecorderPluginLike {
     // 「🔥 N日間 毎日継続中」 (top-left) and 「🟢 緑帯」 (next to 特訓一覧).
     streakLabel?: string;
     beltLabel?: string;
+    // "frame" | "icon" | "banner" | "none" — Alan's decoration on the video.
+    decor?: string;
   }): Promise<NativeStopResult>;
   // Stops recording/preview/voice/music and deletes the session's temp files.
   // Optional so older native builds (and test fakes) without it still type.
@@ -215,7 +217,7 @@ export class NativeVideoRecorder {
     totalDurationMs = 0,
     menu: OverlayMenuItem[] = [],
     sounds: SoundEvent[] = [],
-    labels: { streakLabel?: string; beltLabel?: string } = {},
+    labels: { streakLabel?: string; beltLabel?: string; decor?: string } = {},
   ): Promise<Blob> {
     const plugin = this.getPlugin();
     this.removeInterruptListener();
