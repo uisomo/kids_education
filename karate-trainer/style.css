@@ -2747,6 +2747,23 @@ html.native-camera .screen.training video.mirror {
   display: none;
 }
 
+/* Parental gate. Full-screen before the 家族 tab: keep the note below the
+   status bar / Dynamic Island. The overlay variant below overrides the padding. */
+.screen.gate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  padding-top: calc(1.25rem + env(safe-area-inset-top));
+  min-height: 100dvh;
+  color: var(--ink);
+}
+
+.gate-note,
+.gate-question {
+  margin: 0;
+}
+
 /* Parental gate shown on top of the current screen (before sharing the video). */
 .gate-overlay {
   position: fixed;
