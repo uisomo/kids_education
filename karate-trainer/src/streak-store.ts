@@ -54,3 +54,15 @@ export function recordPracticeDay(storage: Storage = localStorage, now: Date = n
   }
   return days;
 }
+
+// test アプリ only (家族 → テスト用): set the streak to `days` ending today, or
+// clear it with 0.
+export function setStreakDays(days: number, storage: Storage = localStorage, now: Date = new Date()): void {
+  const n = Math.floor(days);
+  try {
+    if (!(n >= 1)) storage.removeItem(KEY);
+    else storage.setItem(KEY, JSON.stringify({ last: dayKey(now), days: n }));
+  } catch {
+    /* ignore storage errors */
+  }
+}

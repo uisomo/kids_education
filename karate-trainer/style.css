@@ -2792,3 +2792,58 @@ input[data-gate-input]:disabled,
   opacity: 0.5;
 }
 
+
+/* 🧪 テスト用 (test アプリ only): dashed so it never looks like a real setting. */
+.family-test-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border: 2px dashed #5eead4;
+  border-radius: 14px;
+  background: rgba(20, 184, 166, 0.12);
+}
+
+.family-test-title {
+  margin: 0;
+  color: #5eead4;
+}
+
+.family-test-menu {
+  margin-top: 0.3rem;
+}
+
+.family-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.family-test-number {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+}
+
+.family-test-button {
+  min-width: 0;
+}
+
+.family-test-drill {
+  flex-wrap: nowrap;
+}
+
+.family-test-drill-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
+  color: #fff;
+}
+
+.family-test-level {
+  flex: 0 0 6rem;
+  width: 6rem;
+}
