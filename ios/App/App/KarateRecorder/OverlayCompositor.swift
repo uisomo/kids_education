@@ -47,9 +47,9 @@ enum OverlayCompositor {
         var topInset: CGFloat = 0          // design px the top labels move down
         var sideInset: CGFloat = 24        // panel margin from each side
         var panelBottom: CGFloat = 1130    // design Y the bottom panels sit on
-        /// The 工夫 panel's own bottom edge: Alan's badge sits in the same
-        /// corner, so that one panel is lifted over him.
-        var kufuBottom: CGFloat? = nil
+        /// 工夫 as a full-width strip above 特訓一覧 (and Alan's badge), so the
+        /// list keeps its full width: beside it there's no room for names.
+        var kufuAboveAll = false
     }
 
     /// Alan's badge in the corner: size and bottom edge in design space.
@@ -140,6 +140,19 @@ enum OverlayCompositor {
     private static let boxTop = UIColor(red: 0x2a / 255, green: 0x20 / 255, blue: 0x4a / 255, alpha: 0.86)
     private static let boxBottom = UIColor(red: 0x0d / 255, green: 0x0a / 255, blue: 0x1e / 255, alpha: 0.70)
     private static let gold = UIColor(red: 1, green: 0xd1 / 255, blue: 0x66 / 255, alpha: 1)
+
+    /// The 特訓一覧 and 工夫 panels are see-through, so the child stays visible
+    /// behind them; a soft shadow under their text keeps it readable instead.
+    private static let panelFillTop = boxTop.withAlphaComponent(0.42)
+    private static let panelFillBottom = boxBottom.withAlphaComponent(0.30)
+
+    private static func textShadow(_ scale: CGFloat) -> NSShadow {
+        let shadow = NSShadow()
+        shadow.shadowColor = UIColor(white: 0, alpha: 0.85)
+        shadow.shadowOffset = CGSize(width: 0, height: 1.5 * scale)
+        shadow.shadowBlurRadius = 4 * scale
+        return shadow
+    }
 
     private static func style(for region: Region) -> Style {
         switch region {
@@ -428,27 +441,69 @@ enum OverlayCompositor {
         return byIndex
     }
 
-    /// The whole session's menu with each drill's length in seconds, so anyone
+    private static let maxMenuRows = 3
+
+    /// Design width of the 特訓一覧 panel. Rows with 強さ bars need more room,
+    /// or the large three-row font leaves 「正拳突き」 as 「正…」: measured with
+    /// the M PLUS Rounded font, 440 fits 「10. 上段揚げ受け」 with bars and
+    /// 「30秒」. Capped by `limit` so a 工夫 panel beside it keeps its minimum.
+    private static func menuPanelDesignWidth(_ menu: [MenuItem], limit: CGFloat) -> CGFloat {
+        menu.isEmpty ? 0 : min(limit, menu.contains { $0.level != nil } ? 440 : 360)
+    }
+
+    /// The narrowest a 工夫 panel beside 特訓一覧 may get.
+    private static let minKufuWidth: CGFloat = 180
+
+    /// The session's menu with each drill's length in seconds, so anyone
     /// watching the video can follow the practice. The running drill is
-    /// highlighted, finished ones are dimmed. Anchored bottom-left above the
-    /// 工夫 caption, over the body rather than the face.
+    /// highlighted, finished ones are dimmed. Three large rows show — the one
+    /// before, the running one and the next — and a longer menu scrolls. Anchored bottom-left above the 工夫
+    /// caption, over the body rather than the face.
     private static func menuPanelLayer(
         menu: [MenuItem], activeIndex: Int, renderSize: CGSize, beltLabel: String? = nil,
+        menuName: String? = nil, designPanelWidth: CGFloat = 360,
         bottomY: CGFloat = defaultPanelBottom, sideInset: CGFloat = 24
     ) -> CALayer {
         let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
         let pad = 14 * scale
-        let titleH = 40 * scale
-        // Long menus shrink their rows rather than running up over the face.
-        let rowH = min(34 * scale, 460 * scale / CGFloat(max(menu.count, 1)))
+        // Three large rows, so the list reads at a glance and never runs up
+        // over the face. The window keeps the row before the running one in
+        // view; past the end it rests on the last three.
+        let rowH = 46 * scale
+        let first = menu.count <= maxMenuRows
+            ? 0 : max(0, min(activeIndex - 1, menu.count - maxMenuRows))
+        let visible = Array(menu.enumerated().dropFirst(first).prefix(maxMenuRows))
+        let hiddenBelow = menu.count - first - visible.count
+        // Reserved on every panel of a long menu, so the panel keeps one height
+        // as it scrolls instead of jumping when 「あと N」 runs out.
+        let footerH: CGFloat = menu.count > maxMenuRows ? 26 * scale : 0
         // Rows with a 強さ level get 10 small bars, so the panel is a bit wider.
-        let showLevels = menu.contains { $0.level != nil }
-        let width = (showLevels ? 350 : 300) * scale
-        let height = ceil(pad + titleH + rowH * CGFloat(menu.count) + pad)
+        let width = designPanelWidth * scale
+
+        // 「強くなるため  ⚪ 白帯」: a saved menu's own name heads the list, an
+        // unsaved one keeps 「特訓一覧」. A long name wraps onto a second line
+        // (truncating after that), so the panel grows upward rather than wider.
+        let shadow = textShadow(scale)
+        let titleFont = playfulFont(28 * scale)
+        let name = menuName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let heading = name.isEmpty ? "特訓一覧" : name
+        let title = beltLabel.map { "\(heading)  \($0)" } ?? heading
+        let titleStyle = NSMutableParagraphStyle()
+        titleStyle.lineBreakMode = .byWordWrapping
+        let titleAttrs: [NSAttributedString.Key: Any] = [
+            .font: titleFont, .foregroundColor: gold, .paragraphStyle: titleStyle, .shadow: shadow,
+        ]
+        let titleW = width - pad * 2
+        let measuredH = NSAttributedString(string: title, attributes: titleAttrs).boundingRect(
+            with: CGSize(width: titleW, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil
+        ).height
+        let titleLines: CGFloat = measuredH > titleFont.lineHeight * 1.5 ? 2 : 1
+        let titleH = 40 * scale + (titleLines - 1) * titleFont.lineHeight
+        let height = ceil(pad + titleH + rowH * CGFloat(visible.count) + footerH + pad)
 
         let yellow = gold
-        let titleFont = playfulFont(26 * scale)
-        let rowFont = playfulFont(rowH * 0.66, heavy: false)
+        let rowFont = playfulFont(rowH * 0.62, heavy: false)
 
         let rightAligned = NSMutableParagraphStyle()
         rightAligned.alignment = .right
@@ -462,21 +517,20 @@ enum OverlayCompositor {
             size: CGSize(width: width, height: height), format: format
         ).image { ctx in
             drawBox(CGRect(x: 0, y: 0, width: width, height: height), radius: 18 * scale,
-                    top: boxTop, bottom: boxBottom,
+                    top: panelFillTop, bottom: panelFillBottom,
                     stroke: gold.withAlphaComponent(0.45), strokeWidth: max(1, 1.5 * scale),
                     in: ctx.cgContext)
 
-            // 「特訓一覧  🟢 緑帯」 — the belt of the saved menu being practiced.
-            let title = beltLabel.map { "特訓一覧  \($0)" } ?? "特訓一覧"
-            NSAttributedString(string: title, attributes: [
-                .font: titleFont, .foregroundColor: yellow, .paragraphStyle: truncating,
-            ]).draw(in: CGRect(x: pad, y: pad, width: width - pad * 2, height: titleH))
+            NSAttributedString(string: title, attributes: titleAttrs).draw(
+                with: CGRect(x: pad, y: pad, width: titleW, height: titleFont.lineHeight * titleLines),
+                options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], context: nil
+            )
 
-            for (i, item) in menu.enumerated() {
-                let rowY = pad + titleH + CGFloat(i) * rowH
+            for (slot, (i, item)) in visible.enumerated() {
+                let rowY = pad + titleH + CGFloat(slot) * rowH
                 let color: UIColor
                 if i == activeIndex {
-                    yellow.withAlphaComponent(0.22).setFill()
+                    yellow.withAlphaComponent(0.28).setFill()
                     UIBezierPath(
                         roundedRect: CGRect(x: pad * 0.5, y: rowY, width: width - pad, height: rowH),
                         cornerRadius: 8 * scale
@@ -490,7 +544,7 @@ enum OverlayCompositor {
 
                 let textY = rowY + (rowH - rowFont.lineHeight) / 2
                 let seconds = NSAttributedString(string: "\(item.seconds)秒", attributes: [
-                    .font: rowFont, .foregroundColor: color, .paragraphStyle: rightAligned,
+                    .font: rowFont, .foregroundColor: color, .paragraphStyle: rightAligned, .shadow: shadow,
                 ])
                 let secondsW = ceil(seconds.size().width)
                 seconds.draw(in: CGRect(x: pad, y: textY, width: width - pad * 2, height: rowFont.lineHeight))
@@ -501,7 +555,7 @@ enum OverlayCompositor {
                 if let level = item.level {
                     let done = activeIndex >= 0 && i < activeIndex
                     let lit = min(10, max(0, level) + (item.gained && done ? 1 : 0))
-                    let barW = 7 * scale, gap = 2 * scale, barH = rowH * 0.42
+                    let barW = 6 * scale, gap = 2 * scale, barH = rowH * 0.42
                     let barsW = barW * 10 + gap * 9
                     let x0 = width - pad - secondsW - pad * 0.6 - barsW
                     let y0 = rowY + (rowH - barH) / 2
@@ -515,11 +569,21 @@ enum OverlayCompositor {
                     levelW = barsW + pad * 0.6
                 }
 
-                let marker = i == activeIndex ? "▶ " : ""
-                NSAttributedString(string: "\(marker)\(i + 1). \(item.name)", attributes: [
-                    .font: rowFont, .foregroundColor: color, .paragraphStyle: truncating,
+                // No 「▶」 on the running row: the highlight already marks it, and
+                // the glyph cost the name its last characters.
+                NSAttributedString(string: "\(i + 1). \(item.name)", attributes: [
+                    .font: rowFont, .foregroundColor: color, .paragraphStyle: truncating, .shadow: shadow,
                 ]).draw(in: CGRect(x: pad, y: textY,
                                    width: width - pad * 3 - secondsW - levelW, height: rowFont.lineHeight))
+            }
+
+            if hiddenBelow > 0 {
+                let footerFont = playfulFont(21 * scale, heavy: false)
+                NSAttributedString(string: "▼ あと\(hiddenBelow)", attributes: [
+                    .font: footerFont, .foregroundColor: UIColor(white: 1, alpha: 0.75), .shadow: shadow,
+                ]).draw(at: CGPoint(x: pad * 1.5,
+                                    y: pad + titleH + rowH * CGFloat(visible.count)
+                                        + (footerH - footerFont.lineHeight) / 2))
             }
         }
 
@@ -540,33 +604,51 @@ enum OverlayCompositor {
     /// and grows upwards from the same bottom edge as the menu panel.
     private static func kufuPanelLayer(
         text: String, renderSize: CGSize, bottomY: CGFloat = defaultPanelBottom,
-        sideInset: CGFloat = 24
+        sideInset: CGFloat = 24, designPanelWidth: CGFloat = 300
     ) -> CALayer {
         let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
         let pad = 16 * scale
-        let width = 300 * scale
+        let width = designPanelWidth * scale
+        let shadow = textShadow(scale)
         let titleFont = playfulFont(24 * scale)
         let bodyFont = playfulFont(27 * scale, heavy: false)
 
+        // Word wrapping, truncated only on the last line that fits (see the
+        // draw options): .byTruncatingTail alone forced a single line, which
+        // cut a 工夫 to 「こうしたらいいん…」 in a panel with room for five.
         let wrapping = NSMutableParagraphStyle()
-        wrapping.lineBreakMode = .byTruncatingTail
+        wrapping.lineBreakMode = .byWordWrapping
         wrapping.lineSpacing = 3 * scale
         let title = NSAttributedString(string: "💡 工夫", attributes: [
-            .font: titleFont, .foregroundColor: gold,
+            .font: titleFont, .foregroundColor: gold, .shadow: shadow,
         ])
         let body = NSAttributedString(string: text, attributes: [
-            .font: bodyFont, .foregroundColor: UIColor.white, .paragraphStyle: wrapping,
+            .font: bodyFont, .foregroundColor: UIColor.white, .paragraphStyle: wrapping, .shadow: shadow,
         ])
 
-        // Five lines at most, so a long 工夫 can never run up over the face.
+        // A full-width strip puts 「💡 工夫」 and the text on one line to stay
+        // short (two lines at most); a side panel stacks them (five at most),
+        // so a long 工夫 can never run up over the face.
+        let inline = designPanelWidth >= 500
+        let content: NSAttributedString
+        if inline {
+            let line = NSMutableAttributedString(attributedString: title)
+            line.append(NSAttributedString(string: "  ", attributes: [.font: bodyFont]))
+            line.append(body)
+            line.addAttribute(.paragraphStyle, value: wrapping, range: NSRange(location: 0, length: line.length))
+            content = line
+        } else {
+            content = body
+        }
+        let maxLines: CGFloat = inline ? 2 : 5
         let textWidth = width - pad * 2
-        let maxBodyH = ceil(bodyFont.lineHeight * 5 + wrapping.lineSpacing * 4)
-        let bodyH = min(maxBodyH, ceil(body.boundingRect(
+        let maxBodyH = ceil(bodyFont.lineHeight * maxLines + wrapping.lineSpacing * (maxLines - 1))
+        let bodyH = min(maxBodyH, ceil(content.boundingRect(
             with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil
         ).height))
-        let titleH = ceil(titleFont.lineHeight)
-        let gap = 8 * scale
+        let titleH = inline ? 0 : ceil(titleFont.lineHeight)
+        let gap = inline ? 0 : 8 * scale
         let height = ceil(pad * 2 + titleH + gap + bodyH)
 
         let format = UIGraphicsImageRendererFormat()
@@ -576,12 +658,15 @@ enum OverlayCompositor {
             size: CGSize(width: width, height: height), format: format
         ).image { ctx in
             drawBox(CGRect(x: 0, y: 0, width: width, height: height), radius: 18 * scale,
-                    top: boxTop, bottom: boxBottom,
+                    top: panelFillTop, bottom: panelFillBottom,
                     stroke: gold.withAlphaComponent(0.45), strokeWidth: max(1, 1.5 * scale),
                     in: ctx.cgContext)
-            title.draw(in: CGRect(x: pad, y: pad, width: textWidth, height: titleH))
-            body.draw(with: CGRect(x: pad, y: pad + titleH + gap, width: textWidth, height: bodyH),
-                      options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+            if !inline {
+                title.draw(in: CGRect(x: pad, y: pad, width: textWidth, height: titleH))
+            }
+            content.draw(with: CGRect(x: pad, y: pad + titleH + gap, width: textWidth, height: bodyH),
+                         options: [.usesLineFragmentOrigin, .usesFontLeading, .truncatesLastVisibleLine],
+                         context: nil)
         }
 
         let right = sideInset * renderSize.width / designWidth
@@ -621,12 +706,17 @@ enum OverlayCompositor {
         case .frame:
             // Inside the drawn border: the title and Alan fill the top of the
             // frame, and the crayon edge runs down both sides and along the
-            // bottom, so every label and panel moves in past it.
-            return Layout(topInset: 190, sideInset: 70, panelBottom: 1175)
+            // bottom, so every label and panel moves in past it. That leaves
+            // too little width for 特訓一覧 and 工夫 side by side (names were cut
+            // to 「上段揚げ…」), so 工夫 goes above.
+            // The list sits low, reaching into the inside of the crayon band
+            // along the bottom (it starts near 1200): the panels are see-through.
+            return Layout(topInset: 190, sideInset: 70, panelBottom: 1220, kufuAboveAll: true)
         case .icon:
             // Bottom-right, out of the drill name's way — it is centred at the
             // top and a long name reaches well into the corner up there.
-            return Layout(kufuBottom: iconBottom - iconSide - 14)
+            // 特訓一覧 drops level with the badge; 工夫 spans the width above.
+            return Layout(panelBottom: iconBottom, kufuAboveAll: true)
         case .none:
             return Layout()
         }
@@ -703,8 +793,8 @@ enum OverlayCompositor {
     /// Builds the overlay layer tree for the whole session.
     static func overlayLayer(
         segments: [Segment], totalDurationMs: Double, renderSize: CGSize,
-        menu: [MenuItem] = [], beltLabel: String? = nil, streakLabel: String? = nil,
-        decor: Decor = .none
+        menu: [MenuItem] = [], beltLabel: String? = nil, menuName: String? = nil,
+        streakLabel: String? = nil, decor: Decor = .none
     ) -> CALayer {
         let container = CALayer()
         container.frame = CGRect(origin: .zero, size: renderSize)
@@ -720,13 +810,27 @@ enum OverlayCompositor {
             container.addSublayer(decorLayer(decor, image: art, renderSize: renderSize))
         }
 
+        // Design Y of the 特訓一覧 panel's top edge (every scroll position has
+        // the same height), for a 工夫 strip that has to clear it.
+        var menuTop: CGFloat?
+        // Beside a 工夫 panel the list leaves it room; under a full-width 工夫 strip
+        // it can take its full size.
+        let menuW = menuPanelDesignWidth(
+            menu, limit: box.kufuAboveAll
+                ? designWidth - box.sideInset * 2
+                : designWidth - box.sideInset * 2 - 16 - minKufuWidth)
         if !menu.isEmpty {
             for (index, spans) in menuWindows(in: segments) {
                 let panel = menuPanelLayer(menu: menu, activeIndex: index, renderSize: renderSize,
-                                           beltLabel: beltLabel, bottomY: box.panelBottom,
+                                           beltLabel: beltLabel, menuName: menuName,
+                                           designPanelWidth: menuW,
+                                           bottomY: box.panelBottom,
                                            sideInset: box.sideInset)
                 applyVisibility(to: panel, windows: spans, totalMs: totalDurationMs)
                 container.addSublayer(panel)
+                // Bottom-left origin: the panel's top edge is frame.maxY from the bottom.
+                let top = (renderSize.height - panel.frame.maxY) * designHeight / renderSize.height
+                menuTop = min(menuTop ?? top, top)
             }
         }
 
@@ -735,9 +839,32 @@ enum OverlayCompositor {
                 // 工夫 is a panel on the right, not a line of text in a pill.
                 let layer: CALayer
                 if region == .caption {
-                    layer = kufuPanelLayer(text: text, renderSize: renderSize,
-                                           bottomY: box.kufuBottom ?? box.panelBottom,
-                                           sideInset: box.sideInset)
+                    let kufuW: CGFloat, kufuBottom: CGFloat
+                    if box.kufuAboveAll {
+                        // Full width, clear of the list and of Alan's badge.
+                        kufuW = designWidth - box.sideInset * 2
+                        var clear = menuTop ?? box.panelBottom
+                        if decor == .icon { clear = min(clear, iconBottom - iconSide) }
+                        kufuBottom = clear - 14
+                    } else {
+                        // Beside 特訓一覧, never over it: the frame's wide margins
+                        // used to push the two fixed-width panels into each other.
+                        let beside = designWidth - box.sideInset * 2 - menuW - 16
+                        kufuW = min(300, max(minKufuWidth, beside))
+                        kufuBottom = box.panelBottom
+                    }
+                    layer = kufuPanelLayer(text: text, renderSize: renderSize, bottomY: kufuBottom,
+                                           sideInset: box.sideInset, designPanelWidth: kufuW)
+                    // Side by side, the two boxes share a top edge. Only while 工夫
+                    // is the shorter one: a taller box would drop onto the banner.
+                    if !box.kufuAboveAll, let menuTop {
+                        let topPx = menuTop * renderSize.height / designHeight
+                        let bottomPx = box.panelBottom * renderSize.height / designHeight
+                        if topPx + layer.frame.height <= bottomPx {
+                            // Bottom-left origin: y is the box's bottom edge from the bottom.
+                            layer.frame.origin.y = renderSize.height - topPx - layer.frame.height
+                        }
+                    }
                 } else {
                     var itemStyle = style(for: region, text: text)
                     // Only the labels hung from the top move for the frame; the
@@ -872,6 +999,7 @@ enum OverlayCompositor {
         voice: VoiceTrack? = nil,
         streakLabel: String? = nil,
         beltLabel: String? = nil,
+        menuName: String? = nil,
         decor: Decor = .none
     ) async throws -> ExportResult {
         let started = Date()
@@ -908,7 +1036,8 @@ enum OverlayCompositor {
         let segs = segments(from: events, totalDurationMs: totalDurationMs)
         parentLayer.addSublayer(
             overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size,
-                         menu: menu, beltLabel: beltLabel, streakLabel: streakLabel, decor: decor)
+                         menu: menu, beltLabel: beltLabel, menuName: menuName,
+                         streakLabel: streakLabel, decor: decor)
         )
         composition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer, in: parentLayer

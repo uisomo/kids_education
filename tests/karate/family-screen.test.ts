@@ -277,6 +277,9 @@ it("plan cards list menus and 工夫, per kid on Family", () => {
   expect(feats("premium")).toContain("工夫 150");
   expect(feats("family")).toContain("メニュー 5/人");
   expect(feats("family")).toContain("工夫 150/人");
+  expect(feats("free")).not.toContain("キャラなし動画");
+  expect(feats("premium")).toContain("キャラなし動画");
+  expect(feats("family")).toContain("キャラなし動画");
 });
 
 it("「工夫をぜんぶけす」 shows the count and asks the app to clear; disabled with none", () => {

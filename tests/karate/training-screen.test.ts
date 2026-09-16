@@ -73,18 +73,10 @@ it("draws no かざり preview when the household turned it off", () => {
   expect(root.querySelector("[data-decor-preview]")).toBeNull();
 });
 
-it("names the saved menu being practiced in the top bar", () => {
+it("keeps the menu name off the recording screen (it goes in the video's 特訓一覧)", () => {
   const root = document.createElement("div");
-  renderTrainingScreen(root, "alan", "none", "強くなるため");
-  const name = root.querySelector<HTMLElement>("[data-menu-name]")!;
-  expect(name.textContent).toBe("強くなるため");
-  expect(name.hidden).toBe(false);
-});
-
-it("hides the menu name for a menu that was never saved", () => {
-  const root = document.createElement("div");
-  renderTrainingScreen(root, "alan", "none", "");
-  expect(root.querySelector<HTMLElement>("[data-menu-name]")!.hidden).toBe(true);
+  renderTrainingScreen(root, "alan", "frame");
+  expect(root.querySelector("[data-menu-name]")).toBeNull();
 });
 
 it("labels the next drill and hides the pill when there is none", () => {

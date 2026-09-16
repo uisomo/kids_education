@@ -18,7 +18,7 @@ export interface TrainingView {
   // Returns the cheer clip that started playing, or null.
   showCue(text: string): CheerClip | null;
   setNext(text: string | null): void;
-  setCaption(text: string): void;   // 工夫 reminder at the bottom
+  setCaption(text: string): void;   // 工夫 reminder at the bottom (text only; the video labels it)
   setRecElapsed(text: string): void;
   setPaused(paused: boolean): void;
   setBgmMuted(muted: boolean): void;
@@ -31,8 +31,7 @@ export interface TrainingView {
 export function renderTrainingScreen(
   root: HTMLElement,
   characterId: CharacterId = "alan",
-  decor: Decor = "none",
-  menuName = ""
+  decor: Decor = "none"
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -57,15 +56,6 @@ export function renderTrainingScreen(
   recEl.className = "rec";
   recEl.textContent = "REC 00:00";
 
-  // Which saved menu is being practiced — the 特訓 tab's dropdown name, so a
-  // parent watching the screen knows what the child picked. Empty for a menu
-  // that was never saved.
-  const menuEl = document.createElement("div");
-  menuEl.dataset.menuName = "";
-  menuEl.className = "training-menu-name";
-  menuEl.textContent = menuName;
-  menuEl.hidden = !menuName;
-
   const progEl = document.createElement("div");
   progEl.dataset.prog = "";
   progEl.className = "prog";
@@ -79,10 +69,10 @@ export function renderTrainingScreen(
   bgmBtn.textContent = BGM_ON_LABEL;
   bgmBtn.setAttribute("aria-label", "練習BGM on/off");
 
-  topBar.append(recEl, menuEl, bgmBtn, progEl);
+  topBar.append(recEl, bgmBtn, progEl);
 
   // Companion cheer overlay: a transparent (green-screen removed) character
-  // video that pops up in a corner on each cue, then hides. A random
+  // video that pops up beside the countdown on each cue, then hides. A random
   // character cheers each time — no partner selection anymore.
   const companionOverlay = document.createElement("div");
   companionOverlay.className = "companion-training-overlay";
@@ -118,7 +108,13 @@ export function renderTrainingScreen(
   timerEl.className = "timer";
   timerEl.textContent = "0";
 
-  centerContent.append(drillEl, timerEl);
+  // The character pops up right beside the number, where the child is already
+  // looking; the row centres on the number alone.
+  const timerRow = document.createElement("div");
+  timerRow.className = "training-timer-row";
+  timerRow.append(timerEl, companionOverlay);
+
+  centerContent.append(drillEl, timerRow);
 
   // Cue toast
   const cueEl = document.createElement("div");
@@ -179,8 +175,26 @@ export function renderTrainingScreen(
   decorEl.setAttribute("aria-hidden", "true");
   if (decor !== "none") decorEl.src = DECOR_SRC[decor];
 
-  root.append(dojoBg, videoEl, topBar, companionOverlay, centerContent, cueEl, nextEl, captionEl,
+  // 工夫 on the left, Next on the right: one row, so they can never overlap.
+  const bottomRow = document.createElement("div");
+  bottomRow.className = "training-bottom-row";
+  bottomRow.append(captionEl, nextEl);
+
+  root.append(dojoBg, videoEl, topBar, centerContent, cueEl, bottomRow,
               ...(decor === "none" ? [] : [decorEl]), controls);
+
+  // One line when it can: step the font down a little before letting it wrap.
+  // The 1px slack keeps WebKit's sub-pixel rounding from shrinking text that fits.
+  const overflows = () => captionEl.scrollWidth > captionEl.clientWidth + 1;
+  const fitCaption = () => {
+    captionEl.style.fontSize = "";
+    captionEl.style.whiteSpace = "";
+    for (const rem of [0.92, 0.84, 0.76]) {
+      if (!overflows()) return;
+      captionEl.style.fontSize = `${rem}rem`;
+    }
+    if (overflows()) captionEl.style.whiteSpace = "normal";
+  };
 
   // Setup state handlers
   let cueTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -229,8 +243,11 @@ export function renderTrainingScreen(
       nextEl.hidden = !text;
     },
     setCaption(text: string) {
-      captionEl.textContent = text ? `工夫: ${text}` : "";
+      // No 「工夫:」 prefix on screen: the pill is narrow beside Next and the
+      // child knows what it is. The saved video still labels it 💡 工夫.
+      captionEl.textContent = text;
       captionEl.classList.toggle("show", !!text);
+      fitCaption();
     },
     setRecElapsed(text: string) {
       recEl.textContent = text;

@@ -58,7 +58,7 @@ export interface VideoRecorderLike {
     totalDurationMs?: number,
     menu?: OverlayMenuItem[],
     sounds?: SoundEvent[],
-    labels?: { streakLabel?: string; beltLabel?: string; decor?: string },
+    labels?: { streakLabel?: string; beltLabel?: string; menuName?: string; decor?: string },
   ): Promise<Blob>;
   fileExtension(): string;
   // Native only: bytes free on the phone, or null when unknown.
@@ -744,8 +744,7 @@ export class KarateApp {
     this.videoRecorder = recorder;
 
     const view = renderTrainingScreen(this.root, this.characterState.selectedId,
-                                      effectiveDecor(loadPlan(this.base()), this.base()),
-                                      this.linkedPreset()?.name ?? "");
+                                      effectiveDecor(loadPlan(this.base()), this.base()));
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -1020,6 +1019,8 @@ export class KarateApp {
       const labels = {
         ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
         ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
+        // The saved menu's name heads the video's 特訓一覧 panel.
+        ...(linked?.name.trim() ? { menuName: linked.name.trim() } : {}),
         // Free always carries a decoration; 「なし」 needs a paid plan.
         decor: effectiveDecor(loadPlan(this.base()), this.base()),
       };

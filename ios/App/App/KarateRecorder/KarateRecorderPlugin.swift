@@ -333,6 +333,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         let totalDurationMs = call.getDouble("totalDurationMs") ?? 0
         let streakLabel = call.getString("streakLabel")
         let beltLabel = call.getString("beltLabel")
+        let menuName = call.getString("menuName")
         // 家族タブで選んだ かざり. An unknown or missing value means none, so an
         // older web build simply gets an undecorated video.
         let decor = OverlayCompositor.Decor(rawValue: call.getString("decor") ?? "") ?? .none
@@ -449,7 +450,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     try await OverlayCompositor.burn(
                         sourceURL: raw, outputURL: burned, events: events, totalDurationMs: totalMs,
                         menu: menu, sounds: mixedSounds, voice: voiceTrack,
-                        streakLabel: streakLabel, beltLabel: beltLabel, decor: decor
+                        streakLabel: streakLabel, beltLabel: beltLabel, menuName: menuName, decor: decor
                     )
                 }
                 finalURL = burned

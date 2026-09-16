@@ -7,7 +7,7 @@ import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
 import { BELTS } from "../belt-store";
-import { type Decor, DECORS, DECOR_META } from "../decor-store";
+import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
 
 export interface FamilyDeps {
@@ -222,7 +222,6 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   if (billing) PLAN_ORDER.forEach((plan) => planCards.append(buildStoreCard(plan, deps.activePlan, billing)));
   else PLAN_ORDER.forEach((plan) => {
     const meta = PLAN_META[plan];
-    const limits = PLAN_LIMITS[plan];
     const isActive = plan === deps.activePlan;
 
     const card = document.createElement("button");
@@ -244,7 +243,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
     const feats = document.createElement("div");
     feats.className = "family-plan-feats";
-    feats.textContent = planFeatsText(limits);
+    feats.textContent = planFeatsText(plan);
 
     if (isActive) {
       const badge = document.createElement("div");
@@ -329,11 +328,15 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
   return [sectionTitle, note, list];
 }
 
-function planFeatsText(limits: (typeof PLAN_LIMITS)[Plan]): string {
+function planFeatsText(plan: Plan): string {
+  const limits = PLAN_LIMITS[plan];
   const perKid = limits.members > 1 ? "/人" : "";
   const kidsText = limits.members === 1 ? "1人" : `${limits.members}人まで`;
   const kufuText = limits.kufuPerDrill === 0 ? "工夫なし" : `工夫 ${limits.kufuTotal}${perKid}`;
-  return `${kidsText}\nメニュー ${limits.presetsPerMember}${perKid}\n${kufuText}`;
+  const lines = [kidsText, `メニュー ${limits.presetsPerMember}${perKid}`, kufuText];
+  // Same rule that unlocks かざり「なし」, so the card can't promise more than the picker allows.
+  if (canRemoveDecor(plan)) lines.push("キャラなし動画");
+  return lines.join("\n");
 }
 
 // App Store mode: a plan card with 月 / 年 buttons at the store's own prices.
@@ -356,7 +359,7 @@ function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTM
 
   const feats = document.createElement("div");
   feats.className = "family-plan-feats";
-  feats.textContent = planFeatsText(PLAN_LIMITS[plan]);
+  feats.textContent = planFeatsText(plan);
   card.append(name, feats);
 
   if (plan === "free") {

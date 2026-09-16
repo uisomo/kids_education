@@ -158,8 +158,8 @@ it("the video's 特訓一覧 gets each drill's level and the bar it earned", asy
   ]);
   // After the last drill every row is marked done, so earned bars show.
   expect(events.at(-1).patch).toEqual({ drillIndex: 3 });
-  // Today counts for the 🔥 streak; the saved menu's belt sits next to 特訓一覧.
-  expect(stop.mock.calls[0][4]).toEqual({ streakLabel: "🔥 1日間 毎日継続中", beltLabel: "⚪ 白帯", decor: "frame" });
+  // Today counts for the 🔥 streak; the saved menu's name and belt head the video's list.
+  expect(stop.mock.calls[0][4]).toEqual({ streakLabel: "🔥 1日間 毎日継続中", beltLabel: "⚪ 白帯", menuName: "基本", decor: "frame" });
 });
 
 it("the row toggle turns a drill into a 休憩 and back", () => {
@@ -190,7 +190,7 @@ it("the row toggle turns a drill into a 休憩 and back", () => {
 
 it("skipping every drill doesn't count toward the 🔥 streak", async () => {
   const { stop } = await run(two, (_loop, skip) => { skip(); skip(); });
-  expect(stop.mock.calls[0][4]).toEqual({ beltLabel: "⚪ 白帯", decor: "frame" });
+  expect(stop.mock.calls[0][4]).toEqual({ beltLabel: "⚪ 白帯", menuName: "基本", decor: "frame" });
 });
 
 it("the 種目 counter ignores 休憩: 「1 / 2 種目」 for drill・休憩・drill", async () => {

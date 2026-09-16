@@ -385,7 +385,7 @@ describe("NativeVideoRecorder with a real Capacitor-style plugin proxy", () => {
     const rec = makeRecorder(plugin);
     await rec.startCamera();
     await rec.startRecording();
-    await rec.stop([], 1000, [], [], { streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯" });
-    expect(got()).toMatchObject({ streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯" });
+    await rec.stop([], 1000, [], [], { streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯", menuName: "強くなるため" });
+    expect(got()).toMatchObject({ streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯", menuName: "強くなるため" });
   });
 });
