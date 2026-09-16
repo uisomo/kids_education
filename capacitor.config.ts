@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.ushimaru.karatetrainer",
+  appId: "com.alan.karate",
   appName: "アランの空手",
   webDir: "karate-trainer/dist",
   // No server.iosScheme: WKWebView can't serve "https" from the app, so

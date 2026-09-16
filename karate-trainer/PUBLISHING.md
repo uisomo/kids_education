@@ -1,4 +1,4 @@
-# 空手稽古 (Karate Trainer) — iOS App Store Publishing Guide
+# アランの空手 (Alan's Karate) — iOS App Store Publishing Guide
 
 The product is a **web app** (`karate-trainer/`, Vite + TypeScript) wrapped for
 iOS with **Capacitor**. It is already live on the web at
@@ -20,8 +20,8 @@ getUserMedia + MediaRecorder + ffmpeg.wasm path is not used on device. See
 
 | Field | Value |
 |---|---|
-| App name | 空手稽古 |
-| Bundle ID (`appId`) | `com.ushimaru.karatetrainer` |
+| App name | アランの空手 |
+| Bundle ID (`appId`) | `com.alan.karate` |
 | Web build dir (`webDir`) | `karate-trainer/dist` (config lives at the repo root) |
 | iOS scheme | `https` (required: getUserMedia / MediaRecorder / IndexedDB need a secure context) |
 
@@ -39,7 +39,7 @@ getUserMedia + MediaRecorder + ffmpeg.wasm path is not used on device. See
 4. **Apple Developer Program** membership ($99/yr) — https://developer.apple.com/programs/
    Needed for code signing and App Store submission.
 5. An **App Store Connect** app record (create at https://appstoreconnect.apple.com
-   → Apps → +). Use bundle ID `com.ushimaru.karatetrainer`.
+   → Apps → +). Use bundle ID `com.alan.karate`.
 
 ---
 
