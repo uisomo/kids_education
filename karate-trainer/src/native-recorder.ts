@@ -220,10 +220,28 @@ export class NativeVideoRecorder {
     const plugin = this.getPlugin();
     this.removeInterruptListener();
     try {
+      // Paired with the native "sounds: N received" line: together they show
+      // whether the countdown clips were logged at all and whether they survived
+      // the bridge.
+      const clipCount = sounds.filter((s) => s.kind === "clip").length;
+      console.warn(`[KarateRecorder] sending ${sounds.length} sounds (${clipCount} clips) to stopRecording`);
       const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds, ...labels });
       this.lastUri = result.uri;
       this.burnedIn = result.burnedIn;
       this.lastBurnError = result.burnError ?? null;
+      // The native side reports a failed sound mix, but nothing used to read it:
+      // when the full mix throws it silently falls back to voice-only, so the
+      // countdown 「ぷっ」, the cheers and the BGM all vanish from the saved video
+      // while the overlay still burns in perfectly. Surface it — the message
+      // names the exact step that failed (see SoundMixer.StepError).
+      if (result.mixError) {
+        console.warn(`[KarateRecorder] sound mix fell back: ${result.mixError}`);
+      } else if (sounds.length > 0 && result.soundMixed === false) {
+        console.warn(`[KarateRecorder] ${sounds.length} sounds logged but none were mixed in`);
+      }
+      if (result.interruption) {
+        console.warn(`[KarateRecorder] recording was interrupted: ${result.interruption}`);
+      }
       const toWebPath = this.deps.toWebPath ?? defaultToWebPath;
       this.lastPlaybackUrl = toWebPath(result.uri);
       return new Blob([], { type: this.fileExtension() === "mov" ? "video/quicktime" : "video/mp4" });

@@ -498,6 +498,15 @@ button {
   padding: 0.4rem 0.85rem;
   cursor: pointer;
 }
+
+/* 強さ screen only. There the same pill is a direct child of a COLUMN flex
+   container, so `flex: 1 1 auto` above made it swallow all the leftover
+   vertical space — the fewer drills the menu had, the taller the dropdown
+   grew. Must come AFTER .preset-select (equal specificity would lose on
+   source order), and the extra class keeps it winning if either moves. */
+.screen.strength .strength-menu-select {
+  flex: 0 0 auto;
+}
 /* 保存 / 上書き保存 / メニュー削除: the same yellow pill, same font. */
 .preset-del {
   flex: 0 0 auto;
@@ -561,10 +570,11 @@ button {
   display: flex;
   gap: 0.3rem;
   align-items: center;
-  /* Back layer of each training card — meadow shows through, but opaque enough
-     that the light text stays readable over the bright sky. The input boxes
-     (.drill-name / .drill-secs) stay fully opaque. */
-  background: rgba(45, 38, 74, 0.72);
+  /* Back layer of each training card. At 0.72 the meadow (and the fox) read
+     straight through the list, which is what made the menu hard to scan; now
+     the card is near-solid and the art stays a border, not a texture behind
+     the text. The input boxes (.drill-name / .drill-secs) are fully opaque. */
+  background: rgba(45, 38, 74, 0.92);
   border: 2px solid var(--panel-line);
   border-radius: 16px;
   padding: 0.4rem;
@@ -575,8 +585,13 @@ button {
   overflow: hidden;
 }
 
+/* A 休憩 reads as a different KIND of row, not a faded one: dimming the whole
+   card (opacity) also dimmed its name and seconds, which is what made the list
+   hard to read over the meadow. Tint the card instead and keep the text full
+   strength. */
 .row.rest {
-  opacity: 0.75;
+  background: rgba(30, 58, 92, 0.92);
+  border-color: rgba(125, 211, 252, 0.55);
 }
 
 .drill-name,
@@ -659,8 +674,11 @@ button {
   width: 34px;
   height: 34px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.07);
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  /* Was the button default (black) on a translucent box: invisible wherever the
+     bright meadow showed through. */
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.4);
   border-radius: 9px;
   cursor: pointer;
   font-size: 1rem;
@@ -725,6 +743,30 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Touch targets. The glyph buttons stay 34px so ≡ 🥋 💡 ✕ plus the name and
+   seconds all fit a 375px row, but each gets an invisible 44px hit area (the
+   iOS HIG minimum) centred on it — small fingers kept missing the boxes and
+   hitting the name input instead. */
+.row-drag,
+.row-kind,
+.row-kufu,
+.row-del {
+  position: relative;
+}
+
+.row-drag::after,
+.row-kind::after,
+.row-kufu::after,
+.row-del::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
 .add {
@@ -812,6 +854,16 @@ button {
 .btn-start:active {
   transform: translateY(4px);
   box-shadow: 0 2px 0 #d63031, 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* 稽古 開始 stays on screen. With 9 rows the button sat ~280px below the fold,
+   so the one thing the child came to do was invisible until they scrolled past
+   the whole menu editor. Sticky keeps it above the tab bar the whole way down
+   and it still settles in place at the end of the list. */
+.screen.setup .btn-start {
+  position: sticky;
+  bottom: calc(0.75rem + 4.5rem + env(safe-area-inset-bottom));
+  z-index: 6;
 }
 
 /* Empty menu: nothing to practice yet. */

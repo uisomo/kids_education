@@ -356,6 +356,11 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 return nil
             }
         }
+        // Which sounds actually crossed the bridge: a clip dropped here (or never
+        // sent) looks exactly like a successful mix from the JS side.
+        let rawSoundCount = (call.getArray("sounds", JSObject.self) ?? []).count
+        let clipCount = sounds.filter { if case .clip = $0 { return true } else { return false } }.count
+        print("⚡️  [KarateRecorder] sounds: \(rawSoundCount) received -> \(sounds.count) parsed, \(clipCount) of them clips")
 
         let rawEventList: [OverlayCompositor.Event] = rawEvents.compactMap { entry in
             guard let t = entry["t"] as? NSNumber else { return nil }
@@ -408,9 +413,23 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             // added back at a fixed level (and with no voice at all, the music
             // is still better than a silent video). Character voices stay out of
             // the saved video: in the recording they talked over the child.
-            let music = (voice == nil || voice?.voiceProcessing == true)
-                ? sounds.filter { if case .music = $0 { return true } else { return false } }
-                    .map { Self.shifted($0, byMs: shiftMs) }
+            // What gets mixed back into the saved video. Voice processing strips
+            // whatever the speaker played out of the voice track, so it has to be
+            // added back; without processing the mic already caught it, and adding
+            // it again would double it.
+            //
+            // This kept ONLY .music, which silently threw away the countdown
+            // 「ぷっ」「ぷーん」 as well — those are .clip sounds, the same kind as the
+            // cheers. Keep the countdown effects (/sounds/…) and still leave the
+            // character cheer voices (/characters/…) out: in the recording they
+            // talked over the child.
+            let mixedSounds = (voice == nil || voice?.voiceProcessing == true)
+                ? sounds.filter { sound in
+                    switch sound {
+                    case .music: return true
+                    case let .clip(_, src): return src.hasPrefix("/sounds/")
+                    }
+                }.map { Self.shifted($0, byMs: shiftMs) }
                 : []
             let voiceTrack = voice.map { OverlayCompositor.VoiceTrack(url: $0.url, leadSeconds: lead) }
 
@@ -426,7 +445,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 let result = try await self.exportRetryingInForeground("KarateRecorderBurn") {
                     try await OverlayCompositor.burn(
                         sourceURL: raw, outputURL: burned, events: events, totalDurationMs: totalMs,
-                        menu: menu, sounds: music, voice: voiceTrack,
+                        menu: menu, sounds: mixedSounds, voice: voiceTrack,
                         badgeURL: OverlayCompositor.bundledURL(forWebPath: "/characters/alan-badge.mov"),
                         streakLabel: streakLabel, beltLabel: beltLabel
                     )
@@ -438,11 +457,11 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 burnError = error.localizedDescription
                 print("⚡️  [KarateRecorder] burn-in failed: \(error.localizedDescription)")
-                if voiceTrack != nil || !music.isEmpty {
+                if voiceTrack != nil || !mixedSounds.isEmpty {
                     let mixed = fm.temporaryDirectory.appendingPathComponent("karate-mix-\(UUID().uuidString).mp4")
                     do {
                         let result = try await self.exportRetryingInForeground("KarateRecorderMix") {
-                            try await OverlayCompositor.mixOnly(sourceURL: raw, outputURL: mixed, sounds: music, voice: voiceTrack)
+                            try await OverlayCompositor.mixOnly(sourceURL: raw, outputURL: mixed, sounds: mixedSounds, voice: voiceTrack)
                         }
                         finalURL = mixed
                         exportMode = "mixed"

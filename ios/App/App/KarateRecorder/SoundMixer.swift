@@ -155,12 +155,27 @@ enum SoundMixer {
         // the previous ends goes onto another track instead of cutting it off.
         var clipTracks: [(track: AVMutableCompositionTrack, endsAt: Double)] = []
         for sound in sounds {
-            guard case let .clip(ms, src) = sound, let url = resolve(src) else { continue }
+            guard case let .clip(ms, src) = sound else { continue }
+            // A clip that cannot be resolved used to be skipped in silence: the
+            // mix still reported success (the music track carried it), so a
+            // missing 「ぷっ」 left no trace anywhere. Say so.
+            guard let url = resolve(src) else {
+                print("⚡️  [SoundMixer] clip SKIPPED — resolve() found no file for \(src)")
+                continue
+            }
             let start = ms / 1000
             let clipAsset = AVURLAsset(url: url)
-            guard start < end,
-                  let clipAudio = try await step("load clip \(src)", { try await clipAsset.loadTracks(withMediaType: .audio).first })
-            else { continue }
+            // These two used to be one guard with a silent `continue`: every
+            // countdown 「ぷっ」 vanished here without a single log line while the
+            // mix still reported success. Split so the cause is always named.
+            guard start < end else {
+                print(String(format: "⚡️  [SoundMixer] clip SKIPPED %@ — starts at %.2fs, past the %.2fs of video", src, start, end))
+                continue
+            }
+            guard let clipAudio = try await step("load clip \(src)", { try await clipAsset.loadTracks(withMediaType: .audio).first }) else {
+                print("⚡️  [SoundMixer] clip SKIPPED \(src) — no audio track in \(url.path)")
+                continue
+            }
             let clipDuration = try await step("load clip length \(src)") { try await clipAudio.load(.timeRange).duration.seconds }
             let length = min(clipDuration, end - start)
 
@@ -182,6 +197,7 @@ enum SoundMixer {
                 try target.insertTimeRange(CMTimeRange(start: .zero, duration: at(length)), of: clipAudio, at: at(start))
             }
             clipTracks[i].endsAt = start + length
+            print(String(format: "⚡️  [SoundMixer] clip inserted %@ at %.2fs (%.2fs long)", src, start, length))
         }
 
         let mix = AVMutableAudioMix()
