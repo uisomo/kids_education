@@ -192,3 +192,21 @@ it("skipping every drill doesn't count toward the 🔥 streak", async () => {
   const { stop } = await run(two, (_loop, skip) => { skip(); skip(); });
   expect(stop.mock.calls[0][4]).toEqual({ beltLabel: "⚪ 白帯", decor: "frame" });
 });
+
+it("the 種目 counter ignores 休憩: 「1 / 2 種目」 for drill・休憩・drill", async () => {
+  const menu: Menu = [
+    { id: "a", name: "正拳突き", seconds: 1, kind: "drill" },
+    { id: "b", name: "休憩", seconds: 1, kind: "rest" },
+    { id: "c", name: "前蹴り", seconds: 1, kind: "drill" },
+  ];
+  const seen: string[] = [];
+  // The counter is read while the session runs, so it comes from the document
+  // rather than the helper's return value (which lands only at the end).
+  const counter = () => document.querySelector("[data-prog]")!.textContent!;
+  await run(menu, (loop) => {
+    loop(0); seen.push(counter());          // 正拳突き
+    loop(1100); seen.push(counter());       // 休憩 — the number holds
+    loop(1100); seen.push(counter());       // 前蹴り
+  }, {});
+  expect(seen).toEqual(["1 / 2 種目", "1 / 2 種目", "2 / 2 種目"]);
+});

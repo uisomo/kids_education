@@ -999,6 +999,24 @@ button {
   z-index: 1;
 }
 
+/* The saved menu's name, next to REC while recording. Truncates rather than
+   pushing the progress counter off the bar. */
+.training-menu-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: var(--tatami);
+  background: var(--overlay-box);
+  border: 1px solid var(--overlay-edge);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  margin: 0 0.4rem;
+}
+
 .training-top-bar {
   position: absolute;
   top: 0;
@@ -1175,19 +1193,36 @@ button {
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* 「Next / 前蹴り」 bottom-right: the name on its own was just a word floating
+   over the camera, so it sits under a small label. */
 [data-next] {
   position: absolute;
   bottom: calc(100px + env(safe-area-inset-bottom));
   right: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
   color: #fff;
-  font-size: 0.95rem;
-  font-weight: 800;
   background: var(--overlay-box);
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
+  padding: 0.3rem 0.9rem 0.4rem;
+  border-radius: 18px;
   border: 1px solid var(--overlay-edge);
   box-shadow: var(--overlay-shadow);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.next-hint-label {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: var(--tatami);
+  text-shadow: none;
+}
+
+.next-hint-name {
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 /* かざりのプレビュー: the same decoration the export burns in, over the camera
@@ -1656,6 +1691,15 @@ input[data-label] {
 /* ---------------------------------------------------------
    工夫 (kufu) — done-screen inputs + training-screen caption
 --------------------------------------------------------- */
+/* 「自分で見返してみよう」 — the line that introduces the video. */
+.done-watch-hint {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--tatami);
+  text-align: center;
+  margin-bottom: 0.4rem;
+}
+
 .kufu-section {
   display: flex;
   flex-direction: column;

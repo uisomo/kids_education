@@ -243,6 +243,17 @@ export class KarateApp {
   // The saved menu the active member practices: the dropdown shows it and its
   // 帯 / 強さ fill. Remembered per member; null when none is picked (or the
   // plan locked it).
+  // How many real 種目 the menu has, and which one we are on. During a 休憩 the
+  // number stays on the drills finished so far rather than jumping.
+  private drillTotal(): number {
+    return this.menu.filter((d) => d.kind !== "rest").length;
+  }
+
+  private drillNumberAt(index: number): number {
+    const done = this.menu.slice(0, index).filter((d) => d.kind !== "rest").length;
+    return this.menu[index]?.kind === "rest" ? done : done + 1;
+  }
+
   private linkedPreset(): Preset | null {
     const id = getSelectedPreset(this.mem());
     return id ? this.usablePresets().find((p) => p.id === id) ?? null : null;
@@ -733,7 +744,8 @@ export class KarateApp {
     this.videoRecorder = recorder;
 
     const view = renderTrainingScreen(this.root, this.characterState.selectedId,
-                                      effectiveDecor(loadPlan(this.base()), this.base()));
+                                      effectiveDecor(loadPlan(this.base()), this.base()),
+                                      this.linkedPreset()?.name ?? "");
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -823,9 +835,11 @@ export class KarateApp {
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
 
     const handlers: SchedulerHandlers = {
-      onDrillStart: (drill: Drill, index: number, total: number) => {
+      onDrillStart: (drill: Drill, index: number) => {
         this.currentRow = index;
-        view.setDrill(drill, index + 1, total);
+        // 「2 / 5 種目」 counts real drills only — 休憩 is a break, not a 種目,
+        // and counting it made a menu look twice as long as it practises.
+        view.setDrill(drill, this.drillNumberAt(index), this.drillTotal());
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
         view.setCaption(caption);

@@ -31,7 +31,8 @@ export interface TrainingView {
 export function renderTrainingScreen(
   root: HTMLElement,
   characterId: CharacterId = "alan",
-  decor: Decor = "none"
+  decor: Decor = "none",
+  menuName = ""
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -56,6 +57,15 @@ export function renderTrainingScreen(
   recEl.className = "rec";
   recEl.textContent = "REC 00:00";
 
+  // Which saved menu is being practiced — the 特訓 tab's dropdown name, so a
+  // parent watching the screen knows what the child picked. Empty for a menu
+  // that was never saved.
+  const menuEl = document.createElement("div");
+  menuEl.dataset.menuName = "";
+  menuEl.className = "training-menu-name";
+  menuEl.textContent = menuName;
+  menuEl.hidden = !menuName;
+
   const progEl = document.createElement("div");
   progEl.dataset.prog = "";
   progEl.className = "prog";
@@ -69,7 +79,7 @@ export function renderTrainingScreen(
   bgmBtn.textContent = BGM_ON_LABEL;
   bgmBtn.setAttribute("aria-label", "練習BGM on/off");
 
-  topBar.append(recEl, bgmBtn, progEl);
+  topBar.append(recEl, menuEl, bgmBtn, progEl);
 
   // Companion cheer overlay: a transparent (green-screen removed) character
   // video that pops up in a corner on each cue, then hides. A random
@@ -117,10 +127,19 @@ export function renderTrainingScreen(
   cueEl.textContent = "";
 
   // Next hint
+  // 「Next / 前蹴り」: the name alone read as a stray word on the screen, so it
+  // carries its own label.
   const nextEl = document.createElement("div");
   nextEl.dataset.next = "";
   nextEl.className = "next-hint";
-  nextEl.textContent = "";
+  const nextLabel = document.createElement("span");
+  nextLabel.className = "next-hint-label";
+  nextLabel.textContent = "Next";
+  const nextName = document.createElement("span");
+  nextName.dataset.nextName = "";
+  nextName.className = "next-hint-name";
+  nextEl.append(nextLabel, nextName);
+  nextEl.hidden = true;
 
   // 工夫 reminder (bottom) — the child's saved note for this drill.
   const captionEl = document.createElement("div");
@@ -170,7 +189,8 @@ export function renderTrainingScreen(
     videoEl,
     setDrill(drill: Drill, index: number, total: number) {
       drillEl.textContent = drill.name;
-      progEl.textContent = `${index} / ${total} 種目`;
+      // 休憩 is not a 種目, so a menu of nothing but rests has no count to show.
+      progEl.textContent = total > 0 ? `${index} / ${total} 種目` : "";
     },
     setTime(secondsLeft: number) {
       timerEl.textContent = String(secondsLeft);
@@ -205,11 +225,8 @@ export function renderTrainingScreen(
       return clip;
     },
     setNext(text: string | null) {
-      if (text === null) {
-        nextEl.textContent = "";
-      } else {
-        nextEl.textContent = text;
-      }
+      nextName.textContent = text ?? "";
+      nextEl.hidden = !text;
     },
     setCaption(text: string) {
       captionEl.textContent = text ? `工夫: ${text}` : "";

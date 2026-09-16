@@ -156,7 +156,9 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     el.querySelector(".k")!.textContent = k;
     return el;
   };
-  stats.append(stat(deps.stats.time, "時間"), stat(deps.stats.drills, "種目"), stat(deps.stats.cues, "掛け声"));
+  // 掛け声 was a count of the app's own cheers — nothing the child did, so it
+  // told them nothing about their practice.
+  stats.append(stat(deps.stats.time, "時間"), stat(deps.stats.drills, "種目"));
 
   // 工夫 section: one row per practiced drill showing its newest 工夫, and a 💡
   // button opening the card to add or erase (child writes it, no gate).
@@ -167,7 +169,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     kufuSection.dataset.kufuSection = "";
     const kufuTitle = document.createElement("div");
     kufuTitle.className = "kufu-title";
-    kufuTitle.textContent = `つぎの工夫（${KUFU_MAX_LEN}文字まで）`;
+    kufuTitle.textContent = "今後やるときの工夫を書いておこう！";
     kufuSection.append(kufuTitle);
 
     deps.kufuDrills.forEach((d) => {
@@ -243,7 +245,14 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     sendNode.textContent = "LINE・SNSで送るのは、おうちの人にそうだんしてね。";
   }
 
-  root.append(celebCard, video, stats, kufuSection, dl, again, sendNode);
+  // Right above the video: what to do with it. Without a prompt the video just
+  // sat there and the 工夫 box below it got filled in from memory instead.
+  const watchHint = document.createElement("div");
+  watchHint.className = "done-watch-hint";
+  watchHint.dataset.watchHint = "";
+  watchHint.textContent = "自分で見返してみよう";
+
+  root.append(celebCard, watchHint, video, stats, kufuSection, dl, again, sendNode);
   if (showBurninStatus) root.insertBefore(burninStatus, dl);
 
   // Collapsed debug panel: readable directly on the phone, no devtools

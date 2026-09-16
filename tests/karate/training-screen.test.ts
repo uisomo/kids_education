@@ -72,3 +72,37 @@ it("draws no かざり preview when the household turned it off", () => {
   renderTrainingScreen(root, "alan", "none");
   expect(root.querySelector("[data-decor-preview]")).toBeNull();
 });
+
+it("names the saved menu being practiced in the top bar", () => {
+  const root = document.createElement("div");
+  renderTrainingScreen(root, "alan", "none", "強くなるため");
+  const name = root.querySelector<HTMLElement>("[data-menu-name]")!;
+  expect(name.textContent).toBe("強くなるため");
+  expect(name.hidden).toBe(false);
+});
+
+it("hides the menu name for a menu that was never saved", () => {
+  const root = document.createElement("div");
+  renderTrainingScreen(root, "alan", "none", "");
+  expect(root.querySelector<HTMLElement>("[data-menu-name]")!.hidden).toBe(true);
+});
+
+it("labels the next drill and hides the pill when there is none", () => {
+  const root = document.createElement("div");
+  const view = renderTrainingScreen(root);
+  const next = root.querySelector<HTMLElement>("[data-next]")!;
+  expect(next.hidden).toBe(true);
+  view.setNext("前蹴り");
+  expect(next.hidden).toBe(false);
+  expect(next.textContent).toBe("Next前蹴り");
+  expect(root.querySelector("[data-next-name]")!.textContent).toBe("前蹴り");
+  view.setNext(null);
+  expect(next.hidden).toBe(true);
+});
+
+it("shows no 種目 counter for a menu with nothing but 休憩", () => {
+  const root = document.createElement("div");
+  const view = renderTrainingScreen(root);
+  view.setDrill({ id: "r", name: "休憩", seconds: 30, kind: "rest" }, 0, 0);
+  expect(root.querySelector("[data-prog]")!.textContent).toBe("");
+});

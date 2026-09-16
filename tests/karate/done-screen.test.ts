@@ -288,3 +288,17 @@ it("a kid who isn't allowed sees no send button, just a note to ask", () => {
   expect(root.querySelector("[data-share]")).toBeNull();
   expect(root.querySelector("[data-share-note]")!.textContent).toBe("LINE・SNSで送るのは、おうちの人にそうだんしてね。");
 });
+
+it("introduces the video and drops the 掛け声 tally", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, {
+    videoUrl: "blob:v", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+  });
+  const hint = root.querySelector("[data-watch-hint]")!;
+  expect(hint.textContent).toBe("自分で見返してみよう");
+  expect(hint.nextElementSibling!.tagName).toBe("VIDEO");
+  const keys = [...root.querySelectorAll(".stat .k")].map((el) => el.textContent);
+  expect(keys).toEqual(["時間", "種目"]);
+});
