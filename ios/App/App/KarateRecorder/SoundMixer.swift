@@ -31,9 +31,10 @@ enum SoundMixer {
         }
     }
 
-    /// Levels relative to the voice (1.0). Music stays well under the child;
+    /// Levels relative to the voice (1.0). Music sits far under the child so
+    /// what they say stays easy to hear (0.22 still drowned it out);
     /// character voices are clear without drowning it.
-    static let musicVolume: Float = 0.22
+    static let musicVolume: Float = 0.08
     static let clipVolume: Float = 0.85
 
     /// Maps a web path such as "/characters/cheer/alan-1.m4a" (possibly
