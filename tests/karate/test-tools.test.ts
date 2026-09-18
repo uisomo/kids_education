@@ -6,7 +6,7 @@ import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store
 import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
 import { getActiveId } from "../../karate-trainer/src/member-store";
 import { BASIC_PRESET_ID, BASIC_PRESET } from "../../karate-trainer/src/preset-store";
-import { currentStreak, setStreakDays } from "../../karate-trainer/src/streak-store";
+import { currentStreak, recordPracticeDay, setStreakDays } from "../../karate-trainer/src/streak-store";
 import { drillNames, levelOf, loadMenuBelt, recordPractice, setDrillLevel, MAX_LEVEL } from "../../karate-trainer/src/menu-belt-store";
 import { renderFamilyScreen } from "../../karate-trainer/src/ui/family-screen";
 import type { Menu } from "../../karate-trainer/src/types";
@@ -33,12 +33,14 @@ function memKv(): KvAdapter {
   };
 }
 
-it("setStreakDays sets a streak ending today, and 0 clears it", () => {
+it("setStreakDays is a starting point: today's practice then grows it as usual, and 0 clears it", () => {
   const s = memStorage();
   const now = new Date(2026, 8, 17, 9);
   setStreakDays(30, s, now);
   expect(currentStreak(s, now)).toBe(30);
-  expect(currentStreak(s, new Date(2026, 8, 18, 9))).toBe(30);   // still alive tomorrow
+  expect(recordPracticeDay(s, now)).toBe(31);                               // today counts
+  expect(recordPracticeDay(s, new Date(2026, 8, 17, 20))).toBe(31);         // once a day
+  expect(recordPracticeDay(s, new Date(2026, 8, 18, 9))).toBe(32);          // and the next day
   setStreakDays(0, s, now);
   expect(currentStreak(s, now)).toBe(0);
 });

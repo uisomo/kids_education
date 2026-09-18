@@ -382,7 +382,7 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
 
   const note = document.createElement("div");
   note.className = "family-plan-note";
-  note.textContent = "帯そのものは上の「帯を変える」で。プランは下のカードで無料で切りかえられます。";
+  note.textContent = "ここで決めた数字はスタート地点です。あとは練習するたびに、ふつうのアプリと同じように増えます（連続日数は今日の練習で+1）。帯そのものは上の「帯を変える」で。プランは下のカードで無料で切りかえられます。";
   box.append(note);
 
   return [box];
