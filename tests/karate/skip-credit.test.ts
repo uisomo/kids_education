@@ -123,7 +123,6 @@ it("a skipped drill just doesn't level up; the finished one still does", async (
   expect(level("回し蹴り")).toBe(0);
   expect(bars()).toBe(0);   // the belt follows the lowest drill
   expect(root.querySelector("[data-belt-result]")!.textContent).toBe("帯のバー 0/10");
-  expect(root.querySelectorAll(".stat .v")[1].textContent).toBe("1");   // 種目 = finished drills
 });
 
 it("finishing every drill fills the belt bar; skipping a 休憩 is fine", async () => {

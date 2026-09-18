@@ -15,6 +15,12 @@ export interface KufuModalDeps {
   onAdd(text: string): void;
   onRemove(index: number): void;
   perDrill?: number;     // for the "full" hint
+  // Done screen: a card in the page flow under the video (host is its slot),
+  // with no dimmed backdrop, so the video stays visible while the child writes.
+  sheet?: boolean;
+  // Sheet only: how much height is left above it (keyboard up or not), so the
+  // caller can shrink what must stay visible.
+  onPlace?(roomAbove: number): void;
   // changed: whether anything was added or erased while the card was open.
   onClose?(changed: boolean): void;
 }
@@ -25,7 +31,7 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
   host.querySelectorAll("[data-kufu-modal]").forEach((el) => el.remove());
 
   const overlay = document.createElement("div");
-  overlay.className = "kufu-overlay";
+  overlay.className = deps.sheet ? "kufu-overlay is-sheet" : "kufu-overlay";
   overlay.dataset.kufuModal = "";
 
   const card = document.createElement("div");
@@ -66,6 +72,7 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onKey);
+    stopFollowingKeyboard();
     observer?.disconnect();
     observer = null;
     overlay.remove();
@@ -139,6 +146,7 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
         : "工夫がいっぱい。ほかの種目の工夫をけすと書けるよ";
       composer.append(full);
     }
+    follow();
   };
 
   // Only auto-close on detachment if the card was ever in the document (a card
@@ -155,6 +163,20 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
   if (wasConnected && typeof MutationObserver !== "undefined") {
     observer = new MutationObserver(() => { if (detached()) close(); });
     observer.observe(document, { childList: true, subtree: true });
+  }
+
+  // Sheet: tell the caller how much room is left above it once the keyboard
+  // is up (the visual viewport shrinks, the layout viewport doesn't), then
+  // bring the top of the page back into view.
+  const vv = deps.sheet && typeof window !== "undefined" ? window.visualViewport ?? null : null;
+  function follow(): void {
+    if (!deps.sheet || closed) return;
+    deps.onPlace?.((vv?.height ?? window.innerHeight) - card.offsetHeight);
+    if (vv) requestAnimationFrame(() => { if (!closed) window.scrollTo(0, 0); });
+  }
+  vv?.addEventListener("resize", follow);
+  function stopFollowingKeyboard(): void {
+    vv?.removeEventListener("resize", follow);
   }
 
   // Only 「とじる」 closes (and Escape on a keyboard) — a stray tap beside the

@@ -1447,6 +1447,142 @@ button {
   box-shadow: 0 6px 0 #0984e3, 0 8px 20px rgba(30, 144, 255, 0.4);
 }
 
+/* Slim done screen: a one-row header, then the video with the 工夫 list
+   beside it, so the child can write while watching (SE: no scrolling). */
+.screen.done { gap: 0.8rem; align-items: stretch; }
+.screen.done > * { width: 100%; max-width: 480px; margin-left: auto; margin-right: auto; }
+
+.done-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--toy-card-bg);
+  border: 2px solid #ffd166;
+  border-radius: 16px;
+}
+.done-header .done-trophy-img {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  filter: none;
+}
+.done-head-text { flex: 1 1 auto; min-width: 0; }
+.done-header .done-title { font-size: 1.15rem; line-height: 1.2; }
+.done-header .done-belt-result { font-size: 0.78rem; line-height: 1.35; margin-top: 0.15rem; }
+.done-header .done-belt-result.promoted { font-size: 0.95rem; }
+.done-header .done-stars { flex: 0 0 auto; font-size: 0.95rem; letter-spacing: -0.1em; }
+
+.done-split {
+  display: grid;
+  grid-template-columns: 44% 1fr;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+.done-split.is-solo { grid-template-columns: 60%; justify-content: center; }
+.screen.done .done-split video {
+  width: 100%;
+  max-width: none;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
+  border-width: 2px;
+  border-radius: 14px;
+}
+
+/* The list is as tall as the video; more drills scroll inside it. */
+.done-split .kufu-section { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; max-width: none; margin: 0; }
+.done-split .kufu-title { font-size: 0.85rem; text-align: left; }
+.kufu-scroll-box { position: relative; flex: 1 1 auto; min-height: 5rem; }
+.kufu-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.kufu-section.has-more .kufu-scroll-box::after {
+  content: "▼";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #ffd166;
+  background: linear-gradient(transparent, var(--ground));
+  pointer-events: none;
+}
+.done-split .kufu-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.kufu-text { flex: 1 1 auto; min-width: 0; }
+.done-split .kufu-label {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: var(--ink);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.kufu-jump { margin-left: 0.3rem; font-size: 0.7rem; font-weight: 800; color: #7fd3ff; white-space: nowrap; }
+.done-split .kufu-latest { font-size: 0.72rem; }
+.done-split .kufu-open { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
+
+.done-actions { display: flex; gap: 0.6rem; }
+.done-actions .btn-dl,
+.done-actions .btn-again { flex: 1 1 0; min-width: 0; max-width: none; min-height: 50px; padding: 0.7rem 0.4rem; font-size: 1rem; }
+.btn-dl { position: relative; overflow: hidden; }
+.btn-dl-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(180deg, #ff6b81 0%, #ff4757 100%); transition: width 0.4s ease; }
+.btn-dl-text { position: relative; }
+.btn-dl.is-finishing { background: #6b3440; box-shadow: none; }
+.btn-dl.is-finishing:disabled { opacity: 1; }
+.screen.done .btn-share,
+.screen.done .share-note { max-width: 480px; }
+
+.done-toast {
+  position: fixed;
+  top: calc(0.8rem + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 250;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  background: #ffd166;
+  color: #1a162b;
+  font-weight: 900;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.screen.done > .done-toast { width: auto; max-width: 90vw; margin: 0; }
+
+/* Writing a 工夫: only the video and the list stay, sized to the room left
+   above the sheet and keyboard. */
+.screen.done.is-writing .done-header,
+.screen.done.is-writing .done-actions,
+.screen.done.is-writing .btn-share,
+.screen.done.is-writing .share-note,
+.screen.done.is-writing .burnin-status { display: none; }
+.screen.done.is-writing .done-split { grid-template-columns: auto 1fr; }
+.screen.done.is-writing .done-split video {
+  width: auto;
+  height: min(calc(var(--kufu-room, 60vh) - 2.8rem - env(safe-area-inset-top)), calc((100vw - 2rem) * 0.44 * 16 / 9));
+}
+
 /* 「LINE・SNSで送る」 at the end of the done screen (opens the share sheet). */
 .btn-share {
   width: 100%;
@@ -2721,6 +2857,42 @@ input[data-label] {
   background: rgba(255, 71, 87, 0.2);
   color: #fff;
 }
+
+/* Done screen: the 工夫 card sits under the video in the page flow, no
+   backdrop, so the video stays in view (and keeps playing). */
+.kufu-sheet-slot:empty { display: none; }
+.kufu-overlay.is-sheet {
+  position: static;
+  padding: 0;
+  display: block;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: none;
+}
+.kufu-overlay.is-sheet .kufu-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 16px;
+  box-shadow: none;
+  animation: none;
+}
+.kufu-overlay.is-sheet .kufu-card-title { grid-column: 1; grid-row: 1; text-align: left; font-size: 1rem; }
+.kufu-overlay.is-sheet .kufu-card-actions { grid-column: 2; grid-row: 1; }
+.kufu-overlay.is-sheet .kufu-card-cancel { padding: 0.4rem 0.9rem; font-size: 0.9rem; }
+.kufu-overlay.is-sheet .kufu-card-list { grid-column: 1 / -1; margin: 0; max-height: 5.2rem; overflow-y: auto; }
+.kufu-overlay.is-sheet .kufu-card-note { padding: 0.3rem 0.5rem; }
+.kufu-overlay.is-sheet .kufu-card-note .kufu-card-clear { padding: 0.3rem 0.6rem; }
+.kufu-overlay.is-sheet .kufu-card-empty { display: none; }
+.kufu-overlay.is-sheet .kufu-card-composer { grid-column: 1 / -1; flex-direction: row; margin: 0; }
+.kufu-overlay.is-sheet .kufu-card-hint { display: none; }
+.kufu-overlay.is-sheet .kufu-card-input { flex: 1 1 auto; min-width: 0; padding: 0.6rem; text-align: left; }
+.kufu-overlay.is-sheet .kufu-card-save { flex: 0 0 auto; padding: 0.6rem 1rem; }
+.kufu-overlay.is-sheet .kufu-card-full { grid-column: 1 / -1; }
 
 @keyframes kufu-fade {
   from { opacity: 0; }

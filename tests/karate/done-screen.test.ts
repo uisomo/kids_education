@@ -12,7 +12,7 @@ it("shows stats and a save button", () => {
   });
   expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:v");
   const dl = root.querySelector<HTMLButtonElement>("[data-download]")!;
-  expect(dl.textContent).toContain("mp4");
+  expect(dl.textContent).toBe("⬇ 動画を保存");
 });
 
 it("save fires onShare directly with no parental gate", () => {
@@ -289,16 +289,41 @@ it("a kid who isn't allowed sees no send button, just a note to ask", () => {
   expect(root.querySelector("[data-share-note]")!.textContent).toBe("LINE・SNSで送るのは、おうちの人にそうだんしてね。");
 });
 
-it("introduces the video and drops the 掛け声 tally", () => {
+it("is slim: a one-row header, no avatar or stat boxes, the 工夫 list beside the video", () => {
   const root = document.createElement("div");
-  renderDoneScreen(root, {
-    videoUrl: "blob:v", ext: "mp4",
-    stats: { time: "3:00", drills: 5, cues: 14 },
-    onShare: vi.fn(), onAgain: vi.fn(),
-  });
-  const hint = root.querySelector("[data-watch-hint]")!;
-  expect(hint.textContent).toBe("自分で見返してみよう");
-  expect(hint.nextElementSibling!.tagName).toBe("VIDEO");
-  const keys = [...root.querySelectorAll(".stat .k")].map((el) => el.textContent);
-  expect(keys).toEqual(["時間", "種目"]);
+  renderDoneScreen(root, kufuDone({}));
+  expect(root.querySelector(".done-header .done-title")).not.toBeNull();
+  expect(root.querySelector(".stat")).toBeNull();
+  expect(root.querySelector("[data-companion], .toybox-avatar")).toBeNull();
+  const split = root.querySelector(".done-split")!;
+  expect(split.querySelector("video")).not.toBeNull();
+  expect(split.querySelector("[data-kufu-section] .kufu-scroll [data-kufu-row]")).not.toBeNull();
+});
+
+it("tapping a drill name jumps the video to where that drill starts", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, { ...kufuDone({}), kufuDrills: [{ name: "前蹴り", at: 0 }, { name: "回し蹴り", at: 31.5 }] });
+  const video = root.querySelector("video")!;
+  const play = vi.spyOn(video, "play").mockResolvedValue(undefined);
+  const label = root.querySelector<HTMLButtonElement>('[data-kufu-jump="31.5"]')!;
+  expect(label.textContent).toContain("▶0:31");
+  label.click();
+  expect(video.currentTime).toBe(31.5);
+  expect(play).toHaveBeenCalled();
+});
+
+it("💡 keeps the video playing and opens the card as a sheet under it", () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  renderDoneScreen(root, kufuDone({}));
+  const video = root.querySelector("video")!;
+  Object.defineProperty(video, "paused", { configurable: true, get: () => false });
+  const pause = vi.spyOn(video, "pause").mockImplementation(() => {});
+  root.querySelector<HTMLButtonElement>('[data-kufu-open="前蹴り"]')!.click();
+  expect(pause).not.toHaveBeenCalled();
+  expect(root.querySelector("[data-kufu-modal]")!.classList.contains("is-sheet")).toBe(true);
+  expect(root.classList.contains("is-writing")).toBe(true);
+  root.querySelector<HTMLButtonElement>("[data-kufu-modal-close]")!.click();
+  expect(root.classList.contains("is-writing")).toBe(false);
+  root.remove();
 });

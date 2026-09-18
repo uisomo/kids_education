@@ -29,8 +29,8 @@ it("plays the capture at once, shows progress, then swaps in the finished video"
   });
 
   const video = root.querySelector("video")!;
-  const status = root.querySelector("[data-finish-status]")!;
   const dl = root.querySelector<HTMLButtonElement>("[data-download]")!;
+  const status = dl;   // the save button shows the progress until it's done
   const send = root.querySelector<HTMLButtonElement>("[data-share]")!;
   expect(video.getAttribute("src")).toBe("raw.mov");
   expect(status.textContent).toContain("0%");
@@ -43,7 +43,9 @@ it("plays the capture at once, shows progress, then swaps in the finished video"
   done.resolve({ playbackUrl: "final.mp4", fileUri: "file:///final.mp4" });
   await tick();
   expect(video.getAttribute("src")).toBe("final.mp4");
-  expect(status.textContent).toContain("できたよ");
+  expect(root.querySelector("[data-finish-toast]")!.textContent).toContain("できたよ");
+  expect(dl.textContent).toContain("動画を保存");
+  expect(dl.hasAttribute("data-finish-status")).toBe(false);
   expect(dl.disabled).toBe(false);
   expect(send.disabled).toBe(false);
   expect(onShown).toHaveBeenCalledOnce();

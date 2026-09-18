@@ -1150,11 +1150,20 @@ export class KarateApp {
 
       const elapsedSeconds = Math.floor(this.recElapsedMs / 1000);
 
-      // Deduped list of the drills practiced this session (rest excluded).
+      // Deduped list of the drills practiced this session (rest excluded), each
+      // with where it first starts in the video (same clock as the burn-in).
+      const startedAt = new Map<number, number>();
+      for (const e of events) {
+        const i = e.patch.drillIndex;
+        if (i !== undefined && !startedAt.has(i)) startedAt.set(i, e.t / 1000);
+      }
       const seen = new Set<string>();
       const kufuDrills = this.menu
         .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
-        .map((d) => ({ name: d.name }));
+        .map((d) => {
+          const firstRun = this.menu.findIndex((m, j) => m.name === d.name && startedAt.has(j));
+          return firstRun < 0 ? { name: d.name } : { name: d.name, at: startedAt.get(firstRun)! };
+        });
 
       const blobForShare = blob;
       // Read when tapped: on native the file only exists once the save is done.
