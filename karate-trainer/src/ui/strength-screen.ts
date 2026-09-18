@@ -6,6 +6,7 @@
 import type { Menu } from "../types";
 import { loadMenuBelt, levelOf, beltStateFor, drillNames, MAX_LEVEL } from "../menu-belt-store";
 import { renderBeltCard } from "./belt-card";
+import { COPY } from "../flavor";
 
 export interface StrengthMenu {
   id: string;
@@ -46,7 +47,7 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
   };
 
   if (!menus.length) {
-    empty("メニューを保存すると、帯と強さがたまるよ");
+    empty(`メニューを保存すると、${COPY.belt}と強さがたまるよ`);
     return;
   }
 

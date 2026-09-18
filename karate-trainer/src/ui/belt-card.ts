@@ -4,6 +4,7 @@
 
 import { BELTS, BARS_PER_BELT, type BeltState } from "../belt-store";
 import { RAINBOW } from "./strength-screen";
+import { COPY } from "../flavor";
 
 // The obi itself: a band, two hanging tails and a knot, all painted with the
 // belt's fill. Decorative — the name next to it carries the meaning.
@@ -53,7 +54,7 @@ export function renderBeltCard(state: BeltState): HTMLElement {
   hint.dataset.beltNext = "";
   hint.textContent = next
     ? `ぜんぶの種目を Lv.${BARS_PER_BELT} にすると ${next.icon ? `${next.icon} ` : ""}${next.name}！`
-    : "さいこうの帯！";
+    : `さいこうの${COPY.belt}！`;
 
   body.append(name, bars, hint);
   card.append(createObi(state.index), body);

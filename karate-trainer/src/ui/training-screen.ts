@@ -31,7 +31,8 @@ export interface TrainingView {
 export function renderTrainingScreen(
   root: HTMLElement,
   characterId: CharacterId = "alan",
-  decor: Decor = "none"
+  decor: Decor = "none",
+  showBgm = true,
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -68,6 +69,8 @@ export function renderTrainingScreen(
   bgmBtn.className = "bgm-toggle-btn";
   bgmBtn.textContent = BGM_ON_LABEL;
   bgmBtn.setAttribute("aria-label", "練習BGM on/off");
+  // No BGM player (the piano app): the button would switch nothing.
+  bgmBtn.hidden = !showBgm;
 
   topBar.append(recEl, bgmBtn, progEl);
 

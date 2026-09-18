@@ -42,6 +42,7 @@ import {
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
+import { COPY, IS_PIANO } from "./flavor";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
@@ -506,7 +507,7 @@ export class KarateApp {
       characterState: this.characterState,
       // The picked saved menu's 帯 (bars = its lowest drill level).
       belt: linked ? beltStateFor(loadMenuBelt(linked.id, this.mem()), linked.menu) : undefined,
-      beltHint: "メニューを保存すると、帯と強さがたまるよ",
+      beltHint: `メニューを保存すると、${COPY.belt}と強さがたまるよ`,
       // E3: the active member's assigned menu name (read-only label).
       className: this.activeClassName(),
       // E4: the parent's 感想コメント for the active member (top banner).
@@ -620,7 +621,7 @@ export class KarateApp {
       onRemoveMember: (id) => {
         // Removing deletes that child's belt, 強さ, 工夫 and menu for good.
         const name = members.find((m) => m.id === id)?.name ?? "";
-        if (!this.confirm(`「${name}」を削除すると、帯・強さ・工夫などの記録もすべて消えます。削除しますか？`)) return;
+        if (!this.confirm(`「${name}」を削除すると、${COPY.belt}・強さ・工夫などの記録もすべて消えます。削除しますか？`)) return;
         removeMember(id, base); this.clampActiveMember(); this.reloadForActiveMember(); this.showFamily();
       },
       onSelectMember: (id) => {
@@ -854,7 +855,8 @@ export class KarateApp {
     this.videoRecorder = recorder;
 
     const view = renderTrainingScreen(this.root, this.characterState.selectedId,
-                                      effectiveDecor(loadPlan(this.base()), this.base()));
+                                      effectiveDecor(loadPlan(this.base()), this.base()),
+                                      !!this.deps.bgm);
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -1151,7 +1153,9 @@ export class KarateApp {
         ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
         ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
         // The saved menu's name heads the video's 特訓一覧 panel.
-        ...(linked?.name.trim() ? { menuName: linked.name.trim() } : {}),
+        // Without a name the native side falls back to 特訓一覧, so the piano
+        // app always sends its own heading.
+        ...(linked?.name.trim() ? { menuName: linked.name.trim() } : IS_PIANO ? { menuName: COPY.listTitle } : {}),
         // Free always carries a decoration; 「なし」 needs a paid plan.
         decor: effectiveDecor(loadPlan(this.base()), this.base()),
       };

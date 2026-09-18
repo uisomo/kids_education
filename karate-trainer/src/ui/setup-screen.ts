@@ -6,6 +6,7 @@ import type { BeltState } from "../belt-store";
 import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
+import { COPY } from "../flavor";
 
 export interface SetupMember {
   id: string;
@@ -101,7 +102,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
 
   const title = document.createElement("h1");
   title.className = "screen-title";
-  title.textContent = "今日の稽古";
+  title.textContent = `今日の${COPY.practice}`;
 
   header.append(title);
   if (deps.streakDays && deps.streakDays > 0) {
@@ -279,7 +280,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     kind.type = "button";
     kind.className = "row-kind" + (isRest ? " is-rest" : "");
     kind.dataset.kindToggle = drill.kind;
-    kind.textContent = isRest ? "☕休憩" : "🥋";
+    kind.textContent = isRest ? "☕休憩" : COPY.drillIcon;
     kind.setAttribute("aria-label", isRest ? `${drill.name}: 休憩（タップで種目にする）` : `${drill.name}: 種目（タップで休憩にする）`);
     kind.title = isRest ? "休憩" : "種目";
     kind.addEventListener("click", () => {
@@ -366,7 +367,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     total.textContent = `合計 ${menu.length} 種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
     total.classList.toggle("is-over", over);
     start.disabled = menu.length === 0 || over;
-    start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : "稽古 開始 ▶";
+    start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : `${COPY.practice} 開始 ▶`;
   }
   updateTotal();
   totalRow.append(total);

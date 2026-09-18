@@ -9,6 +9,7 @@ import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "
 import { BELTS, BARS_PER_BELT } from "../belt-store";
 import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
+import { COPY } from "../flavor";
 
 export interface FamilyDeps {
   members: Member[];
@@ -382,7 +383,7 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
 
   const note = document.createElement("div");
   note.className = "family-plan-note";
-  note.textContent = "ここで決めた数字はスタート地点です。あとは練習するたびに、ふつうのアプリと同じように増えます（連続日数は今日の練習で+1）。帯そのものは上の「帯を変える」で。プランは下のカードで無料で切りかえられます。";
+  note.textContent = `ここで決めた数字はスタート地点です。あとは練習するたびに、ふつうのアプリと同じように増えます（連続日数は今日の練習で+1）。${COPY.belt}そのものは上の「${COPY.belt}を変える」で。プランは下のカードで無料で切りかえられます。`;
   box.append(note);
 
   return [box];
@@ -571,8 +572,8 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
   const note = document.createElement("div");
   note.className = "family-plan-note family-belt-note";
   note.textContent = deps.menuBelts.length
-    ? `${activeName} の帯はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると強さは0から。`
-    : "メニューを保存すると、メニューごとの帯を変えられます。";
+    ? `${activeName} の${COPY.belt}はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると強さは0から。`
+    : `メニューを保存すると、メニューごとの${COPY.belt}を変えられます。`;
 
   const list = document.createElement("div");
   list.className = "family-class-list";
@@ -585,7 +586,7 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
 
     const name = document.createElement("div");
     name.className = "family-section-label family-belt-title";
-    name.textContent = `${mb.name}の帯を変える`;
+    name.textContent = `${mb.name}の${COPY.belt}を変える`;
 
     const select = document.createElement("select");
     select.className = "family-class-select";
@@ -620,7 +621,7 @@ function buildShareSection(deps: FamilyDeps): Node[] {
 
   const note = document.createElement("div");
   note.className = "family-plan-note";
-  note.textContent = "チェックすると、稽古のあとに練習動画を連携するボタンを表示します。";
+  note.textContent = `チェックすると、${COPY.practice}のあとに練習動画を連携するボタンを表示します。`;
 
   const list = document.createElement("div");
   list.className = "family-class-list";

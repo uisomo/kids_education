@@ -22,6 +22,18 @@
         "test"
       ],
       "port": 5273
+    },
+    {
+      "name": "piano",
+      "runtimeExecutable": "/Users/uk/.local/node22/bin/node",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--config",
+        "karate-trainer/vite.config.ts",
+        "--mode",
+        "piano"
+      ],
+      "port": 5273
     }
   ]
 }

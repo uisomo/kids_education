@@ -12,12 +12,14 @@ import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
 import { makeRevenueCatBilling } from "./revenuecat-billing";
 import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
+import { COPY, IS_PIANO, PIANO_BUILD_MARKER } from "./flavor";
 
 // iOS App Store build. The native recorder captures with AVFoundation and
 // burns the overlay itself, so neither MediaRecorder nor the ffmpeg.wasm pass
 // is used there — see native-recorder.ts for why both had to go.
 const isNative = Capacitor.isNativePlatform();
 if (TEST_MODE) document.documentElement.dataset.testBuild = TEST_BUILD_MARKER;
+if (IS_PIANO) document.documentElement.dataset.pianoBuild = PIANO_BUILD_MARKER;
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
@@ -152,7 +154,7 @@ async function exportFile(filename: string, blob: Blob): Promise<void> {
   for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
   const written = await Filesystem.writeFile({ path: filename, data: btoa(bin), directory: Directory.Cache });
   try {
-    await Share.share({ title: "アランの空手", url: written.uri });
+    await Share.share({ title: COPY.appName, url: written.uri });
   } catch (e) {
     // Closing the share sheet rejects with "Share canceled" — not an error.
     if (!/cancel/i.test(e instanceof Error ? e.message : String(e))) throw e;
@@ -180,7 +182,9 @@ const app = new KarateApp(root, {
   wakeGuard: makeWakeGuard({ isNative: () => isNative }),
   rafLoop,
   shareRecording,
-  bgm: isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),
+  // The piano app never plays BGM: the piano itself is the music. With no
+  // player the BGM buttons are not shown either.
+  bgm: IS_PIANO ? undefined : isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),
   playEffect: isNative
     ? (src) => playNativeClip(src, EFFECT_VOLUME)
     : (src) => { void new Audio(src).play().catch(() => { /* autoplay blocked */ }); },

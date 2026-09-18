@@ -1,10 +1,11 @@
 import type { Drill, Menu } from "./types";
+import { IS_PIANO } from "./flavor";
 
 const KEY = "karate.menu";
 
 // 基本: where every new kid starts — five basic moves, 30 s each, with a 30 s
 // 休憩 between them (4:30). Also the built-in 基本 saved menu (preset-store).
-export const DEFAULT_MENU: Menu = [
+const KARATE_MENU: Menu = [
   { id: "d1", name: "正拳突き", seconds: 30, kind: "drill" },
   { id: "d2", name: "休憩", seconds: 30, kind: "rest" },
   { id: "d3", name: "上段揚げ受け", seconds: 30, kind: "drill" },
@@ -15,6 +16,22 @@ export const DEFAULT_MENU: Menu = [
   { id: "d8", name: "休憩", seconds: 30, kind: "rest" },
   { id: "d9", name: "回し蹴り", seconds: 30, kind: "drill" },
 ];
+
+// The piano app's 基本: a warm-up, both hands apart, then together — a minute
+// each with a 30 s 休憩 between them (6:30).
+const PIANO_MENU: Menu = [
+  { id: "d1", name: "指のたいそう", seconds: 60, kind: "drill" },
+  { id: "d2", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d3", name: "ドレミの音階", seconds: 60, kind: "drill" },
+  { id: "d4", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d5", name: "右手の練習", seconds: 60, kind: "drill" },
+  { id: "d6", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d7", name: "左手の練習", seconds: 60, kind: "drill" },
+  { id: "d8", name: "休憩", seconds: 30, kind: "rest" },
+  { id: "d9", name: "両手で ひいてみよう", seconds: 60, kind: "drill" },
+];
+
+export const DEFAULT_MENU: Menu = IS_PIANO ? PIANO_MENU : KARATE_MENU;
 
 function isMenu(v: unknown): v is Menu {
   return Array.isArray(v) && v.every(
