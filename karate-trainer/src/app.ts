@@ -15,13 +15,13 @@ import {
   renameKufu, pruneKufu, type KufuCaps,
 } from "./kufu-store";
 import { BELTS, beltLabel } from "./belt-store";
-import { currentStreak, recordPracticeDay } from "./streak-store";
+import { currentStreak, recordPracticeDay, setStreakDays } from "./streak-store";
 import {
   loadMenuBelt, beltStateFor, recordPractice, setMenuBelt, removeMenuBelt, levelOf,
-  getSelectedPreset, setSelectedPreset,
+  getSelectedPreset, setSelectedPreset, setDrillLevel, drillNames,
 } from "./menu-belt-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
-import { renderFamilyScreen, type BillingView } from "./ui/family-screen";
+import { renderFamilyScreen, type BillingView, type TestToolsView } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
 import { type Member, getActiveId, loadMembers, addMember, removeMember, renameMember, setActive } from "./member-store";
@@ -180,6 +180,9 @@ export interface KarateAppDeps {
   // App Store subscriptions (iOS app). When set, the plan follows what Apple
   // says was bought; without it (web, tests) the plan cards set it directly.
   billing?: Billing;
+  // test アプリ (test-mode.ts): the 家族 tab shows テスト用 controls for the
+  // streak and each drill's level.
+  testTools?: boolean;
 }
 
 
@@ -656,6 +659,7 @@ export class KarateApp {
       decor: loadDecor(base),
       canRemoveDecor: canRemoveDecor(loadPlan(base)),
       onSelectDecor: (decor: Decor) => { setDecor(decor, base); this.showFamily(); },
+      testTools: this.deps.testTools ? this.testToolsView() : undefined,
       kufuCount: countKufu(this.mem()),
       onClearAllKufu: () => {
         const name = loadMembers(base).find((m) => m.id === getActiveId(base))?.name ?? "";
@@ -664,6 +668,26 @@ export class KarateApp {
         this.showFamily();
       },
     });
+  }
+
+  // test アプリ: the active member's streak and, per usable menu, each drill's
+  // level. Every change re-renders so the numbers on screen are what's stored.
+  private testToolsView(): TestToolsView {
+    const menus = this.usablePresets().map((p) => {
+      const mb = loadMenuBelt(p.id, this.mem());
+      return { id: p.id, name: p.name, drills: drillNames(p.menu).map((name) => ({ name, level: levelOf(mb, name) })) };
+    });
+    return {
+      streakDays: currentStreak(this.mem()),
+      onSetStreak: (days) => { setStreakDays(days, this.mem()); this.showFamily(); },
+      menus,
+      onSetLevel: (presetId, drill, level) => { setDrillLevel(presetId, drill, level, this.mem()); this.showFamily(); },
+      onSetAllLevels: (presetId, level) => {
+        const preset = menus.find((m) => m.id === presetId);
+        preset?.drills.forEach((d) => setDrillLevel(presetId, d.name, level, this.mem()));
+        this.showFamily();
+      },
+    };
   }
 
   // Set the household plan. The new caps apply by locking, never deleting:

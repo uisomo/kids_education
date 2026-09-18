@@ -54,3 +54,17 @@ export function recordPracticeDay(storage: Storage = localStorage, now: Date = n
   }
   return days;
 }
+
+// test アプリ only (家族 → テスト用): set the streak to `days` practiced up to
+// YESTERDAY, or clear it with 0. It's a starting point, not a pin: today's
+// practice then counts +1 like in the real app (ending it today would make
+// today's practice add nothing).
+export function setStreakDays(days: number, storage: Storage = localStorage, now: Date = new Date()): void {
+  const n = Math.floor(days);
+  try {
+    if (!(n >= 1)) storage.removeItem(KEY);
+    else storage.setItem(KEY, JSON.stringify({ last: yesterdayKey(now), days: n }));
+  } catch {
+    /* ignore storage errors */
+  }
+}

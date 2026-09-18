@@ -8,7 +8,9 @@
     "dev:game": "vite --config src/game/vite.config.ts",
     "dev:karate": "vite --config karate-trainer/vite.config.ts",
     "build:karate": "vite build --config karate-trainer/vite.config.ts",
+    "build:karate:test": "vite build --config karate-trainer/vite.config.ts --mode test",
     "cap:sync": "npm run build:karate && cap sync ios",
+    "cap:sync:test": "npm run build:karate:test && cap sync ios",
     "cap:open": "cap open ios",
     "ios": "npm run build:karate && cap sync ios && cap open ios"
   },

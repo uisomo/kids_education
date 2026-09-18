@@ -112,6 +112,19 @@ export function setMenuBelt(presetId: string, index: number, storage: Storage = 
   return mb;
 }
 
+// test アプリ only (家族 → テスト用): set one drill's level directly. Unlike a
+// practice this never promotes, so every drill can be parked at Lv.10 to try
+// the next practice's belt-up.
+export function setDrillLevel(presetId: string, drillName: string, level: number, storage: Storage = localStorage): MenuBelt {
+  const mb = loadMenuBelt(presetId, storage);
+  const name = drillName.trim();
+  if (name) mb.levels[name] = Math.min(MAX_LEVEL, Math.max(0, Math.floor(level) || 0));
+  const map = load(storage);
+  map[presetId] = mb;
+  write(map, storage);
+  return mb;
+}
+
 // A deleted menu takes its belt with it.
 export function removeMenuBelt(presetId: string, storage: Storage = localStorage): void {
   const map = load(storage);

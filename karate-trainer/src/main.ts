@@ -11,11 +11,13 @@ import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty 
 import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
 import { makeRevenueCatBilling } from "./revenuecat-billing";
+import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
 
 // iOS App Store build. The native recorder captures with AVFoundation and
 // burns the overlay itself, so neither MediaRecorder nor the ffmpeg.wasm pass
 // is used there — see native-recorder.ts for why both had to go.
 const isNative = Capacitor.isNativePlatform();
+if (TEST_MODE) document.documentElement.dataset.testBuild = TEST_BUILD_MARKER;
 
 const root = document.querySelector<HTMLElement>("#app")!;
 const store = new VoiceStore(idbKv());
@@ -161,8 +163,10 @@ const app = new KarateApp(root, {
   storage,
   // App Store subscriptions. The RevenueCat public SDK key comes from
   // karate-trainer/.env.local (VITE_REVENUECAT_API_KEY): test_… for the Test
-  // Store while developing, appl_… for release.
-  billing: isNative ? makeRevenueCatBilling(import.meta.env.VITE_REVENUECAT_API_KEY ?? "") : undefined,
+  // Store while developing, appl_… for release. The test アプリ never talks to
+  // the App Store: its plan cards switch the plan for free.
+  billing: isNative && !TEST_MODE ? makeRevenueCatBilling(import.meta.env.VITE_REVENUECAT_API_KEY ?? "") : undefined,
+  testTools: TEST_MODE,
   openSettings: isNative ? () => { void openAppSettings(); } : undefined,
   exportFile: isNative ? exportFile : undefined,
   voiceStore: store,

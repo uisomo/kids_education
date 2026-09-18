@@ -6,7 +6,7 @@ import type { Member } from "../member-store";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
-import { BELTS } from "../belt-store";
+import { BELTS, BARS_PER_BELT } from "../belt-store";
 import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
 
@@ -56,6 +56,17 @@ export interface FamilyDeps {
   // Apple instead of setting the plan, with restore / manage and the required
   // subscription terms. Absent (web, older callers) → cards call onSelectPlan.
   billing?: BillingView;
+  // test アプリ only (test-mode.ts): テスト用 controls for the active member.
+  // Section hidden if absent — never passed in the App Store build.
+  testTools?: TestToolsView;
+}
+
+export interface TestToolsView {
+  streakDays: number;
+  onSetStreak(days: number): void;   // 0 clears the streak
+  menus: { id: string; name: string; drills: { name: string; level: number }[] }[];
+  onSetLevel(presetId: string, drill: string, level: number): void;
+  onSetAllLevels(presetId: string, level: number): void;
 }
 
 export interface BillingView {
@@ -270,18 +281,120 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const kufuNodes = buildKufuSection(deps);
   const shareNodes = buildShareSection(deps);
   const decorNodes = buildDecorSection(deps);
+  const testNodes = buildTestToolsSection(deps);
 
   // 1) メンバーを管理する (everyone), 2) 設定したいメンバー and, framed together,
   // only that member's settings, 3) the household plan.
   const memberSettings = document.createElement("div");
   memberSettings.className = "family-member-settings";
   memberSettings.dataset.memberSettings = "";
-  memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes);
+  memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes, ...testNodes);
 
   const billingNodes = billing ? buildBillingFooter(billing) : [];
 
   root.append(title, listTitle, list, addRow, memberHint, memberSettings,
               ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+}
+
+// テスト用 (test アプリ only): the active member's 🔥 streak and every drill's
+// level per menu, set directly. Returns [] when the wiring is absent.
+function buildTestToolsSection(deps: FamilyDeps): Node[] {
+  const tools = deps.testTools;
+  if (!tools) return [];
+
+  const box = document.createElement("div");
+  box.className = "family-test-tools";
+  box.dataset.testTools = "";
+
+  const heading = document.createElement("div");
+  heading.className = "family-section-label family-test-title";
+  heading.textContent = "🧪 テスト用（test アプリだけ）";
+
+  // 🔥 何日連続
+  const streakLabel = document.createElement("div");
+  streakLabel.className = "family-plan-note";
+  streakLabel.textContent = `🔥 いまの連続: ${tools.streakDays}日`;
+
+  const streakRow = document.createElement("div");
+  streakRow.className = "family-test-row";
+  const streakInput = document.createElement("input");
+  streakInput.type = "number";
+  streakInput.inputMode = "numeric";
+  streakInput.min = "0";
+  streakInput.max = "9999";
+  streakInput.value = String(tools.streakDays);
+  streakInput.className = "family-member-name-input family-test-number";
+  streakInput.dataset.testStreakInput = "";
+  const streakSet = testButton("この日数にする", () => tools.onSetStreak(Math.max(0, Math.floor(Number(streakInput.value)) || 0)));
+  streakSet.dataset.testStreakSet = "";
+  const suffix = document.createElement("span");
+  suffix.className = "family-plan-note";
+  suffix.textContent = "日";
+  streakRow.append(streakInput, suffix, streakSet);
+
+  box.append(heading, streakLabel, streakRow);
+
+  // 種目のレベル, per menu
+  tools.menus.forEach((menu) => {
+    const menuTitle = document.createElement("div");
+    menuTitle.className = "family-section-label family-test-menu";
+    menuTitle.textContent = `${menu.name} の種目レベル`;
+    box.append(menuTitle);
+
+    if (!menu.drills.length) {
+      const empty = document.createElement("div");
+      empty.className = "family-plan-note";
+      empty.textContent = "種目がありません";
+      box.append(empty);
+      return;
+    }
+
+    const all = document.createElement("div");
+    all.className = "family-test-row";
+    [0, BARS_PER_BELT - 1, BARS_PER_BELT].forEach((lv) => {
+      const b = testButton(`ぜんぶ Lv.${lv}`, () => tools.onSetAllLevels(menu.id, lv));
+      b.dataset.testAllLevels = `${menu.id}:${lv}`;
+      all.append(b);
+    });
+    box.append(all);
+
+    menu.drills.forEach((drill) => {
+      const row = document.createElement("label");
+      row.className = "family-test-row family-test-drill";
+      const name = document.createElement("span");
+      name.className = "family-test-drill-name";
+      name.textContent = drill.name;
+      const select = document.createElement("select");
+      select.className = "family-class-select family-test-level";
+      select.dataset.testLevel = `${menu.id}:${drill.name}`;
+      for (let lv = 0; lv <= BARS_PER_BELT; lv++) {
+        const opt = document.createElement("option");
+        opt.value = String(lv);
+        opt.textContent = `Lv.${lv}`;
+        if (lv === drill.level) opt.selected = true;
+        select.append(opt);
+      }
+      select.addEventListener("change", () => tools.onSetLevel(menu.id, drill.name, Number(select.value)));
+      row.append(name, select);
+      box.append(row);
+    });
+  });
+
+  const note = document.createElement("div");
+  note.className = "family-plan-note";
+  note.textContent = "ここで決めた数字はスタート地点です。あとは練習するたびに、ふつうのアプリと同じように増えます（連続日数は今日の練習で+1）。帯そのものは上の「帯を変える」で。プランは下のカードで無料で切りかえられます。";
+  box.append(note);
+
+  return [box];
+}
+
+function testButton(label: string, onClick: () => void): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "family-member-rename family-test-button";
+  b.textContent = label;
+  b.addEventListener("click", onClick);
+  return b;
 }
 
 /// 動画のかざり: one of Alan's three decorations, or 「なし」 on a paid plan.
