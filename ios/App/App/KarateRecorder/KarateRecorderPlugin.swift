@@ -29,6 +29,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setMusicPaused", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopMusic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playClip", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getSaveStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "markVideoSeen", returnType: CAPPluginReturnPromise),
     ]
 
     private let camera = CameraSession()
@@ -38,7 +40,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     // actor before touching it (rawURL used to be written from arbitrary tasks).
     @MainActor private var rawURL: URL?
     @MainActor private var recordingActive = false
-    @MainActor private var exporting = false
+    /// stopRecording is between stopping the camera and queueing the save.
+    @MainActor private var stopping = false
     @MainActor private var exportBackgrounded = false
     @MainActor private var interruptionReason: String?
     /// Host time the startRecording call reached native code. The web overlay
@@ -62,12 +65,17 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         audio.onInterruptionBegan = { [weak self] in
             Task { @MainActor in self?.reportInterruption("audioInterruption") }
         }
+        // A save the app was killed in the middle of gets finished now.
+        Task { @MainActor [weak self] in
+            await self?.waitUntilActive()
+            self?.resumePendingSaves()
+        }
         observers.append(NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                if self.exporting { self.exportBackgrounded = true }
+                if self.savingJobId != nil { self.exportBackgrounded = true }
                 self.reportInterruption("background")
             }
         })
@@ -128,17 +136,23 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// At the start of a session nothing from earlier sessions is still in use
-    /// except the last finished video (the done screen may still share it), so
-    /// every other karate-* temp file — voice tracks, raw captures, partial
-    /// exports left by a crash — goes.
+    /// except the last finished video (the done screen may still share it),
+    /// videos nobody has seen yet, and saves still waiting, so every other
+    /// karate-* temp file — voice tracks, raw captures, partial exports left by
+    /// a crash — goes.
     @MainActor
     private func removeStaleTemporaryFiles() {
-        guard !exporting, !recordingActive else { return }
+        guard !stopping, !recordingActive else { return }
         let fm = FileManager.default
         let tmp = fm.temporaryDirectory
-        let keep = UserDefaults.standard.string(forKey: Self.lastFinishedKey)
+        var keep = Set(Self.unseenVideos().compactMap { $0["name"] as? String })
+        if let last = UserDefaults.standard.string(forKey: Self.lastFinishedKey) { keep.insert(last) }
+        // Captures in tmp belong to pending saves whose move out of tmp failed.
+        keep.formUnion(PendingSaves.all().flatMap { [$0.rawName, $0.voiceName].compactMap { $0 } }
+            .filter { $0.hasPrefix("tmp:") }.map { String($0.dropFirst(4)) })
+        PendingSaves.removeOrphans(except: savingJobId)
         guard let names = try? fm.contentsOfDirectory(atPath: tmp.path) else { return }
-        let stale = names.filter { $0.hasPrefix("karate-") && $0 != keep }.map { tmp.appendingPathComponent($0) }
+        let stale = names.filter { $0.hasPrefix("karate-") && !keep.contains($0) }.map { tmp.appendingPathComponent($0) }
         guard !stale.isEmpty else { return }
         DispatchQueue.global(qos: .utility).async {
             for url in stale { try? fm.removeItem(at: url) }
@@ -151,7 +165,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func startRecording(_ call: CAPPluginCall) {
         let arrivedAt = Self.hostNow()
         Task { @MainActor in
-            guard !self.recordingActive, !self.exporting else {
+            guard !self.recordingActive, !self.stopping else {
                 call.reject("already recording")
                 return
             }
@@ -180,13 +194,13 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         Task { @MainActor in
             self.recordingActive = false
             let fm = FileManager.default
-            if let raw = try? await self.camera.stopRecording(), !self.exporting {
+            if let raw = try? await self.camera.stopRecording() {
                 try? fm.removeItem(at: raw)
             }
             if let voice = self.audio.stopVoiceCapture() {
                 try? fm.removeItem(at: voice.url)
             }
-            if !self.exporting {
+            if !self.stopping {
                 if let raw = self.rawURL { try? fm.removeItem(at: raw) }
                 self.rawURL = nil
             }
@@ -324,20 +338,21 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// Stops capture, burns the overlay, and returns the finished file.
-    ///
-    /// `events` is the same log the web build feeds to ffmpeg: an array of
-    /// `{ t, patch }` where patch carries any of drill/seconds/cue/caption.
-    @objc func stopRecording(_ call: CAPPluginCall) {
-        let rawEvents = call.getArray("events", JSObject.self) ?? []
-        let totalDurationMs = call.getDouble("totalDurationMs") ?? 0
-        let streakLabel = call.getString("streakLabel")
-        let beltLabel = call.getString("beltLabel")
-        let menuName = call.getString("menuName")
-        // 家族タブで選んだ かざり. An unknown or missing value means none, so an
-        // older web build simply gets an undecorated video.
-        let decor = OverlayCompositor.Decor(rawValue: call.getString("decor") ?? "") ?? .none
-        let menu: [OverlayCompositor.MenuItem] = (call.getArray("menu", JSObject.self) ?? []).compactMap { entry in
+    /// What stopRecording's JS options mean, parsed the same way for a fresh
+    /// save and for one resumed from disk after the app was killed.
+    private struct SaveOptions {
+        var events: [OverlayCompositor.Event]
+        var totalDurationMs: Double
+        var streakLabel: String?
+        var beltLabel: String?
+        var menuName: String?
+        var decor: OverlayCompositor.Decor
+        var menu: [OverlayCompositor.MenuItem]
+        var sounds: [OverlayCompositor.Sound]
+    }
+
+    private static func parseSaveOptions(_ options: [String: Any]) -> SaveOptions {
+        let menu: [OverlayCompositor.MenuItem] = (options["menu"] as? [[String: Any]] ?? []).compactMap { entry in
             guard let name = entry["name"] as? String else { return nil }
             return OverlayCompositor.MenuItem(
                 name: name,
@@ -347,7 +362,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 gained: entry["gained"] as? Bool ?? false
             )
         }
-        let sounds: [OverlayCompositor.Sound] = (call.getArray("sounds", JSObject.self) ?? []).compactMap { entry in
+        let rawSounds = options["sounds"] as? [[String: Any]] ?? []
+        let sounds: [OverlayCompositor.Sound] = rawSounds.compactMap { entry in
             guard let t = entry["t"] as? NSNumber, let kind = entry["kind"] as? String else { return nil }
             switch kind {
             case "bgm":
@@ -362,25 +378,45 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         // Which sounds actually crossed the bridge: a clip dropped here (or never
         // sent) looks exactly like a successful mix from the JS side.
-        let rawSoundCount = (call.getArray("sounds", JSObject.self) ?? []).count
         let clipCount = sounds.filter { if case .clip = $0 { return true } else { return false } }.count
-        print("⚡️  [KarateRecorder] sounds: \(rawSoundCount) received -> \(sounds.count) parsed, \(clipCount) of them clips")
+        print("⚡️  [KarateRecorder] sounds: \(rawSounds.count) received -> \(sounds.count) parsed, \(clipCount) of them clips")
 
-        let rawEventList: [OverlayCompositor.Event] = rawEvents.compactMap { entry in
+        let events: [OverlayCompositor.Event] = (options["events"] as? [[String: Any]] ?? []).compactMap { entry in
             guard let t = entry["t"] as? NSNumber else { return nil }
-            let patch = entry["patch"] as? JSObject ?? JSObject()
-            return OverlayCompositor.Event(t: t.doubleValue, patch: patch)
+            return OverlayCompositor.Event(t: t.doubleValue, patch: entry["patch"] as? [String: Any] ?? [:])
         }
+        return SaveOptions(
+            events: events,
+            totalDurationMs: (options["totalDurationMs"] as? NSNumber)?.doubleValue ?? 0,
+            streakLabel: options["streakLabel"] as? String,
+            beltLabel: options["beltLabel"] as? String,
+            menuName: options["menuName"] as? String,
+            // 家族タブで選んだ かざり. An unknown or missing value means none.
+            decor: OverlayCompositor.Decor(rawValue: options["decor"] as? String ?? "") ?? .none,
+            menu: menu,
+            sounds: sounds
+        )
+    }
+
+    /// Stops capture and hands the practice to the save queue, resolving at once
+    /// with `{ jobId, rawUri }` so the done screen can play the capture while the
+    /// overlay is burned in. The finished file arrives as "exportFinished".
+    ///
+    /// `events` is the same log the web build feeds to ffmpeg: an array of
+    /// `{ t, patch }` where patch carries any of drill/seconds/cue/caption.
+    @objc func stopRecording(_ call: CAPPluginCall) {
+        let options = (call.options as? [String: Any]) ?? [:]
+        let optionsData = (try? JSONSerialization.data(withJSONObject: options)) ?? Data("{}".utf8)
 
         Task { @MainActor in
-            guard !self.exporting else {
-                call.reject("already saving")
+            guard !self.stopping else {
+                call.reject("already stopping")
                 return
             }
+            self.stopping = true
             self.recordingActive = false
-            self.exporting = true
             defer {
-                self.exporting = false
+                self.stopping = false
                 self.rawURL = nil
             }
             let fm = FileManager.default
@@ -393,7 +429,6 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject(error.localizedDescription)
                 return
             }
-            self.rawURL = raw
             // After the camera, so the voice also covers the last frame.
             let capture = self.audio.stopVoiceCapture()
             // A voice file that never received a buffer is no voice at all.
@@ -411,98 +446,251 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             }()
             print(String(format: "⚡️  [KarateRecorder] voice starts %.0f ms before the first video frame; overlay shifted %.0f ms earlier", lead * 1000, shiftMs))
 
-            let events = rawEventList.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
-            let totalMs = max(0, totalDurationMs - shiftMs)
-            // Voice processing keeps the music out of the voice track, so it is
-            // added back at a fixed level (and with no voice at all, the music
-            // is still better than a silent video). Character voices stay out of
-            // the saved video: in the recording they talked over the child.
-            // What gets mixed back into the saved video. Voice processing strips
-            // whatever the speaker played out of the voice track, so it has to be
-            // added back; without processing the mic already caught it, and adding
-            // it again would double it.
-            //
-            // This kept ONLY .music, which silently threw away the countdown
-            // 「ぷっ」「ぷーん」 as well — those are .clip sounds, the same kind as the
-            // cheers. Keep the countdown effects (/sounds/…) and still leave the
-            // character cheer voices (/characters/…) out: in the recording they
-            // talked over the child.
-            let mixedSounds = (voice == nil || voice?.voiceProcessing == true)
-                ? sounds.filter { sound in
-                    switch sound {
-                    case .music: return true
-                    case let .clip(_, src): return src.hasPrefix("/sounds/")
-                    }
-                }.map { Self.shifted($0, byMs: shiftMs) }
-                : []
-            let voiceTrack = voice.map { OverlayCompositor.VoiceTrack(url: $0.url, leadSeconds: lead) }
+            let id = UUID().uuidString
+            let rawName = PendingSaves.adopt(raw, as: "\(id)-raw.\(raw.pathExtension.isEmpty ? "mov" : raw.pathExtension)")
+            let voiceName = voice.map { PendingSaves.adopt($0.url, as: "\(id)-voice.\($0.url.pathExtension)") }
+            let job = PendingSave(
+                id: id, rawName: rawName, voiceName: voiceName,
+                voiceLeadSeconds: lead, voiceProcessing: voice?.voiceProcessing ?? false,
+                shiftMs: shiftMs, options: optionsData, interruption: self.interruptionReason,
+                createdAt: Date(), attempts: 0
+            )
+            // On disk before anything slow starts: from here a killed app
+            // finishes this video on its next launch.
+            PendingSaves.save(job)
 
-            // Burn-in failing must never cost the family their recording: try
-            // the sound mix without the overlay, then the raw capture.
-            var finalURL = raw
-            var exportMode = "raw"
-            var soundMixed = false
-            var burnError: String?
-            var mixError: String?
-            let burned = fm.temporaryDirectory.appendingPathComponent("karate-training-\(UUID().uuidString).mp4")
+            var result: JSObject = [
+                "jobId": id,
+                "rawUri": PendingSaves.url(rawName).absoluteString,
+                "echoCancelled": self.camera.echoCancelled,
+            ]
+            if let reason = self.interruptionReason { result["interruption"] = reason }
+            if let voice {
+                result["voiceLeadMs"] = lead * 1000
+                result["voiceProcessing"] = voice.voiceProcessing
+                result["voicePeakDb"] = voice.peakDb
+            }
+            call.resolve(result)
+            self.enqueueSave(job)
+        }
+    }
+
+    // MARK: - Save queue
+
+    /// Saves run one at a time, in order. A new practice may start while one
+    /// is still being saved.
+    @MainActor private var saveQueue: [PendingSave] = []
+    @MainActor private var savingJobId: String?
+    @MainActor private var saveProgress: Double = 0
+    /// Saves picked up from disk at launch (the app was killed mid-save).
+    @MainActor private var resumedJobIds: Set<String> = []
+
+    /// Finished videos nobody has looked at yet — typically one whose save was
+    /// finished on a later launch. JS shows them and calls markVideoSeen().
+    private static let unseenKey = "KarateRecorder.unseenVideos"
+
+    private static func unseenVideos() -> [[String: Any]] {
+        UserDefaults.standard.array(forKey: unseenKey) as? [[String: Any]] ?? []
+    }
+
+    private static func setUnseenVideos(_ list: [[String: Any]]) {
+        UserDefaults.standard.set(list, forKey: unseenKey)
+    }
+
+    @MainActor
+    private func resumePendingSaves() {
+        let jobs = PendingSaves.all()
+        guard !jobs.isEmpty else { return }
+        print("⚡️  [KarateRecorder] resuming \(jobs.count) save(s) cut short last time")
+        for job in jobs {
+            resumedJobIds.insert(job.id)
+            enqueueSave(job)
+        }
+    }
+
+    @MainActor
+    private func enqueueSave(_ job: PendingSave) {
+        guard savingJobId != job.id, !saveQueue.contains(where: { $0.id == job.id }) else { return }
+        saveQueue.append(job)
+        runNextSave()
+    }
+
+    @MainActor
+    private func runNextSave() {
+        guard savingJobId == nil, !saveQueue.isEmpty else { return }
+        var job = saveQueue.removeFirst()
+        savingJobId = job.id
+        saveProgress = 0
+        job.attempts += 1
+        PendingSaves.save(job)
+        Task { @MainActor in
+            let result = await self.runSave(job)
+            self.savingJobId = nil
+            self.notifyListeners("exportFinished", data: result)
+            self.runNextSave()
+        }
+    }
+
+    /// Burns and mixes one saved practice. Never throws: the worst case is the
+    /// silent camera file, which is still the family's video.
+    @MainActor
+    private func runSave(_ job: PendingSave) async -> JSObject {
+        let fm = FileManager.default
+        let started = Date()
+        let options = (try? JSONSerialization.jsonObject(with: job.options)) as? [String: Any] ?? [:]
+        let parsed = Self.parseSaveOptions(options)
+        let raw = PendingSaves.url(job.rawName)
+        let shiftMs = job.shiftMs
+
+        let events = parsed.events.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
+        let totalMs = max(0, parsed.totalDurationMs - shiftMs)
+        // What gets mixed back into the saved video. Voice processing strips
+        // whatever the speaker played out of the voice track, so it has to be
+        // added back; without processing the mic already caught it, and adding
+        // it again would double it.
+        //
+        // Keep the countdown effects (/sounds/…) and leave the character cheer
+        // voices (/characters/…) out: in the recording they talked over the child.
+        let hasVoice = job.voiceName != nil
+        let mixedSounds = (!hasVoice || job.voiceProcessing)
+            ? parsed.sounds.filter { sound in
+                switch sound {
+                case .music: return true
+                case let .clip(_, src): return src.hasPrefix("/sounds/")
+                }
+            }.map { Self.shifted($0, byMs: shiftMs) }
+            : []
+        let voiceTrack = job.voiceName.map {
+            OverlayCompositor.VoiceTrack(url: PendingSaves.url($0), leadSeconds: job.voiceLeadSeconds)
+        }
+
+        // 「動画を仕上げ中… 42%」 on the web side.
+        let jobId = job.id
+        let reportProgress: (Float) -> Void = { [weak self] progress in
+            self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(progress)])
+            Task { @MainActor in if self?.savingJobId == jobId { self?.saveProgress = Double(progress) } }
+        }
+
+        // A save that already failed to finish twice (the app died during it)
+        // skips the overlay, and after that the mix too: a lighter export that
+        // succeeds beats one that crashes the app on every launch.
+        let tryBurn = job.attempts <= 2
+        let tryMix = job.attempts <= 3 && (voiceTrack != nil || !mixedSounds.isEmpty)
+        if !tryBurn { print("⚡️  [KarateRecorder] save \(job.id) attempt \(job.attempts): skipping the overlay") }
+
+        var exportMode = "raw"
+        var soundMixed = false
+        var burnError: String?
+        var mixError: String?
+        var output: URL?
+        let out = PendingSaves.url("\(job.id)-out.mp4")
+        if tryBurn {
             do {
                 let result = try await self.exportRetryingInForeground("KarateRecorderBurn") {
                     try await OverlayCompositor.burn(
-                        sourceURL: raw, outputURL: burned, events: events, totalDurationMs: totalMs,
-                        menu: menu, sounds: mixedSounds, voice: voiceTrack,
-                        streakLabel: streakLabel, beltLabel: beltLabel, menuName: menuName, decor: decor
+                        sourceURL: raw, outputURL: out, events: events, totalDurationMs: totalMs,
+                        menu: parsed.menu, sounds: mixedSounds, voice: voiceTrack,
+                        streakLabel: parsed.streakLabel, beltLabel: parsed.beltLabel,
+                        menuName: parsed.menuName, decor: parsed.decor,
+                        onProgress: reportProgress
                     )
                 }
-                finalURL = burned
+                output = out
                 exportMode = "burned"
                 soundMixed = result.soundMixed
                 mixError = result.mixError
             } catch {
                 burnError = error.localizedDescription
                 print("⚡️  [KarateRecorder] burn-in failed: \(error.localizedDescription)")
-                if voiceTrack != nil || !mixedSounds.isEmpty {
-                    let mixed = fm.temporaryDirectory.appendingPathComponent("karate-mix-\(UUID().uuidString).mp4")
-                    do {
-                        let result = try await self.exportRetryingInForeground("KarateRecorderMix") {
-                            try await OverlayCompositor.mixOnly(sourceURL: raw, outputURL: mixed, sounds: mixedSounds, voice: voiceTrack)
-                        }
-                        finalURL = mixed
-                        exportMode = "mixed"
-                        soundMixed = result.soundMixed
-                        mixError = result.mixError
-                    } catch {
-                        mixError = error.localizedDescription
-                        print("⚡️  [KarateRecorder] sound-only export failed: \(error.localizedDescription)")
-                    }
+            }
+        }
+        if output == nil, tryMix {
+            // Burn-in failing must never cost the family their recording: the
+            // sound mix without the overlay, then the raw capture.
+            do {
+                let result = try await self.exportRetryingInForeground("KarateRecorderMix") {
+                    try await OverlayCompositor.mixOnly(sourceURL: raw, outputURL: out, sounds: mixedSounds,
+                                                        voice: voiceTrack, onProgress: reportProgress)
                 }
+                output = out
+                exportMode = "mixed"
+                soundMixed = result.soundMixed
+                mixError = result.mixError
+            } catch {
+                mixError = error.localizedDescription
+                print("⚡️  [KarateRecorder] sound-only export failed: \(error.localizedDescription)")
             }
+        }
 
-            if finalURL != raw { try? fm.removeItem(at: raw) }
-            // The voice is inside the video now; keep it only if it isn't.
-            var voiceKept = false
-            if let voice {
-                if soundMixed { try? fm.removeItem(at: voice.url) } else { voiceKept = true }
+        // The finished video goes to tmp like before; the capture stays where it
+        // is until the next practice, since the done screen may be playing it.
+        let ext = output != nil ? "mp4" : (raw.pathExtension.isEmpty ? "mov" : raw.pathExtension)
+        let final = fm.temporaryDirectory.appendingPathComponent("karate-training-\(job.id).\(ext)")
+        try? fm.removeItem(at: final)
+        do {
+            if let output {
+                try fm.moveItem(at: output, to: final)
+            } else {
+                try fm.copyItem(at: raw, to: final)
             }
-            UserDefaults.standard.set(finalURL.lastPathComponent, forKey: Self.lastFinishedKey)
+        } catch {
+            print("⚡️  [KarateRecorder] could not place the finished video: \(error.localizedDescription)")
+        }
+        let finalURL = fm.fileExists(atPath: final.path) ? final : (output ?? raw)
+        PendingSaves.remove(job.id)
+        UserDefaults.standard.set(finalURL.lastPathComponent, forKey: Self.lastFinishedKey)
+        var unseen = Self.unseenVideos().filter { ($0["jobId"] as? String) != job.id }
+        unseen.append(["jobId": job.id, "name": finalURL.lastPathComponent,
+                       "createdAt": job.createdAt.timeIntervalSince1970 * 1000])
+        Self.setUnseenVideos(Array(unseen.suffix(3)))
+        print(String(format: "⚡️  [KarateRecorder] save %@ done (%@) in %.1f s, attempt %d",
+                     job.id, exportMode, Date().timeIntervalSince(started), job.attempts))
 
-            var result: JSObject = [
-                "uri": finalURL.absoluteString,
-                "burnedIn": exportMode == "burned",
-                "exportMode": exportMode,
-                "soundMixed": soundMixed,
-                "overlayShiftMs": shiftMs,
-                "echoCancelled": self.camera.echoCancelled,
-            ]
-            if let burnError { result["burnError"] = burnError }
-            if let mixError { result["mixError"] = mixError }
-            if let reason = self.interruptionReason { result["interruption"] = reason }
-            if let voice {
-                if voiceKept { result["voiceUri"] = voice.url.absoluteString }
-                result["voiceLeadMs"] = lead * 1000
-                result["voiceProcessing"] = voice.voiceProcessing
-                result["voicePeakDb"] = voice.peakDb
+        var result: JSObject = [
+            "jobId": job.id,
+            "uri": finalURL.absoluteString,
+            "burnedIn": exportMode == "burned",
+            "exportMode": exportMode,
+            "soundMixed": soundMixed,
+            "overlayShiftMs": shiftMs,
+            "resumed": resumedJobIds.contains(job.id),
+        ]
+        if let burnError { result["burnError"] = burnError }
+        if let mixError { result["mixError"] = mixError }
+        if let reason = job.interruption { result["interruption"] = reason }
+        return result
+    }
+
+    /// `{ saving: { jobId, progress, resumed } | null, unseen: [{ jobId, uri, createdAt }] }`
+    /// — for the app to show a save still running or a video finished while
+    /// nobody was looking (after the app was killed mid-save).
+    @objc func getSaveStatus(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            let tmp = FileManager.default.temporaryDirectory
+            let unseen: [JSObject] = Self.unseenVideos().compactMap { entry in
+                guard let jobId = entry["jobId"] as? String, let name = entry["name"] as? String else { return nil }
+                let url = tmp.appendingPathComponent(name)
+                guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+                return ["jobId": jobId, "uri": url.absoluteString,
+                        "createdAt": (entry["createdAt"] as? NSNumber)?.doubleValue ?? 0]
+            }
+            var result: JSObject = ["unseen": unseen]
+            if let id = self.savingJobId {
+                result["saving"] = ["jobId": id, "progress": self.saveProgress,
+                                    "resumed": self.resumedJobIds.contains(id)] as JSObject
+            } else if let next = self.saveQueue.first {
+                result["saving"] = ["jobId": next.id, "progress": 0,
+                                    "resumed": self.resumedJobIds.contains(next.id)] as JSObject
+            } else {
+                result["saving"] = NSNull()
             }
             call.resolve(result)
         }
+    }
+
+    @objc func markVideoSeen(_ call: CAPPluginCall) {
+        let jobId = call.getString("jobId")
+        Self.setUnseenVideos(Self.unseenVideos().filter { ($0["jobId"] as? String) != jobId })
+        call.resolve()
     }
 }

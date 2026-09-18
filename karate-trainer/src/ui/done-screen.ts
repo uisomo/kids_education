@@ -50,6 +50,16 @@ export interface DoneDeps {
   // Resolves to the burned-in video blob, or null if burn-in failed/was
   // skipped — in which case the raw videoUrl remains the final result.
   burnInPromise?: Promise<Blob | null>;
+  // Native: videoUrl is the bare camera capture, playable at once so the child
+  // can watch themselves while writing a 工夫. The overlay and sound are still
+  // being added; `done` resolves with the finished video, which then replaces
+  // it. Saving and sending wait for it.
+  finishing?: {
+    done: Promise<{ playbackUrl: string; fileUri: string } | null>;
+    onProgress(fn: (fraction: number) => void): void;
+    // The finished video made it onto the screen.
+    onShown?(): void;
+  };
   // Temporary on-device diagnostics (track mute/ended events, tab visibility
   // changes, rAF stalls) for tracking down the iPhone Safari video-freeze
   // bug. Shown collapsed since it's only useful for debugging. Omitted
@@ -146,6 +156,52 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     });
   }
 
+  // Native: the capture plays now; the finished one swaps in where the child is.
+  const finishStatus = document.createElement("div");
+  if (deps.finishing) {
+    finishStatus.dataset.finishStatus = "";
+    finishStatus.className = "finish-status";
+    const label = document.createElement("div");
+    label.className = "finish-label";
+    const track = document.createElement("div");
+    track.className = "finish-bar";
+    const fill = document.createElement("div");
+    fill.className = "finish-bar-fill";
+    fill.dataset.finishBar = "";
+    track.append(fill);
+    const note = document.createElement("div");
+    note.className = "finish-note";
+    note.textContent = "文字と音は できあがると入るよ。見ながら 工夫を書いてみよう！";
+    finishStatus.append(label, track, note);
+    const paint = (fraction: number) => {
+      const pct = Math.floor(fraction * 100);
+      label.textContent = `動画を仕上げ中… ${pct}%`;
+      fill.style.width = `${pct}%`;
+    };
+    paint(0);
+    deps.finishing.onProgress(paint);
+    void deps.finishing.done.then((result) => {
+      if (!result) {
+        finishStatus.remove();
+        return;
+      }
+      const at = video.currentTime;
+      const wasPlaying = !video.paused && !video.ended;
+      video.addEventListener("loadedmetadata", () => {
+        try { video.currentTime = Math.min(at, video.duration || at); } catch { /* not seekable yet */ }
+        if (wasPlaying) void Promise.resolve(video.play()).catch(() => { /* needs a tap */ });
+      }, { once: true });
+      video.setAttribute("src", result.playbackUrl);
+      finishStatus.textContent = "✅ 動画ができたよ！";
+      finishStatus.classList.add("is-done");
+      setSaveEnabled(true);
+      if (video.isConnected) deps.finishing?.onShown?.();
+    }).catch(() => {
+      finishStatus.remove();
+      setSaveEnabled(true);
+    });
+  }
+
   // Stats Breakdown
   const stats = document.createElement("div");
   stats.className = "stats";
@@ -220,6 +276,10 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   dl.textContent = `⬇ 動画を保存 (.${deps.ext})`;
   let shareTapped = false;
   dl.addEventListener("click", () => { shareTapped = true; deps.onShare(shareBlob); });
+  const saveButtons: HTMLButtonElement[] = [dl];
+  function setSaveEnabled(on: boolean) {
+    saveButtons.forEach((b) => { b.disabled = !on; });
+  }
 
   const confirm = deps.confirm
     ?? ((m: string) => (typeof window !== "undefined" && typeof window.confirm === "function" ? window.confirm(m) !== false : true));
@@ -238,6 +298,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     const send = document.createElement("button");
     send.dataset.share = ""; send.className = "btn-share"; send.textContent = "LINE・SNSで送る";
     send.addEventListener("click", () => { shareTapped = true; deps.onSend?.(shareBlob); });
+    saveButtons.push(send);
     sendNode = send;
   } else {
     sendNode = document.createElement("div");
@@ -252,7 +313,10 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   watchHint.dataset.watchHint = "";
   watchHint.textContent = "自分で見返してみよう";
 
-  root.append(celebCard, watchHint, video, stats, kufuSection, dl, again, sendNode);
+  // Nothing to save or send until the finished video exists.
+  if (deps.finishing) setSaveEnabled(false);
+
+  root.append(celebCard, watchHint, video, ...(deps.finishing ? [finishStatus] : []), stats, kufuSection, dl, again, sendNode);
   if (showBurninStatus) root.insertBefore(burninStatus, dl);
 
   // Collapsed debug panel: readable directly on the phone, no devtools

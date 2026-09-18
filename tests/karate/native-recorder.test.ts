@@ -195,15 +195,15 @@ describe("NativeVideoRecorder", () => {
 describe("NativeVideoRecorder interruptions", () => {
   function listenablePlugin() {
     const base = makePlugin();
-    let listener: ((data: { reason?: string }) => void) | null = null;
+    const listeners = new Map<string, (data: { reason?: string }) => void>();
     const removed: string[] = [];
     base.plugin.addListener = async (eventName, fn) => {
       base.calls.push(`addListener ${eventName}`);
-      listener = fn;
-      return { remove: async () => { removed.push(eventName); listener = null; } };
+      listeners.set(eventName, fn as (data: { reason?: string }) => void);
+      return { remove: async () => { removed.push(eventName); listeners.delete(eventName); } };
     };
-    const fire = (reason?: string) => listener?.(reason === undefined ? {} : { reason });
-    return { ...base, fire, removed, hasListener: () => listener !== null };
+    const fire = (reason?: string) => listeners.get("recordingInterrupted")?.(reason === undefined ? {} : { reason });
+    return { ...base, fire, removed, hasListener: () => listeners.has("recordingInterrupted") };
   }
   const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -387,5 +387,70 @@ describe("NativeVideoRecorder with a real Capacitor-style plugin proxy", () => {
     await rec.startRecording();
     await rec.stop([], 1000, [], [], { streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯", menuName: "強くなるため" });
     expect(got()).toMatchObject({ streakLabel: "🔥 3日間 毎日継続中", beltLabel: "🟢 緑帯", menuName: "強くなるため" });
+  });
+});
+
+describe("NativeVideoRecorder background save", () => {
+  function savingPlugin() {
+    const base = makePlugin();
+    const listeners = new Map<string, (data: any) => void>();
+    base.plugin.addListener = (async (eventName: string, fn: (data: any) => void) => {
+      base.calls.push(`addListener ${eventName}`);
+      listeners.set(eventName, fn);
+      return { remove: async () => { listeners.delete(eventName); } };
+    }) as KarateRecorderPluginLike["addListener"];
+    base.plugin.stopRecording = async () => {
+      base.calls.push("stopRecording");
+      return { jobId: "job1", rawUri: "file:///lib/job1-raw.mov" };
+    };
+    const emit = (eventName: string, data: unknown) => listeners.get(eventName)?.(data);
+    return { ...base, emit };
+  }
+
+  it("returns the capture at once, then the finished video with progress on the way", async () => {
+    const { plugin, calls, emit } = savingPlugin();
+    const rec = makeRecorder(plugin);
+    await rec.startCamera();
+    await rec.startRecording();
+    await rec.stop([], 0);
+
+    // Subscribed before the save could start.
+    expect(calls.indexOf("addListener exportFinished")).toBeLessThan(calls.indexOf("stopRecording"));
+    expect(rec.playbackUrl()).toBe("capacitor://localhost/_capacitor_file_file:///lib/job1-raw.mov");
+    expect(rec.fileUri()).toBeNull();
+
+    const seen: number[] = [];
+    const saved = rec.saved((f) => seen.push(f));
+    emit("exportProgress", { jobId: "other", progress: 0.9 });
+    emit("exportProgress", { jobId: "job1", progress: 0.4 });
+    emit("exportProgress", { jobId: "job1", progress: 1.3 });
+    emit("exportFinished", { jobId: "job1", uri: "file:///tmp/karate-training-job1.mp4", burnedIn: true });
+
+    await expect(saved).resolves.toEqual({
+      playbackUrl: "capacitor://localhost/_capacitor_file_file:///tmp/karate-training-job1.mp4",
+      fileUri: "file:///tmp/karate-training-job1.mp4",
+    });
+    expect(seen).toEqual([0.4, 1]);
+    expect(rec.fileUri()).toBe("file:///tmp/karate-training-job1.mp4");
+    expect(rec.fileExtension()).toBe("mp4");
+  });
+
+  it("a save that finished before anyone asked is not missed", async () => {
+    const { plugin, emit } = savingPlugin();
+    const rec = makeRecorder(plugin);
+    await rec.startCamera();
+    await rec.startRecording();
+    await rec.stop([], 0);
+    emit("exportFinished", { jobId: "job1", uri: "file:///tmp/v.mp4", burnedIn: true });
+    await expect(rec.saved()).resolves.toMatchObject({ fileUri: "file:///tmp/v.mp4" });
+  });
+
+  it("an older native build that saved inside stopRecording is already finished", async () => {
+    const { plugin } = makePlugin();
+    const rec = makeRecorder(plugin);
+    await rec.startCamera();
+    await rec.startRecording();
+    await rec.stop([], 0);
+    await expect(rec.saved()).resolves.toMatchObject({ fileUri: "file:///tmp/karate.mp4" });
   });
 });

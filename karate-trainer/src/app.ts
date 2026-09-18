@@ -41,6 +41,7 @@ import {
 } from "./character-store";
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
 import { DiagnosticsLog } from "./diagnostics-log";
+import { openSavedVideoModal } from "./ui/saved-video-modal";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
@@ -66,9 +67,15 @@ export interface VideoRecorderLike {
   // Native only: the finished file on disk, for handing to the OS share sheet
   // without round-tripping the video through base64.
   fileUri?(): string | null;
-  // Native only: a URL the <video> can stream the finished file from, so the
-  // whole recording is never loaded into the web view's memory.
+  // Native only: a URL the <video> can stream the video from, so the whole
+  // recording is never loaded into the web view's memory. Right after stop()
+  // it is the bare capture; once saved() resolves, the finished video.
   playbackUrl?(): string | null;
+  // Native only: the overlay and sound are added after stop() returns. Resolves
+  // with the finished video (null if there is nothing to wait for).
+  saved?(onProgress?: (fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string } | null>;
+  // Native only: the finished video was on screen, so it isn't offered again.
+  markSeen?(): void;
   // Tear down camera / mic / music without exporting (a failed start or a
   // failed stop). Never rejects.
   cancel?(): Promise<void>;
@@ -108,6 +115,19 @@ export interface BgmPlayer {
   // Web path of the music file, so the native export can mix the same track
   // back in when echo cancellation keeps it out of the microphone.
   readonly src?: string;
+}
+
+// Native: the save queue behind the recorder (see NativeSaveTracker), for a
+// video that finished — or is still being finished — after the app was
+// reopened. Absent on the web.
+export interface SavedVideosLike {
+  status(): Promise<{
+    saving: { jobId: string; progress: number; resumed: boolean } | null;
+    unseen: { jobId: string; uri: string; createdAt: number }[];
+  } | null>;
+  watch(jobId: string, onProgress?: (fraction: number) => void): Promise<{ jobId: string; uri: string }>;
+  markSeen(jobId: string): Promise<void>;
+  playbackUrl(uri: string): string;
 }
 
 export interface KarateAppDeps {
@@ -156,6 +176,7 @@ export interface KarateAppDeps {
   // Parental gate before anything leaves the app (sharing the video). Defaults
   // to the overlay gate; tests inject a stub.
   askParentalGate?(root: HTMLElement): Promise<boolean>;
+  savedVideos?: SavedVideosLike;
   // App Store subscriptions (iOS app). When set, the plan follows what Apple
   // says was bought; without it (web, tests) the plan cards set it directly.
   billing?: Billing;
@@ -315,6 +336,70 @@ export class KarateApp {
     if (memberId === getActiveId(base)) this.menu = loadMenu(this.mem());
   }
 
+  private savedVideoOpen = false;
+  // Closed this launch without being finished; not offered again until the
+  // next launch.
+  private savedVideoDismissed = new Set<string>();
+
+  // A video nobody saw — the app was killed while saving it and the save was
+  // finished on this launch — or such a save still running: offered on the
+  // 今日の稽古 screen so the practice isn't lost from the child's view.
+  private async offerSavedVideo(): Promise<void> {
+    const saves = this.deps.savedVideos;
+    if (!saves || this.savedVideoOpen) return;
+    this.savedVideoOpen = true;
+    let opened = false;
+    try {
+      const status = await saves.status();
+      // Only over the setup screen: never on top of a practice that started meanwhile.
+      if (!status || !this.root.classList.contains("setup")) return;
+      const unseen = status.unseen.filter((v) => !this.savedVideoDismissed.has(v.jobId));
+      const latest = unseen[unseen.length - 1];
+      // A save from this launch that is still running turns up as unseen once
+      // done; only one resumed after a crash is shown while it runs.
+      const resumed = !latest && status.saving?.resumed && !this.savedVideoDismissed.has(status.saving.jobId)
+        ? status.saving : null;
+      if (!latest && !resumed) return;
+
+      const jobId = latest?.jobId ?? resumed!.jobId;
+      let fileUri: string | null = latest?.uri ?? null;
+      const progressFns: ((fraction: number) => void)[] = [];
+      const done = resumed
+        ? saves.watch(resumed.jobId, (f) => progressFns.forEach((fn) => fn(f))).then((r) => {
+          fileUri = r.uri;
+          return { playbackUrl: saves.playbackUrl(r.uri) };
+        })
+        : null;
+      const share = () => fileUri
+        ? this.deps.shareRecording(new Blob(), fileUri.toLowerCase().endsWith(".mov") ? "mov" : "mp4", fileUri)
+        : Promise.resolve();
+      const host = this.root.ownerDocument.body;
+      opened = true;
+      openSavedVideoModal(host, {
+        ready: latest ? { playbackUrl: saves.playbackUrl(latest.uri) } : undefined,
+        saving: resumed && done
+          ? { progress: resumed.progress, onProgress: (fn) => { progressFns.push(fn); }, done }
+          : undefined,
+        shareAllowed: getShareAllowed(this.mem()),
+        onSave: () => {
+          const gate = this.deps.askParentalGate ?? askParentalGate;
+          void gate(host).then((ok) => (ok ? share() : undefined))
+            .catch((e) => console.error("shareRecording failed", e));
+        },
+        onSend: () => { void share().catch((e) => console.error("shareRecording failed", e)); },
+        onShown: () => { void saves.markSeen(jobId); },
+        onClose: () => {
+          this.savedVideoOpen = false;
+          this.savedVideoDismissed.add(jobId);
+        },
+      });
+    } catch (e) {
+      console.warn("offerSavedVideo failed", e);
+    } finally {
+      if (!opened) this.savedVideoOpen = false;
+    }
+  }
+
   async start(): Promise<void> {
     this.showSetup();
     const billing = this.deps.billing;
@@ -338,6 +423,7 @@ export class KarateApp {
       ...this.menu.map((d) => d.name),
       ...[BASIC_PRESET, ...loadPresets(this.base())].flatMap((p) => p.menu.map((d) => d.name)),
     ], this.mem());
+    void this.offerSavedVideo();
     const linked = this.linkedPreset();
     renderSetupScreen(this.root, {
       menu: this.menu,
@@ -1016,6 +1102,27 @@ export class KarateApp {
       const streak = completed && this.finishedDrills.length > 0
         ? recordPracticeDay(this.mem())
         : currentStreak(this.mem());
+      // Recorded BEFORE the video is saved: a long save can be cut short (the
+      // app killed while 「動画を保存中…」), and the level must not be lost with it.
+      // Only a practice run to the end counts (終了 partway adds nothing): each
+      // drill that ran down to 0 gains a level in the picked saved menu, whose
+      // belt bars are its lowest drill level. An unsaved menu has no belt.
+      const missed: BeltMissReason | undefined = interrupted ? "interrupted"
+        : !completed ? undefined
+        : !linked ? "no-menu"
+          : this.finishedDrills.length === 0 ? "no-drills"
+            : undefined;
+      let beltResult: DoneBeltResult = {
+        completed,
+        bars: before && linked ? beltStateFor(before, linked.menu).bars : 0,
+        promotedTo: null,
+        missed,
+      };
+      if (completed && linked && !missed) {
+        const { state, promoted } = recordPractice(linked.id, linked.menu, this.finishedDrills, this.mem());
+        beltResult = { completed, bars: state.bars, promotedTo: promoted ? BELTS[state.index].name : null };
+      }
+
       const labels = {
         ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
         ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
@@ -1049,30 +1156,25 @@ export class KarateApp {
         .filter((d) => d.kind !== "rest" && !seen.has(d.name) && seen.add(d.name))
         .map((d) => ({ name: d.name }));
 
-      // Only a practice run to the end counts (終了 partway adds nothing): each
-      // drill that ran down to 0 gains a level in the picked saved menu, whose
-      // belt bars are its lowest drill level. An unsaved menu has no belt.
-      const missed: BeltMissReason | undefined = interrupted ? "interrupted"
-        : !completed ? undefined
-        : !linked ? "no-menu"
-          : this.finishedDrills.length === 0 ? "no-drills"
-            : undefined;
-      let beltResult: DoneBeltResult = {
-        completed,
-        bars: before && linked ? beltStateFor(before, linked.menu).bars : 0,
-        promotedTo: null,
-        missed,
-      };
-      if (completed && linked && !missed) {
-        const { state, promoted } = recordPractice(linked.id, linked.menu, this.finishedDrills, this.mem());
-        beltResult = { completed, bars: state.bars, promotedTo: promoted ? BELTS[state.index].name : null };
-      }
-
       const blobForShare = blob;
-      const shareFileUri = recorder?.fileUri?.() ?? null;
+      // Read when tapped: on native the file only exists once the save is done.
+      const shareFileUri = () => recorder?.fileUri?.() ?? null;
+      const shareExt = () => (recorder ? recorder.fileExtension() : ext);
+      // Native: the practice plays at once (no text or sound yet) so the child
+      // can watch themselves while writing a 工夫; the finished video replaces
+      // it when the save is done.
+      const progressFns: ((fraction: number) => void)[] = [];
+      const finishing = recorder?.saved
+        ? {
+          done: recorder.saved((fraction) => { progressFns.forEach((fn) => fn(fraction)); }),
+          onProgress: (fn: (fraction: number) => void) => { progressFns.push(fn); },
+          onShown: () => recorder.markSeen?.(),
+        }
+        : undefined;
       renderDoneScreen(this.root, {
         videoUrl,
         ext,
+        finishing,
         burnInPromise,
         burnInErrorPromise,
         diagnosticsText,
@@ -1096,14 +1198,14 @@ export class KarateApp {
         // goes straight to the share sheet.
         shareAllowed: getShareAllowed(this.mem()),
         onSend: (burnedBlob) => {
-          void Promise.resolve(this.deps.shareRecording(burnedBlob ?? blobForShare, ext, shareFileUri))
+          void Promise.resolve(this.deps.shareRecording(burnedBlob ?? blobForShare, shareExt(), shareFileUri()))
             .catch((e) => console.error("shareRecording failed", e));
         },
         onShare: (burnedBlob) => {
           const gate = this.deps.askParentalGate ?? askParentalGate;
           void gate(this.root).then((ok) => {
             if (!ok) return;
-            return this.deps.shareRecording(burnedBlob ?? blobForShare, ext, shareFileUri);
+            return this.deps.shareRecording(burnedBlob ?? blobForShare, shareExt(), shareFileUri());
           }).catch((e) => {
             console.error("shareRecording failed", e);
           });

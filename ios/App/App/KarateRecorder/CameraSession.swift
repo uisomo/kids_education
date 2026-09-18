@@ -227,7 +227,12 @@ final class CameraSession: NSObject {
                     // letting AVCaptureSession reset it drops .mixWithOthers
                     // and silences the web layer's BGM.
                     session.automaticallyConfiguresApplicationAudioSession = false
-                    session.sessionPreset = .high
+                    // 720p, not .high (1080p): a 3-minute practice at 1080p made
+                    // a ~390 MB file and took about as long as the practice to
+                    // save on an iPhone SE — long enough for the family to leave
+                    // the app mid-save and for iOS to kill it. 720p roughly halves
+                    // both and still looks sharp on a phone or in LINE.
+                    session.sessionPreset = session.canSetSessionPreset(.hd1280x720) ? .hd1280x720 : .high
 
                     for input in session.inputs { session.removeInput(input) }
                     for output in session.outputs { session.removeOutput(output) }

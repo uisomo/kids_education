@@ -334,16 +334,25 @@ enum OverlayCompositor {
             .font: font,
             .foregroundColor: style.color,
         ]
+        // Without a box, a dark outline and soft shadow keep the digits
+        // readable over any background. The outline is its own pass drawn
+        // UNDER the fill: a fill+stroke pass centres the stroke on the glyph
+        // edge, so half of it ate into the gold and the rounded digits came
+        // out thin and square-looking — not like the app's font on screen.
+        var outline: NSAttributedString?
         if style.outlined {
-            // Without a box, a dark outline and soft shadow keep the digits
-            // readable over any background. Negative width = fill and stroke.
+            // A wider outline would make neighbouring digits touch.
+            attributes[.kern] = fontSize * 0.06
             let shadow = NSShadow()
             shadow.shadowColor = UIColor(white: 0, alpha: 0.6)
             shadow.shadowBlurRadius = fontSize * 0.08
             shadow.shadowOffset = CGSize(width: 0, height: fontSize * 0.02)
-            attributes[.strokeColor] = UIColor(white: 0, alpha: 0.85)
-            attributes[.strokeWidth] = -8
-            attributes[.shadow] = shadow
+            var outlineAttributes = attributes
+            outlineAttributes[.foregroundColor] = UIColor(white: 0, alpha: 0.85)
+            outlineAttributes[.strokeColor] = UIColor(white: 0, alpha: 0.85)
+            outlineAttributes[.strokeWidth] = 16     // positive = stroke only; ~8% shows outside
+            outlineAttributes[.shadow] = shadow
+            outline = NSAttributedString(string: text, attributes: outlineAttributes)
         }
         let attributed = NSAttributedString(string: text, attributes: attributes)
         let textSize = attributed.size()
@@ -356,8 +365,8 @@ enum OverlayCompositor {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1          // renderSize is already in video pixels
         format.opaque = false
-        // Room around the box for its drop shadow.
-        let margin = style.outlined ? 0 : ceil(fontSize * 0.3)
+        // Room around the box for its drop shadow, or for the outline.
+        let margin = ceil(fontSize * (style.outlined ? 0.12 : 0.3))
         let imageSize = CGSize(width: boxW + margin * 2, height: boxH + margin * 2)
         let image = UIGraphicsImageRenderer(size: imageSize, format: format).image { ctx in
             if !style.outlined {
@@ -367,10 +376,12 @@ enum OverlayCompositor {
                         stroke: style.stroke, strokeWidth: max(1, 2 * fontScale),
                         shadow: margin, in: ctx.cgContext)
             }
-            attributed.draw(at: CGPoint(
+            let origin = CGPoint(
                 x: margin + (boxW - textSize.width) / 2,
                 y: margin + (boxH - textSize.height) / 2
-            ))
+            )
+            outline?.draw(at: origin)
+            attributed.draw(at: origin)
         }
 
         // Core Animation's origin is bottom-left here, but the design
@@ -950,8 +961,12 @@ enum OverlayCompositor {
     }
 
     /// Runs one export, removing any partial output if it fails.
+    /// `onProgress` gets 0…1 about twice a second while the file is written:
+    /// a long practice takes minutes to save, and a bare spinner that long
+    /// looks frozen.
     private static func export(
-        asset: AVAsset, videoComposition: AVVideoComposition?, audioMix: AVAudioMix?, to outputURL: URL
+        asset: AVAsset, videoComposition: AVVideoComposition?, audioMix: AVAudioMix?, to outputURL: URL,
+        onProgress: ((Float) -> Void)? = nil
     ) async throws {
         guard let export = AVAssetExportSession(
             asset: asset, presetName: AVAssetExportPresetHighestQuality
@@ -965,6 +980,15 @@ enum OverlayCompositor {
         export.shouldOptimizeForNetworkUse = true
 
         try? FileManager.default.removeItem(at: outputURL)
+        let poll = onProgress.map { report in
+            Task.detached {
+                while !Task.isCancelled {
+                    report(export.progress)
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+            }
+        }
+        defer { poll?.cancel() }
         // exportAsynchronously is deprecated in the iOS 18 SDK in favour of
         // export(to:as:), but it exists on every iOS version this app targets.
         // Wrapping it avoids depending on which async overload a given SDK has.
@@ -1000,7 +1024,8 @@ enum OverlayCompositor {
         streakLabel: String? = nil,
         beltLabel: String? = nil,
         menuName: String? = nil,
-        decor: Decor = .none
+        decor: Decor = .none,
+        onProgress: ((Float) -> Void)? = nil
     ) async throws -> ExportResult {
         let started = Date()
         // Keep the source asset in this local for the whole export: composition
@@ -1043,7 +1068,8 @@ enum OverlayCompositor {
             postProcessingAsVideoLayer: videoLayer, in: parentLayer
         )
 
-        try await export(asset: asset, videoComposition: composition, audioMix: audioMix, to: outputURL)
+        try await export(asset: asset, videoComposition: composition, audioMix: audioMix, to: outputURL,
+                         onProgress: onProgress)
         withExtendedLifetime(source) {}
         print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video",
                      Date().timeIntervalSince(started), totalDurationMs / 1000))
@@ -1054,14 +1080,16 @@ enum OverlayCompositor {
     /// video, with no overlay, so the family still gets a video with sound.
     /// Throws if there is nothing to mix or the mix itself fails.
     static func mixOnly(
-        sourceURL: URL, outputURL: URL, sounds: [Sound], voice: VoiceTrack?
+        sourceURL: URL, outputURL: URL, sounds: [Sound], voice: VoiceTrack?,
+        onProgress: ((Float) -> Void)? = nil
     ) async throws -> ExportResult {
         let source = AVURLAsset(url: sourceURL)
         let (asset, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
         guard result.soundMixed else {
             throw CompositorError.exportFailed("no sound to mix: \(result.mixError ?? "nothing recorded")")
         }
-        try await export(asset: asset, videoComposition: nil, audioMix: audioMix, to: outputURL)
+        try await export(asset: asset, videoComposition: nil, audioMix: audioMix, to: outputURL,
+                         onProgress: onProgress)
         withExtendedLifetime(source) {}
         return result
     }

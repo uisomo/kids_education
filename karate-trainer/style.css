@@ -1731,6 +1731,35 @@ input[data-label] {
   margin-bottom: 0.4rem;
 }
 
+/* Under the practice video while the overlay and sound are added (native). */
+.finish-status {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tatami);
+  opacity: 0.85;
+  text-align: center;
+  margin: 0.4rem 0 0.2rem;
+}
+.finish-status.is-done { opacity: 1; }
+.finish-label { font-size: 1rem; font-weight: 900; color: #ffd166; }
+.finish-bar {
+  height: 12px;
+  margin: 0.35rem 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+.finish-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffd166, #ff9f0a);
+  transition: width 0.4s ease;
+}
+.finish-note { font-size: 0.8rem; font-weight: 700; opacity: 0.8; }
+.btn-dl:disabled,
+.btn-share:disabled { opacity: 0.45; }
+
 .kufu-section {
   display: flex;
   flex-direction: column;
@@ -2792,3 +2821,18 @@ input[data-gate-input]:disabled,
   opacity: 0.5;
 }
 
+
+/* 「前回の動画」 card: a video finished after the app was reopened. */
+.saved-video-card .saved-video {
+  width: 100%;
+  max-height: 50vh;
+  border-radius: 14px;
+  background: #000;
+}
+.saved-video-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.saved-video-actions[hidden],
+.saved-video-card video[hidden] { display: none; }

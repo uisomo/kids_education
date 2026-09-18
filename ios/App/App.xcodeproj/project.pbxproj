@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C63646ED0C8247267A8D5BEB /* SoundMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2153B33D81FD85B22B40B60 /* SoundMixer.swift */; };
+		A1B2C3D4E5F60718293A4B01 /* PendingSaves.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B02 /* PendingSaves.swift */; };
 		BA1E5729EA5256D633DDD8AF /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C86C10695817A0D3A6781C /* AudioController.swift */; };
 		08072516F2003B9439A7ECBF /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 410B9B429ECFFFAEC60AE00F /* MainViewController.swift */; };
 		116AA8C2F1ABCB2CFB14FEF6 /* OverlayCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E0221CAFB91620097F23A0 /* OverlayCompositor.swift */; };
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		B2153B33D81FD85B22B40B60 /* SoundMixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundMixer.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B02 /* PendingSaves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingSaves.swift; sourceTree = "<group>"; };
 		A2C86C10695817A0D3A6781C /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		410B9B429ECFFFAEC60AE00F /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
@@ -62,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				B2153B33D81FD85B22B40B60 /* SoundMixer.swift */,
+				A1B2C3D4E5F60718293A4B02 /* PendingSaves.swift */,
 				A2C86C10695817A0D3A6781C /* AudioController.swift */,
 				DC68D22B1E4B715A6295948F /* CameraSession.swift */,
 				EAFA698F6B0DF5653B44E3F8 /* KarateRecorderPlugin.swift */,
@@ -189,6 +192,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C63646ED0C8247267A8D5BEB /* SoundMixer.swift in Sources */,
+				A1B2C3D4E5F60718293A4B01 /* PendingSaves.swift in Sources */,
 				BA1E5729EA5256D633DDD8AF /* AudioController.swift in Sources */,
 				08072516F2003B9439A7ECBF /* MainViewController.swift in Sources */,
 				8825437B40DB2AED4BCF5573 /* CameraSession.swift in Sources */,

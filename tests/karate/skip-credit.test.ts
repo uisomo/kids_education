@@ -39,7 +39,7 @@ beforeEach(() => {
 async function run(
   menu: Menu,
   drive: (loop: (ms: number) => void, skip: () => void) => void,
-  { saved = true }: { saved?: boolean } = {},
+  { saved = true, stopHangs = false }: { saved?: boolean; stopHangs?: boolean } = {},
 ) {
   const root = document.createElement("div");
   document.body.append(root);
@@ -50,7 +50,10 @@ async function run(
   let loopCb: ((d: number) => void) | null = null;
   const store = new VoiceStore(memKv());
   await store.init();
-  const stop = vi.fn().mockResolvedValue(new Blob(["v"]));
+  // stopHangs: the video save never finishes, like an app killed mid-save.
+  const stop = stopHangs
+    ? vi.fn(() => new Promise<Blob>(() => {}))
+    : vi.fn().mockResolvedValue(new Blob(["v"]));
   const app = new KarateApp(root, {
     voiceStore: store,
     audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
@@ -103,6 +106,15 @@ it("skipping every drill levels nothing up", async () => {
   expect(bars()).toBe(0);
   expect(root.querySelector("[data-belt-result]")!.textContent).toContain("練習した種目がない");
   expect(root.querySelector(".done-title")!.textContent).toBe("おつかれさま！");
+});
+
+it("the level is saved before the video, so a save that never ends can't lose it", async () => {
+  const { root, level, bars, mem } = await run(two, (loop) => { loop(4500); }, { stopHangs: true });
+  expect(root.textContent).toContain("動画を保存中");
+  expect(level("前蹴り")).toBe(1);
+  expect(level("回し蹴り")).toBe(1);
+  expect(bars()).toBe(1);
+  expect(mem.getItem("karate.streak")).not.toBeNull();
 });
 
 it("a skipped drill just doesn't level up; the finished one still does", async () => {

@@ -10,7 +10,28 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import type { OverlayEvent, OverlayMenuItem, SoundEvent } from "./overlay-event-log";
 
+// stopRecording() answers as soon as the camera has stopped: the capture is
+// already safe on disk and the overlay is burned in afterwards, in a save that
+// survives the app being killed (it is finished on the next launch).
 export interface NativeStopResult {
+  // The queued save; its result arrives as an "exportFinished" event.
+  jobId?: string;
+  // The camera capture (no overlay, no sound) — playable right away.
+  rawUri?: string;
+  // Older native builds finished the save inside stopRecording().
+  uri?: string;
+  burnedIn?: boolean;
+  burnError?: string;
+  exportMode?: "burned" | "mixed" | "raw";
+  soundMixed?: boolean;
+  mixError?: string;
+  // Set when the system cut the recording short (see onInterrupted()).
+  interruption?: string;
+}
+
+// The finished video of one save ("exportFinished").
+export interface NativeSaveResult {
+  jobId: string;
   uri: string;
   burnedIn: boolean;
   burnError?: string;
@@ -21,6 +42,15 @@ export interface NativeStopResult {
   mixError?: string;
   // Set when the system cut the recording short (see onInterrupted()).
   interruption?: string;
+  // Finished on a later launch, after the app was killed mid-save.
+  resumed?: boolean;
+}
+
+export interface SaveStatus {
+  // A save still running (or queued), e.g. one resumed at launch.
+  saving: { jobId: string; progress: number; resumed: boolean } | null;
+  // Finished videos nobody has seen yet, oldest first.
+  unseen: { jobId: string; uri: string; createdAt: number }[];
 }
 
 export interface KarateRecorderPluginLike {
@@ -52,6 +82,18 @@ export interface KarateRecorderPluginLike {
     eventName: "recordingInterrupted",
     listener: (data: { reason?: string }) => void,
   ): Promise<PluginListenerHandle>;
+  // While a save writes the video: { jobId, progress } from 0 to 1.
+  addListener?(
+    eventName: "exportProgress",
+    listener: (data: { jobId?: string; progress?: number }) => void,
+  ): Promise<PluginListenerHandle>;
+  // A save finished (fresh or resumed at launch).
+  addListener?(
+    eventName: "exportFinished",
+    listener: (data: NativeSaveResult) => void,
+  ): Promise<PluginListenerHandle>;
+  getSaveStatus?(): Promise<SaveStatus>;
+  markVideoSeen?(opts: { jobId: string }): Promise<void>;
   // Native playback (AudioController): one engine for music and character
   // voices, so neither interrupts the other and the volume really applies.
   playMusic(opts: { src: string; volume: number }): Promise<void>;
@@ -68,6 +110,100 @@ export interface NativeRecorderDeps {
   // Toggles the transparency class on <html>. Injected in tests, which have no
   // real document to mutate.
   setPreviewClass?: (on: boolean) => void;
+}
+
+// Follows the native save queue: one subscription per plugin for the whole
+// page, buffering results so a save that finishes before anyone asks (or
+// while the done screen is gone) is not missed.
+export class NativeSaveTracker {
+  private listening: Promise<void> | null = null;
+  private finished = new Map<string, NativeSaveResult>();
+  private waiters = new Map<string, ((r: NativeSaveResult) => void)[]>();
+  private progressFns = new Map<string, Set<(fraction: number) => void>>();
+  private anyFinished = new Set<(r: NativeSaveResult) => void>();
+
+  constructor(private plugin: KarateRecorderPluginLike) {}
+
+  // Subscribes once. Awaited before stopRecording() so no event can slip by.
+  listen(): Promise<void> {
+    const plugin = this.plugin;
+    return (this.listening ??= (async () => {
+      if (typeof plugin.addListener !== "function") return;
+      try {
+        await plugin.addListener("exportProgress", (data) => {
+          if (!data?.jobId || typeof data.progress !== "number") return;
+          const fraction = Math.min(1, Math.max(0, data.progress));
+          this.progressFns.get(data.jobId)?.forEach((fn) => fn(fraction));
+        });
+        await plugin.addListener("exportFinished", (data) => {
+          if (!data?.jobId) return;
+          this.finished.set(data.jobId, data);
+          this.progressFns.delete(data.jobId);
+          const list = this.waiters.get(data.jobId) ?? [];
+          this.waiters.delete(data.jobId);
+          list.forEach((fn) => fn(data));
+          this.anyFinished.forEach((fn) => fn(data));
+        });
+      } catch (e) {
+        console.warn("native save listener failed", e);
+      }
+    })());
+  }
+
+  // Resolves when that save has finished; onProgress gets 0…1 until then.
+  watch(jobId: string, onProgress?: (fraction: number) => void): Promise<NativeSaveResult> {
+    const done = this.finished.get(jobId);
+    if (done) return Promise.resolve(done);
+    if (onProgress) {
+      const set = this.progressFns.get(jobId) ?? new Set();
+      set.add(onProgress);
+      this.progressFns.set(jobId, set);
+    }
+    return new Promise((resolve) => {
+      this.waiters.set(jobId, [...(this.waiters.get(jobId) ?? []), resolve]);
+    });
+  }
+
+  // Every finished save from now on; returns an unsubscribe function.
+  onFinished(fn: (r: NativeSaveResult) => void): () => void {
+    void this.listen();
+    this.anyFinished.add(fn);
+    return () => { this.anyFinished.delete(fn); };
+  }
+
+  async status(): Promise<SaveStatus | null> {
+    await this.listen();
+    try {
+      if (typeof this.plugin.getSaveStatus !== "function") return null;
+      return await this.plugin.getSaveStatus();
+    } catch {
+      return null;
+    }
+  }
+
+  // A URL the web view can play a finished file from.
+  playbackUrl(uri: string): string {
+    return defaultToWebPath(uri);
+  }
+
+  async markSeen(jobId: string): Promise<void> {
+    try {
+      await this.plugin.markVideoSeen?.({ jobId });
+    } catch {
+      /* best-effort: worst case the video is offered once more */
+    }
+  }
+}
+
+const trackers = new WeakMap<object, NativeSaveTracker>();
+
+export function nativeSaveTracker(plugin: KarateRecorderPluginLike = karateRecorderPlugin()): NativeSaveTracker {
+  let tracker = trackers.get(plugin);
+  if (!tracker) {
+    tracker = new NativeSaveTracker(plugin);
+    trackers.set(plugin, tracker);
+  }
+  return tracker;
 }
 
 function defaultToWebPath(uri: string): string {
@@ -119,6 +255,8 @@ export class NativeVideoRecorder {
   private burnedIn = false;
   private interruptCallback: ((reason: string) => void) | null = null;
   private listener: Promise<PluginListenerHandle | undefined> | null = null;
+  private jobId: string | null = null;
+  private saving: Promise<NativeSaveResult | null> | null = null;
 
   constructor(deps: NativeRecorderDeps = {}) {
     this.deps = deps;
@@ -208,8 +346,10 @@ export class NativeVideoRecorder {
     void pending?.then((handle) => handle?.remove()).catch(() => { /* best-effort */ });
   }
 
-  // Overlay burn-in happens natively inside this call, so unlike the web path
-  // there is no separate burnOverlay() step afterwards.
+  // Stops the camera and resolves as soon as the capture is safe on disk; the
+  // overlay burn-in and sound mix then run natively (see saved()). Until they
+  // finish, playbackUrl() is the capture itself — no text, no sound — so the
+  // done screen can show the child their practice straight away.
   //
   // Resolves an EMPTY Blob: the finished video can be hundreds of MB, and
   // reading it into the web view is what risked the app being killed. Use
@@ -223,6 +363,9 @@ export class NativeVideoRecorder {
   ): Promise<Blob> {
     const plugin = this.getPlugin();
     this.removeInterruptListener();
+    const tracker = nativeSaveTracker(plugin);
+    // Before stopRecording(), so the save's events can't arrive unheard.
+    await tracker.listen();
     try {
       // Paired with the native "sounds: N received" line: together they show
       // whether the countdown clips were logged at all and whether they survived
@@ -230,30 +373,60 @@ export class NativeVideoRecorder {
       const clipCount = sounds.filter((s) => s.kind === "clip").length;
       console.warn(`[KarateRecorder] sending ${sounds.length} sounds (${clipCount} clips) to stopRecording`);
       const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds, ...labels });
-      this.lastUri = result.uri;
-      this.burnedIn = result.burnedIn;
-      this.lastBurnError = result.burnError ?? null;
-      // The native side reports a failed sound mix, but nothing used to read it:
-      // when the full mix throws it silently falls back to voice-only, so the
-      // countdown 「ぷっ」, the cheers and the BGM all vanish from the saved video
-      // while the overlay still burns in perfectly. Surface it — the message
-      // names the exact step that failed (see SoundMixer.StepError).
-      if (result.mixError) {
-        console.warn(`[KarateRecorder] sound mix fell back: ${result.mixError}`);
-      } else if (sounds.length > 0 && result.soundMixed === false) {
-        console.warn(`[KarateRecorder] ${sounds.length} sounds logged but none were mixed in`);
-      }
       if (result.interruption) {
         console.warn(`[KarateRecorder] recording was interrupted: ${result.interruption}`);
       }
       const toWebPath = this.deps.toWebPath ?? defaultToWebPath;
-      this.lastPlaybackUrl = toWebPath(result.uri);
+      if (result.jobId && result.rawUri) {
+        this.jobId = result.jobId;
+        this.lastUri = null;
+        this.lastPlaybackUrl = toWebPath(result.rawUri);
+        this.saving = tracker.watch(result.jobId).then((r) => this.adopt(r, sounds.length));
+      } else if (result.uri) {
+        // An older native build: already finished.
+        const done: NativeSaveResult = { ...result, jobId: "", uri: result.uri, burnedIn: !!result.burnedIn };
+        this.saving = Promise.resolve(this.adopt(done, sounds.length));
+      }
       return new Blob([], { type: this.fileExtension() === "mov" ? "video/quicktime" : "video/mp4" });
     } finally {
       // Even when stopping failed: otherwise the camera and mic stay on.
       await plugin.stopPreview().catch(() => { /* teardown is best-effort */ });
       this.setPreviewClass(false);
     }
+  }
+
+  private adopt(result: NativeSaveResult, soundCount: number): NativeSaveResult {
+    this.lastUri = result.uri;
+    this.burnedIn = result.burnedIn;
+    this.lastBurnError = result.burnError ?? null;
+    // The native side reports a failed sound mix, but nothing used to read it:
+    // when the full mix throws it silently falls back to voice-only, so the
+    // countdown 「ぷっ」, the cheers and the BGM all vanish from the saved video
+    // while the overlay still burns in perfectly. Surface it — the message
+    // names the exact step that failed (see SoundMixer.StepError).
+    if (result.mixError) {
+      console.warn(`[KarateRecorder] sound mix fell back: ${result.mixError}`);
+    } else if (soundCount > 0 && result.soundMixed === false) {
+      console.warn(`[KarateRecorder] ${soundCount} sounds logged but none were mixed in`);
+    }
+    const toWebPath = this.deps.toWebPath ?? defaultToWebPath;
+    this.lastPlaybackUrl = toWebPath(result.uri);
+    return result;
+  }
+
+  // The finished video (overlay + sound): its playback URL, once the save is
+  // done. null when there is no save to wait for. onProgress gets 0…1.
+  async saved(onProgress?: (fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string } | null> {
+    if (!this.saving) return null;
+    if (this.jobId && onProgress) void nativeSaveTracker(this.getPlugin()).watch(this.jobId, onProgress);
+    const result = await this.saving;
+    if (!result || !this.lastPlaybackUrl || !this.lastUri) return null;
+    return { playbackUrl: this.lastPlaybackUrl, fileUri: this.lastUri };
+  }
+
+  // The finished video was shown to the child: don't offer it again later.
+  markSeen(): void {
+    if (this.jobId) void nativeSaveTracker(this.getPlugin()).markSeen(this.jobId);
   }
 
   // Abandons the session — e.g. startRecording() failed — stopping camera, mic
@@ -279,7 +452,7 @@ export class NativeVideoRecorder {
   }
 
   // The on-disk file, for handing straight to the OS share sheet instead of
-  // round-tripping the whole video through base64.
+  // round-tripping the whole video through base64. null until saved() is done.
   fileUri(): string | null {
     return this.lastUri;
   }

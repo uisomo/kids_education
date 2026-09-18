@@ -6,7 +6,7 @@ import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
 import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
-import { NativeVideoRecorder, openAppSettings } from "./native-recorder";
+import { NativeVideoRecorder, nativeSaveTracker, openAppSettings } from "./native-recorder";
 import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
 import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
@@ -168,6 +168,7 @@ const app = new KarateApp(root, {
   voiceStore: store,
   audioSink: new BrowserAudioSink(),
   makeVideoRecorder: () => (isNative ? new NativeVideoRecorder() : new VideoRecorder()),
+  savedVideos: isNative ? nativeSaveTracker() : undefined,
   makeVoiceRecorder: () => new VoiceRecorder(),
   // Passing the flag matters: without it makeWakeGuard always took the web
   // branch, so the keep-awake plugin never ran on device and the screen could
