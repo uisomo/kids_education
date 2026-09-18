@@ -10,7 +10,6 @@
 // anything else found at a path — i.e. real art — is left alone.
 
 import AppKit
-import AVFoundation
 import CoreText
 import Foundation
 
@@ -263,73 +262,8 @@ if !FileManager.default.fileExists(atPath: iconSet.appendingPathComponent("AppIc
     """.write(to: iconSet.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
 }
 
-// MARK: cheer clips — a bouncing emoji, transparent HEVC like the real ones,
-// each as long as the karate clip it replaces (its voice .m4a is reused).
+// Cheer animations are NOT replaced: the piano app uses the karate ones as they are.
 
-func cheerClip(_ c: Character, _ n: Int) {
-    let rel = "characters/cheer/\(c.id)-\(n).mov"
-    guard isPlaceholder(rel) else { print("keep  \(rel) (real art)"); return }
-    let src = pub.appendingPathComponent(rel)
-    let sem = DispatchSemaphore(value: 0)
-    var seconds = 1.5
-    Task {
-        if let d = try? await AVURLAsset(url: src).load(.duration) { seconds = max(0.5, d.seconds) }
-        sem.signal()
-    }
-    sem.wait()
-
-    let url = out.appendingPathComponent(rel)
-    try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try? FileManager.default.removeItem(at: url)
-    let side = 256, fps: Int32 = 30
-    let writer = try! AVAssetWriter(outputURL: url, fileType: .mov)
-    let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-        AVVideoCodecKey: AVVideoCodecType.hevcWithAlpha, AVVideoWidthKey: side, AVVideoHeightKey: side,
-    ])
-    input.expectsMediaDataInRealTime = false
-    let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
-        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-        kCVPixelBufferWidthKey as String: side, kCVPixelBufferHeightKey as String: side,
-    ])
-    writer.add(input)
-    writer.startWriting(); writer.startSession(atSourceTime: .zero)
-
-    let frames = Int(seconds * Double(fps))
-    for i in 0..<frames {
-        while !input.isReadyForMoreMediaData { Thread.sleep(forTimeInterval: 0.005) }
-        let t = Double(i) / Double(fps)
-        let hop = abs(sin(t * .pi * 3)) * 26   // three hops a second
-        let tilt = sin(t * .pi * 2) * 0.12
-        let rep = canvas(side, side, opaque: false) { cg in
-            cg.saveGState()
-            cg.translateBy(x: 128, y: 150 - hop); cg.rotate(by: tilt)
-            text(c.face, .zero, size: 150)
-            cg.restoreGState()
-            text(i / 8 % 2 == 0 ? "🎵" : "🎶", CGPoint(x: 205, y: 60 + hop / 2), size: 60)
-            text("🎹", CGPoint(x: 60, y: 215), size: 64)
-        }
-        var pb: CVPixelBuffer?
-        CVPixelBufferPoolCreatePixelBuffer(nil, adaptor.pixelBufferPool!, &pb)
-        let buf = pb!
-        CVPixelBufferLockBaseAddress(buf, [])
-        let ctx = CGContext(data: CVPixelBufferGetBaseAddress(buf), width: side, height: side, bitsPerComponent: 8,
-                            bytesPerRow: CVPixelBufferGetBytesPerRow(buf), space: CGColorSpaceCreateDeviceRGB(),
-                            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
-        ctx.clear(CGRect(x: 0, y: 0, width: side, height: side))
-        ctx.draw(rep.cgImage!, in: CGRect(x: 0, y: 0, width: side, height: side))
-        CVPixelBufferUnlockBaseAddress(buf, [])
-        adaptor.append(buf, withPresentationTime: CMTime(value: CMTimeValue(i), timescale: fps))
-    }
-    input.markAsFinished()
-    writer.finishWriting { sem.signal() }
-    sem.wait()
-    if writer.status != .completed { print("FAILED \(rel): \(String(describing: writer.error))"); return }
-    made.insert(rel)
-    print("wrote \(rel) (\(String(format: "%.2f", seconds)) s)")
-}
-
-let clipCounts = ["alan": 8, "leo": 4, "izzy": 7]
-for c in characters { for n in 1...clipCounts[c.id]! { cheerClip(c, n) } }
-
+made = made.filter { !$0.hasPrefix("characters/cheer/") }
 try! (made.sorted().joined(separator: "\n") + "\n").write(to: manifestURL, atomically: true, encoding: .utf8)
 print("done — \(made.count) placeholders")
