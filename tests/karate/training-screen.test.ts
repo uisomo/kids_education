@@ -35,7 +35,7 @@ it("renders the Dojo backdrop and a hidden companion cheer video", () => {
 
 it("a cue reveals a companion cheer clip with a quote", () => {
   const root = document.createElement("div");
-  const view = renderTrainingScreen(root);
+  const view = renderTrainingScreen(root, "alan", "none", "ja");
   const played = view.showCue("ファイト！");
   const overlay = root.querySelector<HTMLElement>("[data-companion]")!;
   expect(overlay.classList.contains("cheering")).toBe(true);
@@ -49,6 +49,17 @@ it("a cue reveals a companion cheer clip with a quote", () => {
   expect(root.querySelector("[data-speech]")!.textContent).toContain(clip.text);
   expect(vid.loop).toBe(false);
   expect(root.querySelector("[data-speech]")!.textContent).toContain(":");
+});
+
+it("in English a cue plays an English clip and names the character in English", () => {
+  const root = document.createElement("div");
+  const view = renderTrainingScreen(root, "alan", "none", "en");
+  const played = view.showCue("");
+  const vid = root.querySelector<HTMLVideoElement>(".companion-cheer-video")!;
+  expect(vid.getAttribute("src")).toMatch(/^\/characters\/cheer\/en\/(alan|leo|izzy)-\d+\.mov$/);
+  expect(played?.audio).toBe(played?.src.replace(/\.mov$/, ".m4a"));
+  const owner = Object.values(CHARACTERS).find((c) => c.cheerClipsEn.some((k) => k.src === played?.src))!;
+  expect(root.querySelector("[data-speech]")!.textContent).toBe(`${owner.nameEn}: ${played?.text}`);
 });
 
 it("does not show the アランのからて badge while practicing (it is only burned into the saved video)", () => {

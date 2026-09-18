@@ -1,6 +1,7 @@
 import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
-import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
+import { CHARACTERS, CHARACTER_IDS, characterName, cheerClipsFor, type CharacterId } from "../character-store";
+import { appLang, type Lang } from "../i18n";
 import type { Decor } from "../decor-store";
 
 // The かざり the saved video will carry, shown live at the same place so a
@@ -31,7 +32,8 @@ export interface TrainingView {
 export function renderTrainingScreen(
   root: HTMLElement,
   characterId: CharacterId = "alan",
-  decor: Decor = "none"
+  decor: Decor = "none",
+  lang: Lang = appLang()
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -217,7 +219,8 @@ export function renderTrainingScreen(
       // the words that clip says, so text and voice always match.
       const cheerId = CHARACTER_IDS[Math.floor(Math.random() * CHARACTER_IDS.length)];
       const cheerInfo = CHARACTERS[cheerId] ?? CHARACTERS.alan;
-      const clip = cheerInfo.cheerClips[Math.floor(Math.random() * cheerInfo.cheerClips.length)];
+      const clips = cheerClipsFor(cheerInfo, lang);
+      const clip = clips[Math.floor(Math.random() * clips.length)];
       if (!cheerVideo.src.endsWith(clip.src)) {
         cheerVideo.src = clip.src;
       }
@@ -226,7 +229,7 @@ export function renderTrainingScreen(
         // jsdom's play() returns undefined and logs "not implemented"; guard it.
         void Promise.resolve(cheerVideo.play?.()).catch(() => { /* autoplay blocked */ });
       } catch { /* ignore synchronously throwing play() */ }
-      speechBubble.textContent = `${cheerInfo.name}: ${clip.text}`;
+      speechBubble.textContent = `${characterName(cheerInfo, lang)}: ${clip.text}`;
       companionOverlay.classList.add("cheering");
 
       if (cueTimeout) clearTimeout(cueTimeout);
