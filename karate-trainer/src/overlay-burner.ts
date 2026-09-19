@@ -26,7 +26,7 @@ interface Segment {
   endMs: number;
 }
 
-const EMPTY_STATE: CompositorState = { drill: "", seconds: 0, cue: "", caption: "" };
+const EMPTY_STATE: CompositorState = { drill: "", seconds: 0, cue: "", caption: "", texts: [] };
 
 function toSegments(events: OverlayEvent[], totalDurationMs: number): Segment[] {
   if (events.length === 0) return [];

@@ -7,6 +7,10 @@ export interface CompositorState {
   seconds: number;     // countdown; <=0 hides it
   cue: string;         // 掛け声; "" hides it
   caption: string;     // 工夫メモ; "" hides it
+  // TEXT mode: the words revealed so far, in their line layout (max 5 × 3).
+  // Empty/absent hides it. The live-only 読み上げよう hint is deliberately NOT
+  // part of this state, so it is never burned into the recording.
+  texts?: string[][];
 }
 
 export interface OverlayEvent {
