@@ -303,6 +303,25 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
 
     row.append(drag, kind, name, secs);
 
+    // ⏱/📖 toggle: countdown number vs read-aloud TEXT during this drill.
+    // Rests keep the plain countdown, so no toggle there. Structural change
+    // (the textarea appears/disappears) → onChange re-render.
+    const isText = !isRest && drill.timerMode === "text";
+    if (!isRest) {
+      const mode = document.createElement("button");
+      mode.type = "button";
+      mode.className = "row-mode" + (isText ? " is-text" : "");
+      mode.dataset.mode = "";
+      mode.textContent = isText ? "📖" : "⏱";
+      mode.title = isText ? "テキスト読み上げ → カウントダウンに切替" : "カウントダウン → テキスト読み上げに切替";
+      mode.setAttribute("aria-label", `${drill.name} の表示: ${isText ? "テキスト" : "カウントダウン"}`);
+      mode.addEventListener("click", () => {
+        const nextMode: "countdown" | "text" = isText ? "countdown" : "text";
+        deps.onChange(menu.map((d, j) => (j === i ? { ...d, timerMode: nextMode } : d)));
+      });
+      row.append(mode);
+    }
+
     // 💡 工夫: the child's ideas for this 種目, in a centred card. Never
     // disabled — a full 種目 still opens so a 工夫 can be erased.
     if (!isRest && deps.kufuEnabled !== false && deps.kufuFor) {
@@ -337,6 +356,24 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     }
 
     row.append(del);
+
+    // TEXT mode input: words split by spaces (≤5/line), lines by newlines
+    // (≤3). Edits persist in place (onEdit) — same IME rule as the name input.
+    if (isText) {
+      const texts = document.createElement("textarea");
+      texts.className = "row-texts";
+      texts.dataset.texts = "";
+      texts.rows = 3;
+      texts.value = drill.texts ?? "";
+      texts.placeholder = "よみあげる ことば（スペースで くぎる・3行まで）";
+      texts.setAttribute("aria-label", `${drill.name} の読み上げテキスト`);
+      texts.addEventListener("input", () => {
+        menu[i] = { ...menu[i], texts: texts.value };
+        deps.onEdit(menu);
+      });
+      row.append(texts);
+    }
+
     rows.append(row);
   });
 

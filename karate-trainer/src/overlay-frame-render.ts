@@ -24,8 +24,38 @@ export function renderOverlayFrame(
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const { drill, seconds, cue, caption } = state;
-  if (drill) drawLabel(ctx, drill, CANVAS_W / 2, 90, 44, "#ffffff", "rgba(0,0,0,0.6)");
-  if (seconds > 0) drawLabel(ctx, String(seconds), CANVAS_W / 2, 230, 150, "#ffd166", "rgba(0,0,0,0.55)");
+  // The countdown sits beside the drill name as a small badge — a big number
+  // lower in the frame lands right on the child's face in portrait video.
+  const secsText = seconds > 0 ? String(seconds) : "";
+  if (drill && secsText) {
+    const drillW = labelBoxWidth(ctx, drill, 44);
+    const secsW = labelBoxWidth(ctx, secsText, 40);
+    const gap = 16;
+    const left = CANVAS_W / 2 - (drillW + gap + secsW) / 2;
+    drawLabel(ctx, drill, left + drillW / 2, 90, 44, "#ffffff", "rgba(0,0,0,0.6)");
+    drawLabel(ctx, secsText, left + drillW + gap + secsW / 2, 90, 40, "#ffd166", "rgba(0,0,0,0.55)");
+  } else if (drill) {
+    drawLabel(ctx, drill, CANVAS_W / 2, 90, 44, "#ffffff", "rgba(0,0,0,0.6)");
+  } else if (secsText) {
+    drawLabel(ctx, secsText, CANVAS_W / 2, 90, 40, "#ffd166", "rgba(0,0,0,0.55)");
+  }
+
+  // TEXT mode: the revealed read-aloud words, laid out as typed (≤5 × ≤3),
+  // in rows under the drill name. Each word is its own centered pill.
+  const TEXT_FONT = 36;
+  const TEXT_GAP = 14;
+  const TEXT_ROW0_Y = 185;
+  const TEXT_ROW_H = 92;
+  (state.texts ?? []).forEach((words, row) => {
+    if (words.length === 0) return;
+    const widths = words.map((w) => labelBoxWidth(ctx, w, TEXT_FONT));
+    const totalW = widths.reduce((a, b) => a + b, 0) + TEXT_GAP * (words.length - 1);
+    let x = CANVAS_W / 2 - totalW / 2;
+    words.forEach((w, i) => {
+      drawLabel(ctx, w, x + widths[i] / 2, TEXT_ROW0_Y + row * TEXT_ROW_H, TEXT_FONT, "#ffffff", "rgba(0,0,0,0.6)");
+      x += widths[i] + TEXT_GAP;
+    });
+  });
   if (cue) drawLabel(ctx, cue, CANVAS_W / 2, CANVAS_H / 2, 72, "#ffd166", "rgba(214,48,49,0.85)");
   if (caption) drawLabel(ctx, caption, CANVAS_W / 2, CANVAS_H - 90, 34, "#1a162b", "rgba(255,209,102,0.92)");
 
@@ -35,6 +65,17 @@ export function renderOverlayFrame(
       else reject(new Error("toBlob returned null"));
     }, "image/png");
   });
+}
+
+// Width of the pill drawLabel() would produce, so side-by-side labels can be
+// centered as a pair. Must mirror drawLabel's font and horizontal padding.
+function labelBoxWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  fontPx: number,
+): number {
+  ctx.font = `900 ${fontPx}px "Hiragino Sans", sans-serif`;
+  return ctx.measureText(text).width + fontPx; // + padX * 2
 }
 
 function drawLabel(

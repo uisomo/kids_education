@@ -40,6 +40,7 @@ import {
   type CharacterState,
 } from "./character-store";
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
+import { drillTextGrid, textCount, revealedGrid } from "./drill-texts";
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
 
@@ -943,6 +944,11 @@ export class KarateApp {
 
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
 
+    // TEXT-mode reveal state for the current drill (null → countdown drill).
+    // Words appear one by one, evenly spread across the drill's duration; each
+    // reveal beeps and is logged for burn-in.
+    let textReveal: { grid: string[][]; total: number; drillSecs: number; revealed: number } | null = null;
+
     const handlers: SchedulerHandlers = {
       onDrillStart: (drill: Drill, index: number) => {
         this.currentRow = index;
@@ -952,14 +958,39 @@ export class KarateApp {
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
         view.setCaption(caption);
-        this.overlayLog?.setState({ drill: drill.name, caption, drillIndex: index });
+        const grid = drillTextGrid(drill);
+        textReveal = grid.length > 0
+          ? { grid, total: textCount(grid), drillSecs: drill.seconds, revealed: 0 }
+          : null;
+        view.setTexts(textReveal ? grid : null);
+        // seconds: 0 keeps a previous drill's countdown from lingering in the
+        // burn-in when this drill shows texts instead.
+        this.overlayLog?.setState({
+          drill: drill.name, caption, drillIndex: index, texts: [],
+          ...(textReveal ? { seconds: 0 } : {}),
+        });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
         view.setNext(next ? next.name : null);
       },
       onTick: (secondsLeft: number) => {
         view.setTime(secondsLeft);
-        this.overlayLog?.setState({ seconds: secondsLeft });
+        if (!textReveal) {
+          this.overlayLog?.setState({ seconds: secondsLeft });
+          return;
+        }
+        // Reveal words whose (evenly spaced) time has come: word k appears at
+        // k * duration/N seconds in, so the first shows immediately.
+        const { grid, total, drillSecs } = textReveal;
+        const elapsed = drillSecs - secondsLeft;
+        const target = Math.min(total, Math.floor(elapsed / (drillSecs / total)) + 1);
+        if (textReveal.revealed >= target) return; // nothing new — no extra burn-in segment
+        while (textReveal.revealed < target) {
+          view.revealText(textReveal.revealed);
+          textReveal.revealed++;
+          void this.deps.audioSink.beep();
+        }
+        this.overlayLog?.setState({ texts: revealedGrid(grid, textReveal.revealed) });
       },
       onEncourage: () => {
         this.cueCount++;
