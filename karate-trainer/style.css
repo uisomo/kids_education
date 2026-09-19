@@ -2096,6 +2096,50 @@ input[data-label] {
   color: var(--ink);
 }
 
+/* Each tab has its own picture, pinned to the screen while the content
+   scrolls (a fixed ::before, like the loading screen — a scrolling cover
+   image would zoom in as the page grows). The dark wash keeps the plain text
+   on these screens readable. The piano app swaps the files (public-piano/). */
+/* isolation: the screen is #app itself, and without its own stacking context
+   a z-index:-1 layer paints under <body>'s background and never shows. */
+.screen.strength,
+.screen.family,
+.screen.gate {
+  isolation: isolate;
+}
+
+.screen.strength::before,
+.screen.family::before,
+.screen.gate::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.screen.strength::before {
+  background-image:
+    linear-gradient(180deg, rgba(26, 22, 43, 0.72) 0%, rgba(26, 22, 43, 0.55) 45%, rgba(26, 22, 43, 0.72) 100%),
+    url('/backgrounds/strength.jpg');
+}
+
+.screen.family::before {
+  background-image:
+    linear-gradient(180deg, rgba(26, 22, 43, 0.72) 0%, rgba(26, 22, 43, 0.55) 45%, rgba(26, 22, 43, 0.72) 100%),
+    url('/backgrounds/family.jpg');
+}
+
+/* Parental gate — the full-screen one before 家族 and the pop-up before
+   sharing. The question sits at the top, so the wash is darkest there. */
+.screen.gate::before {
+  background-image:
+    linear-gradient(180deg, rgba(26, 22, 43, 0.85) 0%, rgba(26, 22, 43, 0.45) 40%, rgba(26, 22, 43, 0.25) 100%),
+    url('/backgrounds/gate.jpg');
+}
+
 .strength-empty,
 .family-placeholder {
   text-align: center;
@@ -2975,6 +3019,22 @@ html.native-camera .screen.training video.mirror {
   justify-content: center;
   padding: 1rem;
   background: rgba(0, 0, 0, 0.55);
+}
+
+/* The pop-up gate (before sharing): the picture fills the dimmed backdrop and
+   the question keeps its own dark box. */
+.gate-overlay {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.35)),
+    url('/backgrounds/gate.jpg') center / cover no-repeat;
+}
+
+.gate-overlay > .gate {
+  isolation: auto;
+}
+
+.gate-overlay > .gate::before {
+  display: none;
 }
 
 .gate-overlay > .gate {
