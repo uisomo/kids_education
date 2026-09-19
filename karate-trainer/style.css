@@ -2123,6 +2123,25 @@ input[data-label] {
   color: #ffd166;
 }
 
+/* Make the current tab unmistakable: a yellow pill behind icon + label. */
+.bottom-nav-btn .bottom-nav-icon,
+.bottom-nav-btn .bottom-nav-label {
+  opacity: 0.6;
+}
+.bottom-nav-btn.active .bottom-nav-icon,
+.bottom-nav-btn.active .bottom-nav-label {
+  opacity: 1;
+}
+.bottom-nav-btn.active .bottom-nav-label {
+  background: #ffd166;
+  color: #1a162b;
+  border-radius: 999px;
+  padding: 0.05rem 0.7rem;
+}
+.bottom-nav-btn.active .bottom-nav-icon {
+  filter: drop-shadow(0 0 6px rgba(255, 209, 102, 0.9));
+}
+
 .bottom-nav-icon { font-size: 1.5rem; line-height: 1; }
 .bottom-nav-label { font-size: 0.75rem; }
 
