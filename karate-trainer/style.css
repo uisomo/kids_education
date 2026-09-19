@@ -2123,13 +2123,15 @@ input[data-label] {
    a z-index:-1 layer paints under <body>'s background and never shows. */
 .screen.strength,
 .screen.family,
-.screen.gate {
+.screen.gate,
+.screen.done {
   isolation: isolate;
 }
 
 .screen.strength::before,
 .screen.family::before,
-.screen.gate::before {
+.screen.gate::before,
+.screen.done::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -2149,6 +2151,15 @@ input[data-label] {
   background-image:
     linear-gradient(180deg, rgba(26, 22, 43, 0.72) 0%, rgba(26, 22, 43, 0.55) 45%, rgba(26, 22, 43, 0.72) 100%),
     url('/backgrounds/family.jpg');
+}
+
+/* After practice — the cats' trophy celebration. The head (title, stars,
+   belt) and the video sit on top, so the wash is darker there and lets the
+   trophy show through in the middle. */
+.screen.done::before {
+  background-image:
+    linear-gradient(180deg, rgba(26, 22, 43, 0.78) 0%, rgba(26, 22, 43, 0.5) 40%, rgba(26, 22, 43, 0.7) 100%),
+    url('/backgrounds/done.jpg');
 }
 
 /* Parental gate — the full-screen one before 家族 and the pop-up before
