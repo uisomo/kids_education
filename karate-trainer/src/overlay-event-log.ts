@@ -10,6 +10,10 @@ export interface CompositorState {
   // Optional so existing state literals stay valid; the web burn-in ignores both.
   intro?: string;      // Ready / 3 / 2 / 1 / Go!!; "" or absent hides it
   drillIndex?: number; // position in the session menu of the drill now running
+  // TEXT mode: the words revealed so far, in their line layout (max 5 × 3).
+  // Empty/absent hides it. The live-only 読み上げよう hint is deliberately NOT
+  // part of this state, so it is never burned into the recording.
+  texts?: string[][];
 }
 
 // A sound the phone played during the session. With echo-cancelled input the

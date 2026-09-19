@@ -640,6 +640,8 @@ button {
   display: flex;
   gap: 0.3rem;
   align-items: center;
+  /* TEXT mode drops a full-width textarea under the controls. */
+  flex-wrap: wrap;
   /* Back layer of each training card. At 0.72 the meadow (and the fox) read
      straight through the list, which is what made the menu hard to scan; now
      the card is near-solid and the art stays a border, not a texture behind
@@ -796,6 +798,41 @@ button {
   filter: none;
   opacity: 1;
   box-shadow: 0 0 10px rgba(255, 209, 102, 0.5);
+}
+
+/* ⏱/📖 countdown-vs-TEXT toggle, one per drill row. */
+.row-mode {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.row-mode.is-text {
+  background: rgba(116, 185, 255, 0.22);
+  border-color: #74b9ff;
+  box-shadow: 0 0 10px rgba(116, 185, 255, 0.5);
+}
+
+/* TEXT mode read-aloud words for a drill row. */
+.row-texts {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: 0.5rem 0.55rem;
+  border: 2px solid rgba(116, 185, 255, 0.45);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  background: #1a162b;
+  color: var(--ink);
+  resize: none;
 }
 
 .row-del {
@@ -1149,7 +1186,11 @@ button {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
+  /* Drill name and countdown side by side in one compact row — a big number
+     below the name hung down over the child's face in the camera view. */
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 0.5rem;
   z-index: 10;
@@ -1173,11 +1214,81 @@ button {
 
 [data-timer] {
   color: #ffd166;
-  font-size: 6.5rem;
+  font-size: 1.8rem;
   font-weight: 900;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 4px 0 #d63031, 0 8px 24px rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.65);
+  padding: 0.5rem 0.8rem;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 209, 102, 0.5);
+  min-width: 3.4rem;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+[data-timer][hidden] {
+  display: none;
+}
+
+/* --- TEXT mode: 読み上げよう hint + word grid (live screen only; the hint is
+   never burned into the recording) --- */
+.read-aloud-hint,
+.text-grid {
+  flex: 1 1 100%;
+}
+
+.read-aloud-hint {
+  color: #1a162b;
+  font-size: 1rem;
+  font-weight: 900;
+  background: rgba(255, 209, 102, 0.92);
+  padding: 0.25rem 0.9rem;
+  border-radius: 999px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.read-aloud-hint[hidden],
+.text-grid[hidden] {
+  display: none;
+}
+
+.text-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.text-grid-line {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.text-grid-word {
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 900;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 0.35rem 0.8rem;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  /* Reserve the slot before the word is revealed so the grid never jumps. */
+  visibility: hidden;
+}
+
+.text-grid-word.show {
+  visibility: visible;
+  animation: text-zoom-out 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes text-zoom-out {
+  from { transform: scale(2.4); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 
 [data-cue] {

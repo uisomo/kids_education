@@ -47,6 +47,18 @@ it("omits countdown/cue/caption text when empty", async () => {
   expect(ctx.texts).toEqual(["回し蹴り"]);
 });
 
+it("draws every revealed TEXT-mode word", async () => {
+  const ctx = fakeCtx();
+  const canvas = fakeCanvas(ctx, new Blob(["png"]));
+
+  await renderOverlayFrame(
+    { drill: "型", seconds: 0, cue: "", caption: "", texts: [["いち", "に"], ["さん"]] },
+    { canvas },
+  );
+
+  expect(ctx.texts).toEqual(["型", "いち", "に", "さん"]);
+});
+
 it("rejects when the canvas has no 2D context", async () => {
   const canvas = { width: 0, height: 0, getContext: () => null } as unknown as HTMLCanvasElement;
   await expect(renderOverlayFrame({ drill: "型", seconds: 0, cue: "", caption: "" }, { canvas }))

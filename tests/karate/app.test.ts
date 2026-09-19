@@ -162,6 +162,62 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
 });
 
+it("TEXT-mode drill reveals words one by one, hides the timer, and logs texts for burn-in", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const burnOverlay = vi.fn().mockResolvedValue(null);
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    burnOverlay,
+    introStepMs: 0,
+    // 4 words over 8s → one reveals every 2s (first immediately at drill start)
+    menuOverride: [{ id: "a", name: "平安初段", seconds: 8, kind: "drill", timerMode: "text", texts: "いち に さん\nし" }],
+  });
+  await app.start();
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));   // intro promise
+
+  const shown = () => root.querySelectorAll(".text-grid-word.show").length;
+
+  // Timer hidden, hint + grid visible, first word revealed at drill start.
+  expect(root.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(true);
+  expect(root.querySelector<HTMLElement>("[data-read-hint]")!.hidden).toBe(false);
+  expect(root.querySelectorAll(".text-grid-word").length).toBe(4);
+  expect(shown()).toBe(1);
+
+  for (let t = 0; t < 2000; t += 250) loopCb!(250);   // 2s in → 2nd word
+  expect(shown()).toBe(2);
+  for (let t = 0; t < 2000; t += 250) loopCb!(250);   // 4s in → 3rd word
+  expect(shown()).toBe(3);
+  for (let t = 0; t < 4500; t += 250) loopCb!(250);   // run out the drill
+  await new Promise((r) => setTimeout(r, 0));
+
+  // Burn-in got the revealed words (line layout preserved) but no countdown.
+  const events = burnOverlay.mock.calls[0][1] as { patch: { texts?: string[][]; seconds?: number } }[];
+  const textPatches = events.filter((e) => e.patch.texts?.length);
+  expect(textPatches.at(-1)!.patch.texts).toEqual([["いち", "に", "さん"], ["し"]]);
+  expect(events.some((e) => (e.patch.seconds ?? 0) > 0)).toBe(false);
+});
+
 it("passes the recorded blob to shareRecording when save is pressed", async () => {
   const root = document.createElement("div");
   document.body.append(root);
