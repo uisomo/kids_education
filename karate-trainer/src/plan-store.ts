@@ -13,6 +13,7 @@
 
 import { loadMembers } from "./member-store";
 import { scopeKey } from "./scoped-storage";
+import { TEST_MODE } from "./test-mode";
 
 export type Plan = "free" | "premium" | "family";
 
@@ -67,7 +68,9 @@ export function loadPlan(base: Storage = localStorage): Plan {
   try {
     const raw = base.getItem(KEY);
     if (isPlan(raw)) return raw;
-    const plan = migrate(base);
+    // The test アプリ starts on Family so every feature can be tried at once;
+    // its plan cards still switch the plan afterwards.
+    const plan = TEST_MODE ? "family" : migrate(base);
     base.setItem(KEY, plan);
     return plan;
   } catch {
