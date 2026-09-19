@@ -962,8 +962,9 @@ export class KarateApp {
 
     // Ready → 3 → 2 → 1 → Go!! intro. Ready is spoken; 3 / 2 / 1 go 「ぷっ」 and
     // Go!! a long 「ぷーん」, logged so the saved video has them too.
-    // BGM and the drill timer both start on "Go!!".
-    await playCountdownIntro(this.root, {
+    // BGM and the drill timer both start on "Go!!". With the 🪝 hook on the
+    // hook already opens the video, so practice starts right after it.
+    if (hookGrid.length === 0) await playCountdownIntro(this.root, {
       stepMs: this.deps.introStepMs,
       onBeat: (cue) => {
         // Burned into the recording too, so the video opens with the same

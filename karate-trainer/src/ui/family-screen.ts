@@ -3,6 +3,7 @@
 // and E4 (応援コメント) build on this screen later.
 
 import type { Member } from "../member-store";
+import { buildHowtoSection, buildParentNote } from "./howto";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
@@ -293,7 +294,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const billingNodes = billing ? buildBillingFooter(billing) : [];
 
   root.append(title, listTitle, list, addRow, memberHint, memberSettings,
-              ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+              ...buildParentNote(), ...buildHowtoSection(root), ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
 }
 
 // テスト用 (test アプリ only): the active member's 🔥 streak and every drill's

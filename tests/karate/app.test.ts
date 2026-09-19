@@ -162,7 +162,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
 });
 
-it("🪝 hook: words from the start-row box play once before Ready → Go!! and are logged for burn-in", async () => {
+it("🪝 hook: words from the start-row box play once instead of Ready → Go!! and are logged for burn-in", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -222,10 +222,12 @@ it("🪝 hook: words from the start-row box play once before Ready → Go!! and 
 
   const events = burnOverlay.mock.calls[0][1] as { patch: { texts?: string[][]; seconds?: number; intro?: string } }[];
   const textIdx = events.map((e, i) => (e.patch.texts?.length ? i : -1)).filter((i) => i >= 0);
-  const readyIdx = events.findIndex((e) => e.patch.intro === "Ready");
-  // One line per patch, all before Ready, full grid last — and only once.
+  // The hook replaces the Ready → 3 → 2 → 1 → Go!! intro.
+  expect(events.some((e) => e.patch.intro)).toBe(false);
+  // One line per patch, full grid last — and only once, before the first drill.
+  const drillIdx = events.findIndex((e) => (e.patch as { drill?: string }).drill);
   expect(textIdx.length).toBe(2);
-  expect(Math.max(...textIdx)).toBeLessThan(readyIdx);
+  expect(Math.max(...textIdx)).toBeLessThan(drillIdx);
   expect(events[textIdx.at(-1)!].patch.texts).toEqual([["いち に"], ["さんしごろく"]]);
   // Every drill keeps its countdown number.
   expect(events.some((e) => (e.patch.seconds ?? 0) > 0)).toBe(true);

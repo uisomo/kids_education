@@ -3288,3 +3288,50 @@ input[data-gate-input]:disabled,
   flex: 0 0 6rem;
   width: 6rem;
 }
+
+/* 家族 tab: 保護者の方へ + 使い方どうが (ui/howto.ts). */
+.parent-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.8rem 0.9rem;
+  border: 2px solid rgba(255, 209, 102, 0.6);
+  border-radius: 16px;
+  background: rgba(45, 38, 74, 0.92);
+}
+.parent-note-title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #ffd166;
+}
+.parent-note-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ink, #fff);
+}
+.howto-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.howto-btn {
+  padding: 0.7rem 0.4rem;
+  border: 2px solid rgba(255, 209, 102, 0.5);
+  border-radius: 14px;
+  background: #2d264a;
+  color: var(--ink, #fff);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+.howto-card .howto-video {
+  width: 100%;
+  max-height: 65vh;
+  border-radius: 14px;
+  background: #000;
+}
