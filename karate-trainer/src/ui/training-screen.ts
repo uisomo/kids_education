@@ -15,8 +15,8 @@ export interface TrainingView {
   videoEl: HTMLVideoElement;
   setDrill(drill: Drill, index: number, total: number): void;
   setTime(secondsLeft: number): void;
-  // TEXT mode: build the (hidden) word grid for this drill and show the
-  // 読み上げよう hint; null → countdown mode (grid removed, timer shown).
+  // 🪝 read-aloud hook (before Ready → Go!!): build the (hidden) word grid and
+  // show the 読み上げよう hint; null → hook over (grid removed, timer shown).
   setTexts(grid: string[][] | null): void;
   // Reveal word #i (reading order) with the zoom-out animation.
   revealText(index: number): void;
@@ -121,7 +121,7 @@ export function renderTrainingScreen(
 
   centerContent.append(drillEl, timerRow);
 
-  // TEXT mode: 読み上げよう hint + the word grid. Both live-only DOM — the
+  // 🪝 hook: 読み上げよう hint + the word grid. Both live-only DOM — the
   // burn-in pass renders the words from the overlay event log, never these.
   const readHint = document.createElement("div");
   readHint.dataset.readHint = "";
@@ -185,7 +185,7 @@ export function renderTrainingScreen(
   controls.append(pauseBtn, skipBtn, stopBtn);
 
   // Assemble the screen
-  // TEXT mode rows sit inside centerContent, right below the drill name/timer.
+  // The hook rows sit inside centerContent, right below the drill name/timer.
   centerContent.append(readHint, textGrid);
 
   // Alan's かざり over the camera, exactly where the export burns it.
@@ -235,7 +235,7 @@ export function renderTrainingScreen(
       const on = grid !== null && grid.some((line) => line.length > 0);
       readHint.hidden = !on;
       textGrid.hidden = !on;
-      timerEl.hidden = on;   // TEXT mode replaces the countdown number
+      timerEl.hidden = on;   // no countdown while the hook plays
       if (!on) return;
       grid!.forEach((words) => {
         const line = document.createElement("div");

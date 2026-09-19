@@ -6,6 +6,7 @@ import type { BeltState } from "../belt-store";
 import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
+import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 
 export interface SetupMember {
   id: string;
@@ -79,6 +80,12 @@ export interface SetupDeps {
   // together to hide the button (e.g. no bgm player configured).
   bgmMuted?: boolean;
   onToggleBgm?(): void;
+  // 🪝 読み上げ hook: words the kid reads aloud once, before Ready → Go!!, so
+  // the saved video opens with them. Raw textarea text (spaces / newlines).
+  hookOn?: boolean;
+  hookText?: string;
+  onToggleHook?(): void;
+  onEditHookText?(text: string): void;
 }
 
 const NEW_DRILL_NAME = "新しい種目";
@@ -303,25 +310,6 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
 
     row.append(drag, kind, name, secs);
 
-    // ⏱/📖 toggle: countdown number vs read-aloud TEXT during this drill.
-    // Rests keep the plain countdown, so no toggle there. Structural change
-    // (the textarea appears/disappears) → onChange re-render.
-    const isText = !isRest && drill.timerMode === "text";
-    if (!isRest) {
-      const mode = document.createElement("button");
-      mode.type = "button";
-      mode.className = "row-mode" + (isText ? " is-text" : "");
-      mode.dataset.mode = "";
-      mode.textContent = isText ? "📖" : "⏱";
-      mode.title = isText ? "テキスト読み上げ → カウントダウンに切替" : "カウントダウン → テキスト読み上げに切替";
-      mode.setAttribute("aria-label", `${drill.name} の表示: ${isText ? "テキスト" : "カウントダウン"}`);
-      mode.addEventListener("click", () => {
-        const nextMode: "countdown" | "text" = isText ? "countdown" : "text";
-        deps.onChange(menu.map((d, j) => (j === i ? { ...d, timerMode: nextMode } : d)));
-      });
-      row.append(mode);
-    }
-
     // 💡 工夫: the child's ideas for this 種目, in a centred card. Never
     // disabled — a full 種目 still opens so a 工夫 can be erased.
     if (!isRest && deps.kufuEnabled !== false && deps.kufuFor) {
@@ -356,23 +344,6 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     }
 
     row.append(del);
-
-    // TEXT mode input: words split by spaces (≤5/line), lines by newlines
-    // (≤3). Edits persist in place (onEdit) — same IME rule as the name input.
-    if (isText) {
-      const texts = document.createElement("textarea");
-      texts.className = "row-texts";
-      texts.dataset.texts = "";
-      texts.rows = 3;
-      texts.value = drill.texts ?? "";
-      texts.placeholder = "よみあげる ことば（スペースで くぎる・3行まで）";
-      texts.setAttribute("aria-label", `${drill.name} の読み上げテキスト`);
-      texts.addEventListener("input", () => {
-        menu[i] = { ...menu[i], texts: texts.value };
-        deps.onEdit(menu);
-      });
-      row.append(texts);
-    }
 
     rows.append(row);
   });
@@ -427,6 +398,52 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     bgmBtn.setAttribute("aria-label", "練習BGM on/off");
     bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
     startRow.append(bgmBtn);
+  }
+
+  // 🪝 read-aloud hook beside 稽古 開始: one switch for the whole practice,
+  // not per drill. The three line boxes sit above the buttons while it's on.
+  if (deps.onToggleHook) {
+    const hookBtn = document.createElement("button");
+    hookBtn.type = "button";
+    hookBtn.dataset.hookToggle = "";
+    hookBtn.className = "hook-toggle-btn" + (deps.hookOn ? " is-on" : "");
+    hookBtn.textContent = "🪝";
+    hookBtn.setAttribute("aria-label", "さいしょに読み上げる ことば on/off");
+    hookBtn.addEventListener("click", () => deps.onToggleHook!());
+    startRow.append(hookBtn);
+
+    if (deps.hookOn) {
+      // Three boxes = three lines, each up to 5 characters.
+      const box = document.createElement("div");
+      box.className = "hook-texts";
+      box.dataset.hookTexts = "";
+      const saved = (deps.hookText ?? "").split("\n");
+      const lines: HTMLInputElement[] = [];
+      const save = () => deps.onEditHookText?.(lines.map((l) => l.value).join("\n").replace(/\n+$/, ""));
+      for (let i = 0; i < MAX_TEXT_LINES; i++) {
+        const line = document.createElement("input");
+        line.type = "text";
+        line.className = "hook-line";
+        line.dataset.hookLine = String(i);
+        line.value = clampChars(saved[i] ?? "");
+        line.placeholder = `${i + 1}ぎょうめ・${MAX_TEXT_CHARS}もじ`;
+        line.setAttribute("aria-label", `さいしょに読み上げる ことば ${i + 1}行目`);
+        // Saved in place (no re-render while typing, so IME stays intact).
+        // Clamped by characters (not maxLength, which counts an emoji as 2),
+        // and not mid kana conversion — only once the text is committed.
+        line.addEventListener("input", (e) => {
+          if (!(e as InputEvent).isComposing) line.value = clampChars(line.value);
+          save();
+        });
+        line.addEventListener("compositionend", () => {
+          line.value = clampChars(line.value);
+          save();
+        });
+        lines.push(line);
+        box.append(line);
+      }
+      startRow.prepend(box);
+    }
   }
 
 

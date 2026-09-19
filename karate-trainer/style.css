@@ -800,41 +800,6 @@ button {
   box-shadow: 0 0 10px rgba(255, 209, 102, 0.5);
 }
 
-/* ⏱/📖 countdown-vs-TEXT toggle, one per drill row. */
-.row-mode {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.07);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 9px;
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.row-mode.is-text {
-  background: rgba(116, 185, 255, 0.22);
-  border-color: #74b9ff;
-  box-shadow: 0 0 10px rgba(116, 185, 255, 0.5);
-}
-
-/* TEXT mode read-aloud words for a drill row. */
-.row-texts {
-  flex: 1 1 100%;
-  min-width: 0;
-  padding: 0.5rem 0.55rem;
-  border: 2px solid rgba(116, 185, 255, 0.45);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  font-family: inherit;
-  background: #1a162b;
-  color: var(--ink);
-  resize: none;
-}
-
 .row-del {
   flex: 0 0 auto;
   width: 34px;
@@ -979,6 +944,61 @@ button {
 
 .start-row .btn-start {
   flex: 1 1 auto;
+}
+
+/* 🪝 read-aloud hook switch, on the right of BGM. Blue when on, grey when off. */
+.screen.setup .start-row {
+  flex-wrap: wrap;
+}
+
+.start-row .hook-toggle-btn {
+  flex: 0 0 auto;
+  min-height: 50px;
+  padding: 0 0.8rem;
+  border: none;
+  border-radius: 18px;
+  font-size: 1.2rem;
+  background: linear-gradient(180deg, #736f8c 0%, #57536b 100%);
+  box-shadow: 0 6px 0 #3d3a4d, 0 8px 15px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.start-row .hook-toggle-btn.is-on {
+  background: linear-gradient(180deg, #a5d4ff 0%, #74b9ff 100%);
+  box-shadow: 0 6px 0 #3f86d1, 0 8px 20px rgba(116, 185, 255, 0.45);
+}
+
+.start-row .hook-toggle-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #3d3a4d, 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* The hook's three line boxes (≤5 characters each), a full row above the buttons. */
+.start-row .hook-texts {
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.start-row .hook-line {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.5rem 0.45rem;
+  border: 2px solid rgba(116, 185, 255, 0.6);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 800;
+  font-family: inherit;
+  text-align: center;
+  background: #1a162b;
+  color: var(--ink);
+}
+
+.start-row .hook-line::placeholder {
+  font-size: 0.62rem;
+  font-weight: 700;
 }
 
 /* Solid and raised like 稽古 開始, so the two read as one control — the
@@ -1231,8 +1251,8 @@ button {
   display: none;
 }
 
-/* --- TEXT mode: 読み上げよう hint + word grid (live screen only; the hint is
-   never burned into the recording) --- */
+/* --- 🪝 read-aloud hook before Ready → Go!!: 読み上げよう hint + word grid
+   (live screen only; the hint is never burned into the recording) --- */
 .read-aloud-hint,
 .text-grid {
   flex: 1 1 100%;
@@ -1257,38 +1277,43 @@ button {
 .text-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
   align-items: center;
 }
 
 .text-grid-line {
   display: flex;
-  gap: 0.5rem;
   justify-content: center;
-  flex-wrap: wrap;
 }
 
+/* YouTube-style hook words (same look as 言えるようになるアプリ): huge white
+   letters, a thick black outline and a solid red drop, each line tilted. */
 .text-grid-word {
   color: #fff;
-  font-size: 1.5rem;
+  font-size: min(14vw, 4.6rem);
   font-weight: 900;
-  background: rgba(0, 0, 0, 0.65);
-  padding: 0.35rem 0.8rem;
-  border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-  /* Reserve the slot before the word is revealed so the grid never jumps. */
+  line-height: 1.15;
+  white-space: nowrap;
+  -webkit-text-stroke: 0.2em #111;
+  paint-order: stroke fill;
+  text-shadow: 0.1em 0.1em 0 #e5243b;
+  /* Reserve the slot before the line lands so the grid never jumps. */
   visibility: hidden;
 }
 
+.text-grid-line:nth-child(1) .text-grid-word { rotate: -4deg; }
+.text-grid-line:nth-child(2) .text-grid-word { rotate: 3deg; }
+.text-grid-line:nth-child(3) .text-grid-word { rotate: -2deg; }
+
 .text-grid-word.show {
   visibility: visible;
-  animation: text-zoom-out 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: text-zoom-out 0.27s cubic-bezier(0.2, 0.9, 0.3, 1.25);
 }
 
 @keyframes text-zoom-out {
-  from { transform: scale(2.4); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  0%   { transform: scale(2.6); opacity: 0.35; }
+  75%  { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 [data-cue] {

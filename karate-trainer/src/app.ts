@@ -40,7 +40,11 @@ import {
   type CharacterState,
 } from "./character-store";
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
-import { drillTextGrid, textCount, revealedGrid } from "./drill-texts";
+import { parseDrillTexts, textCount, revealedGrid } from "./drill-texts";
+import { getHook, setHook } from "./hook-store";
+
+// The hook's ドン: 「シュッ→ドン」, hitting ~0.2s in — as the line stops zooming.
+const HOOK_SOUND = "/sounds/hook-don.m4a";
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
 
@@ -168,6 +172,8 @@ export interface KarateAppDeps {
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
   introStepMs?: number;
+  // Per-line interval of the 🪝 read-aloud hook (the last line holds 1.6×). Default 1100ms.
+  hookStepMs?: number;
   // Yes/no question (plan downgrade). Defaults to window.confirm.
   confirm?(message: string): boolean;
   // Opens this app's page in iOS Settings (camera / mic permission denied).
@@ -498,6 +504,16 @@ export class KarateApp {
             this.showSetup();
           }
         : undefined,
+      hookOn: getHook(this.mem()).on,
+      hookText: getHook(this.mem()).text,
+      onToggleHook: () => {
+        const h = getHook(this.mem());
+        setHook({ ...h, on: !h.on }, this.mem());
+        this.showSetup();
+      },
+      onEditHookText: (text: string) => {
+        setHook({ ...getHook(this.mem()), text }, this.mem());
+      },
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
@@ -800,6 +816,25 @@ export class KarateApp {
     this.overlayLog?.logSound({ kind: "clip", src });
   }
 
+  // 🪝 The read-aloud hook, once per practice before Ready → Go!!: one line
+  // per step, each landing with a ドン (the same one 言えるようになるアプリ
+  // uses), then a longer hold on the last. Every reveal is logged so the saved
+  // video opens the same way; the 読み上げよう hint stays on screen only.
+  private async playTextHook(view: TrainingView, grid: string[][]): Promise<void> {
+    const stepMs = this.deps.hookStepMs ?? 1100;
+    const wait = (ms: number) => new Promise<void>((r) => (ms > 0 ? setTimeout(r, ms) : r()));
+    view.setTexts(grid);
+    const total = textCount(grid);
+    for (let k = 0; k < total; k++) {
+      view.revealText(k);
+      this.playEffect(HOOK_SOUND);
+      this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
+      await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
+    }
+    view.setTexts(null);
+    this.overlayLog?.setState({ texts: [] });
+  }
+
   // Re-read the active member's per-member state after a member switch.
   private reloadForActiveMember(): void {
     this.ensureStarterMenu();
@@ -919,6 +954,12 @@ export class KarateApp {
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
     view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
 
+    // 🪝 read-aloud hook: the words appear one by one (zoom-out + beep) before
+    // anything else, so the saved video opens with the kid reading them.
+    const hook = getHook(this.mem());
+    const hookGrid = hook.on ? parseDrillTexts(hook.text) : [];
+    if (hookGrid.length > 0) await this.playTextHook(view, hookGrid);
+
     // Ready → 3 → 2 → 1 → Go!! intro. Ready is spoken; 3 / 2 / 1 go 「ぷっ」 and
     // Go!! a long 「ぷーん」, logged so the saved video has them too.
     // BGM and the drill timer both start on "Go!!".
@@ -944,11 +985,6 @@ export class KarateApp {
 
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
 
-    // TEXT-mode reveal state for the current drill (null → countdown drill).
-    // Words appear one by one, evenly spread across the drill's duration; each
-    // reveal beeps and is logged for burn-in.
-    let textReveal: { grid: string[][]; total: number; drillSecs: number; revealed: number } | null = null;
-
     const handlers: SchedulerHandlers = {
       onDrillStart: (drill: Drill, index: number) => {
         this.currentRow = index;
@@ -958,39 +994,14 @@ export class KarateApp {
         // Show + burn the drill name and its saved 工夫 reminder.
         const caption = this.captionFor(drill);
         view.setCaption(caption);
-        const grid = drillTextGrid(drill);
-        textReveal = grid.length > 0
-          ? { grid, total: textCount(grid), drillSecs: drill.seconds, revealed: 0 }
-          : null;
-        view.setTexts(textReveal ? grid : null);
-        // seconds: 0 keeps a previous drill's countdown from lingering in the
-        // burn-in when this drill shows texts instead.
-        this.overlayLog?.setState({
-          drill: drill.name, caption, drillIndex: index, texts: [],
-          ...(textReveal ? { seconds: 0 } : {}),
-        });
+        this.overlayLog?.setState({ drill: drill.name, caption, drillIndex: index });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
         view.setNext(next ? next.name : null);
       },
       onTick: (secondsLeft: number) => {
         view.setTime(secondsLeft);
-        if (!textReveal) {
-          this.overlayLog?.setState({ seconds: secondsLeft });
-          return;
-        }
-        // Reveal words whose (evenly spaced) time has come: word k appears at
-        // k * duration/N seconds in, so the first shows immediately.
-        const { grid, total, drillSecs } = textReveal;
-        const elapsed = drillSecs - secondsLeft;
-        const target = Math.min(total, Math.floor(elapsed / (drillSecs / total)) + 1);
-        if (textReveal.revealed >= target) return; // nothing new — no extra burn-in segment
-        while (textReveal.revealed < target) {
-          view.revealText(textReveal.revealed);
-          textReveal.revealed++;
-          void this.deps.audioSink.beep();
-        }
-        this.overlayLog?.setState({ texts: revealedGrid(grid, textReveal.revealed) });
+        this.overlayLog?.setState({ seconds: secondsLeft });
       },
       onEncourage: () => {
         this.cueCount++;

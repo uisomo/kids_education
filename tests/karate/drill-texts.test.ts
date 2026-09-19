@@ -1,18 +1,18 @@
 import { it, expect, describe } from "vitest";
-import { parseDrillTexts, textCount, revealedGrid, drillTextGrid } from "../../karate-trainer/src/drill-texts";
+import { parseDrillTexts, textCount, revealedGrid, clampChars } from "../../karate-trainer/src/drill-texts";
 
 describe("parseDrillTexts", () => {
-  it("splits lines on newlines and words on whitespace", () => {
-    expect(parseDrillTexts("いち に さん\nし ご")).toEqual([["いち", "に", "さん"], ["し", "ご"]]);
+  it("makes one entry per line, spaces kept inside it", () => {
+    expect(parseDrillTexts("いち に\nしごろく")).toEqual([["いち に"], ["しごろく"]]);
   });
 
-  it("drops blank words and blank lines entirely", () => {
-    expect(parseDrillTexts("  いち   に  \n\n   \nさん")).toEqual([["いち", "に"], ["さん"]]);
+  it("collapses runs of spaces and drops blank lines entirely", () => {
+    expect(parseDrillTexts("  いち   に  \n\n   \nさん")).toEqual([["いち に"], ["さん"]]);
   });
 
-  it("caps at 5 words per line and 3 lines", () => {
-    const raw = "a b c d e f g\n1 2\n3 4\n5 6";
-    expect(parseDrillTexts(raw)).toEqual([["a", "b", "c", "d", "e"], ["1", "2"], ["3", "4"]]);
+  it("caps at 6 characters per line and 3 lines", () => {
+    const raw = "a b c d e f g\nおすおすおすおす\n3 4\n5 6";
+    expect(parseDrillTexts(raw)).toEqual([["a b c"], ["おすおすおす"], ["3 4"]]);
   });
 
   it("returns [] for undefined or whitespace-only input", () => {
@@ -37,11 +37,8 @@ describe("revealedGrid", () => {
   });
 });
 
-describe("drillTextGrid", () => {
-  it("returns the grid only for TEXT-mode drills", () => {
-    const base = { id: "x", name: "型", seconds: 30, kind: "drill" as const };
-    expect(drillTextGrid({ ...base, timerMode: "text", texts: "いち に" })).toEqual([["いち", "に"]]);
-    expect(drillTextGrid({ ...base, texts: "いち に" })).toEqual([]);          // default = countdown
-    expect(drillTextGrid({ ...base, timerMode: "text" })).toEqual([]);         // no texts entered
-  });
+it("clampChars keeps 6 characters, counting an emoji as one", () => {
+  expect(clampChars("がんばるぞーっ")).toBe("がんばるぞー");
+  expect(clampChars("🥋🥋🥋🥋🥋🥋🥋")).toBe("🥋🥋🥋🥋🥋🥋");
+  expect(clampChars("おす")).toBe("おす");
 });

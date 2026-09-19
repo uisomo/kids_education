@@ -1,20 +1,27 @@
-// TEXT-mode helpers: parse a drill's raw texts field into the word grid shown
-// during training, and slice it by how many words have been revealed so far.
-import type { Drill } from "./types";
+// 🪝 read-aloud hook helpers: parse the three line boxes into the lines shown
+// before Ready → Go!!, and slice them by how many have been revealed.
 
-export const MAX_TEXTS_PER_LINE = 5;
 export const MAX_TEXT_LINES = 3;
+// Each line is its own box in the start row, up to 6 characters.
+export const MAX_TEXT_CHARS = 6;
 
-// Lines of words, in the layout they were typed: newlines separate lines,
-// whitespace separates words. Blank words/lines vanish entirely (no slot, no
-// sound), and anything beyond 5 words per line or 3 lines is dropped.
+// The first 6 characters (emoji count as one, not as two UTF-16 units).
+export function clampChars(text: string): string {
+  return Array.from(text).slice(0, MAX_TEXT_CHARS).join("");
+}
+
+// One entry per typed line — each line lands as a whole, with one ドン. Runs
+// of spaces collapse to one, blank lines vanish (no slot, no sound), and
+// anything past 6 characters or 3 lines is dropped. (Kept as string[][] so
+// the overlay log and burn-in read the same shape as before.)
 export function parseDrillTexts(raw: string | undefined): string[][] {
   if (!raw) return [];
   return raw
     .split("\n")
-    .map((line) => line.trim().split(/\s+/).filter(Boolean).slice(0, MAX_TEXTS_PER_LINE))
-    .filter((words) => words.length > 0)
-    .slice(0, MAX_TEXT_LINES);
+    .map((line) => clampChars(line.trim().replace(/\s+/g, " ")).trim())
+    .filter(Boolean)
+    .slice(0, MAX_TEXT_LINES)
+    .map((line) => [line]);
 }
 
 export function textCount(grid: string[][]): number {
@@ -32,10 +39,4 @@ export function revealedGrid(grid: string[][], count: number): string[][] {
     left -= line.length;
   }
   return out;
-}
-
-// Does this drill use TEXT mode with at least one word to show?
-export function drillTextGrid(drill: Drill): string[][] {
-  if (drill.timerMode !== "text") return [];
-  return parseDrillTexts(drill.texts);
 }

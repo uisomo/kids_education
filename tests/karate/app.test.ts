@@ -162,7 +162,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
 });
 
-it("TEXT-mode drill reveals words one by one, hides the timer, and logs texts for burn-in", async () => {
+it("🪝 hook: words from the start-row box play once before Ready → Go!! and are logged for burn-in", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -187,35 +187,51 @@ it("TEXT-mode drill reveals words one by one, hides the timer, and logs texts fo
     shareRecording: vi.fn().mockResolvedValue(undefined),
     burnOverlay,
     introStepMs: 0,
-    // 4 words over 8s → one reveals every 2s (first immediately at drill start)
-    menuOverride: [{ id: "a", name: "平安初段", seconds: 8, kind: "drill", timerMode: "text", texts: "いち に さん\nし" }],
+    hookStepMs: 0,
+    menuOverride: [
+      { id: "a", name: "平安初段", seconds: 4, kind: "drill" },
+      { id: "b", name: "前蹴り", seconds: 4, kind: "drill" },
+    ],
   });
   await app.start();
 
+  // One 🪝 switch beside 稽古 開始 — none on the drill rows.
+  expect(root.querySelectorAll("[data-mode]").length).toBe(0);
+  expect(root.querySelector("[data-hook-texts]")).toBeNull();
+  root.querySelector<HTMLButtonElement>("[data-hook-toggle]")!.click();
+  // Three one-line boxes, 6 characters each — a longer entry is cut to 6.
+  const lines = root.querySelectorAll<HTMLInputElement>("[data-hook-line]");
+  expect(lines.length).toBe(3);
+  const type = (i: number, v: string) => {
+    lines[i].value = v;
+    lines[i].dispatchEvent(new Event("input"));
+  };
+  type(0, "いち に");
+  type(1, "さんしごろくしち");
+  expect(lines[1].value).toBe("さんしごろく");
+
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));   // intro promise
+  for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
 
-  const shown = () => root.querySelectorAll(".text-grid-word.show").length;
+  // The hook is over: grid gone, the countdown is back.
+  expect(root.querySelector<HTMLElement>("[data-text-grid]")!.hidden).toBe(true);
+  expect(root.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(false);
 
-  // Timer hidden, hint + grid visible, first word revealed at drill start.
-  expect(root.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(true);
-  expect(root.querySelector<HTMLElement>("[data-read-hint]")!.hidden).toBe(false);
-  expect(root.querySelectorAll(".text-grid-word").length).toBe(4);
-  expect(shown()).toBe(1);
-
-  for (let t = 0; t < 2000; t += 250) loopCb!(250);   // 2s in → 2nd word
-  expect(shown()).toBe(2);
-  for (let t = 0; t < 2000; t += 250) loopCb!(250);   // 4s in → 3rd word
-  expect(shown()).toBe(3);
-  for (let t = 0; t < 4500; t += 250) loopCb!(250);   // run out the drill
+  for (let t = 0; t < 9000; t += 250) loopCb!(250);   // run out both drills
   await new Promise((r) => setTimeout(r, 0));
 
-  // Burn-in got the revealed words (line layout preserved) but no countdown.
-  const events = burnOverlay.mock.calls[0][1] as { patch: { texts?: string[][]; seconds?: number } }[];
-  const textPatches = events.filter((e) => e.patch.texts?.length);
-  expect(textPatches.at(-1)!.patch.texts).toEqual([["いち", "に", "さん"], ["し"]]);
-  expect(events.some((e) => (e.patch.seconds ?? 0) > 0)).toBe(false);
+  const events = burnOverlay.mock.calls[0][1] as { patch: { texts?: string[][]; seconds?: number; intro?: string } }[];
+  const textIdx = events.map((e, i) => (e.patch.texts?.length ? i : -1)).filter((i) => i >= 0);
+  const readyIdx = events.findIndex((e) => e.patch.intro === "Ready");
+  // One line per patch, all before Ready, full grid last — and only once.
+  expect(textIdx.length).toBe(2);
+  expect(Math.max(...textIdx)).toBeLessThan(readyIdx);
+  expect(events[textIdx.at(-1)!].patch.texts).toEqual([["いち に"], ["さんしごろく"]]);
+  // Every drill keeps its countdown number.
+  expect(events.some((e) => (e.patch.seconds ?? 0) > 0)).toBe(true);
+
+  // The switch is saved per member; don't leak it into the next tests.
+  for (const k of Object.keys(localStorage)) if (k.endsWith("karate.hook")) localStorage.removeItem(k);
 });
 
 it("passes the recorded blob to shareRecording when save is pressed", async () => {
