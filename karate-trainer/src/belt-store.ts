@@ -31,9 +31,13 @@ const KARATE_BELTS: BeltDef[] = [
   { name: "でんせつの帯", mark: "🌟", icon: "🌟", fill: "linear-gradient(90deg, #f43f5e, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7)", ink: "#ffffff", rpg: true },
 ];
 
-// The piano app keeps the same ladder and colours, as ribbons: 白リボン, …
+// The piano app keeps the same ladder and colours, as music notes: しろの音符, …
+const PIANO_COLOURS = ["しろ", "きいろ", "オレンジ", "みどり", "あお", "むらさき", "ちゃいろ", "くろ"];
 export const BELTS: BeltDef[] = IS_PIANO
-  ? KARATE_BELTS.map((b) => ({ ...b, name: b.name.replace("帯", "リボン") }))
+  ? KARATE_BELTS.map((b, i) => ({
+      ...b,
+      name: i < PIANO_COLOURS.length ? `${PIANO_COLOURS[i]}の音符` : b.name.replace("の帯", "の音符"),
+    }))
   : KARATE_BELTS;
 
 export const BARS_PER_BELT = 10;

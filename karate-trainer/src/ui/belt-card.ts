@@ -4,18 +4,22 @@
 
 import { BELTS, BARS_PER_BELT, type BeltState } from "../belt-store";
 import { RAINBOW } from "./strength-screen";
-import { COPY } from "../flavor";
+import { COPY, IS_PIANO } from "../flavor";
 
 // The obi itself: a band, two hanging tails and a knot, all painted with the
 // belt's fill. Decorative — the name next to it carries the meaning.
 export function createObi(index: number): HTMLElement {
   const belt = BELTS[index] ?? BELTS[0];
   const obi = document.createElement("div");
-  obi.className = `obi${belt.rpg ? " rpg" : ""}`;
+  // The piano app's levels are music notes (しろの音符, …): a ♫ instead of an obi.
+  obi.className = `obi${IS_PIANO ? " note" : ""}${belt.rpg ? " rpg" : ""}`;
   obi.setAttribute("aria-hidden", "true");
   obi.style.setProperty("--obi-fill", belt.fill);
   obi.style.setProperty("--obi-ink", belt.ink);
-  for (const part of ["obi-band", "obi-tail left", "obi-tail right", "obi-knot"]) {
+  const parts = IS_PIANO
+    ? ["note-beam", "note-stem left", "note-stem right", "note-head left", "note-head right"]
+    : ["obi-band", "obi-tail left", "obi-tail right", "obi-knot"];
+  for (const part of parts) {
     const el = document.createElement("span");
     el.className = part;
     obi.append(el);

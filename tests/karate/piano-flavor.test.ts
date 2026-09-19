@@ -18,7 +18,7 @@ async function load(flavor: "karate" | "piano") {
   };
 }
 
-it("piano build: piano words, piano 基本 menu, ribbons instead of belts", async () => {
+it("piano build: piano words, piano 基本 menu, music notes instead of belts", async () => {
   const { flavor, menu, belts } = await load("piano");
   expect(flavor.IS_PIANO).toBe(true);
   expect(flavor.COPY.appName).toBe("アランのピアノ");
@@ -26,8 +26,8 @@ it("piano build: piano words, piano 基本 menu, ribbons instead of belts", asyn
   const drills = menu.DEFAULT_MENU.filter((d) => d.kind === "drill").map((d) => d.name);
   expect(drills).toContain("ドレミの音階");
   expect(drills).not.toContain("正拳突き");
-  expect(belts.BELTS[0].name).toBe("白リボン");
-  expect(belts.BELTS.at(-1)!.name).toBe("でんせつのリボン");
+  expect(belts.BELTS[0].name).toBe("しろの音符");
+  expect(belts.BELTS.at(-1)!.name).toBe("でんせつの音符");
   expect(belts.BELTS.every((b) => !b.name.includes("帯"))).toBe(true);
 });
 

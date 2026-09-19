@@ -15,7 +15,7 @@ export const PIANO_BUILD_MARKER = "ALAN_PIANO_BUILD";
 export interface Copy {
   appName: string;
   practice: string;      // 稽古 / 練習 — the session itself
-  belt: string;          // 帯 / リボン — the level ladder
+  belt: string;          // 帯 / 音符 — the level ladder
   drillIcon: string;     // the 特訓 tab and a drill row's kind button
   againIcon: string;     // done screen 「もう一度」
   listTitle: string;     // heading of the video's menu panel when the menu has no name
@@ -25,7 +25,7 @@ export const COPY: Copy = IS_PIANO
   ? {
       appName: "アランのピアノ",
       practice: "練習",
-      belt: "リボン",
+      belt: "音符",
       drillIcon: "🎹",
       againIcon: "🎹",
       listTitle: "練習メニュー",
