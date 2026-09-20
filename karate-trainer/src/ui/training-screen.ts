@@ -217,6 +217,28 @@ export function renderTrainingScreen(
     if (overflows()) captionEl.style.whiteSpace = "normal";
   };
 
+  // On the phone the camera is a NATIVE preview layer behind a transparent web
+  // view, so any pixel WebKit forgets to erase keeps showing over the live
+  // picture for the rest of the practice. Taking the hook's nodes out of the
+  // DOM was not enough on its own — a band of the words' red drop shadow stayed
+  // in the middle of the screen. Nudging the screen's opacity for one frame
+  // forces WebKit to re-rasterise the whole training layer, which clears it.
+  // 0.996 is invisible, and the saved video is composed natively, so the frame
+  // never reaches the recording.
+  const raf: (cb: () => void) => unknown =
+    typeof requestAnimationFrame === "function"
+      ? (cb) => requestAnimationFrame(() => cb())
+      : (cb) => setTimeout(cb, 16);
+  const forceRepaint = () => {
+    root.style.opacity = "0.996";
+    void root.offsetHeight;      // flush the nudge before undoing it
+    raf(() => {
+      raf(() => {
+        root.style.opacity = "";
+      });
+    });
+  };
+
   // Setup state handlers
   let cueTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -243,6 +265,11 @@ export function renderTrainingScreen(
       if (!on) {
         readHint.remove();
         textGrid.remove();
+        // ...and repaint over where they were: removal alone left a sliver of
+        // the last line behind (see forceRepaint). Once more a beat later, in
+        // case the compositor had already committed the stale tile.
+        forceRepaint();
+        setTimeout(forceRepaint, 350);
         return;
       }
       if (!textGrid.isConnected) centerContent.append(readHint, textGrid);

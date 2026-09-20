@@ -137,3 +137,26 @@ it("keeps the open menu's 帯 when メニュー is set to なし", async () => {
   expect([...root.querySelectorAll<HTMLSelectElement>("[data-belt-select]")]
     .map((s) => s.dataset.beltSelect)).toEqual(["basic"]);
 });
+
+// --- 🪝 のこりカス: the hook's words left a sliver over the camera ---
+// The phone shows the camera on a NATIVE layer behind a transparent web view,
+// so pixels WebKit forgets to erase stay over the live picture. Removing the
+// nodes was not enough (a band of the red drop shadow stayed mid-screen), so
+// the screen is nudged to force a full re-rasterise.
+it("nudges the training screen's opacity when the 🪝 words come off", async () => {
+  const { renderTrainingScreen } = await import("../../karate-trainer/src/ui/training-screen");
+  const root = document.createElement("div");
+  document.body.append(root);
+  const view = renderTrainingScreen(root);
+
+  view.setTexts([["いち", "に"], ["さん"]]);
+  expect(root.style.opacity).toBe("");
+
+  view.setTexts(null);
+  expect(root.querySelector("[data-text-grid]")).toBeNull();
+  expect(root.style.opacity).toBe("0.996");   // repaint in flight
+
+  // ...and it goes back to normal by itself (two frames later).
+  await new Promise((r) => setTimeout(r, 80));
+  expect(root.style.opacity).toBe("");
+});

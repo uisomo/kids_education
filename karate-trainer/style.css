@@ -1360,6 +1360,10 @@ button {
   flex-direction: column;
   gap: 0.6rem;
   align-items: center;
+  /* The thick stroke and the red drop below paint outside the last line's own
+     box. The padding keeps that ink inside the grid's rect, so the area WebKit
+     erases when the hook ends really covers everything that was drawn. */
+  padding: 0.4rem 0.6rem 1.2rem;
 }
 
 .text-grid-line {

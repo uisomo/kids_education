@@ -34,6 +34,8 @@ enum SoundMixer {
     /// Levels relative to the voice (1.0). Music sits far under the child so
     /// what they say stays easy to hear (0.22 still drowned it out);
     /// character voices are clear without drowning it.
+    /// One level covers every clip because the files themselves are levelled —
+    /// karate-trainer/tools/normalize-audio.py holds the voice/effect targets.
     static let musicVolume: Float = 0.08
     static let clipVolume: Float = 0.85
 

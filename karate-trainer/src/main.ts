@@ -31,6 +31,10 @@ if (!isNative) mountInstallBanner(document.body, detectEnv());
 // The microphone records whatever the speaker plays, so the music has to stay
 // well under the child's own voice in the saved video.
 const BGM_GAIN = 0.2;
+// One knob per kind, not per file: the clips and the 効果音 are levelled in the
+// assets themselves (tools/normalize-audio.py — voices to -12 dBFS, effects to
+// -18 dBFS over their loudest 400 ms), because they arrived at wildly different
+// levels and no single multiplier here could even them out.
 const CHEER_VOICE_VOLUME = 0.9;
 const EFFECT_VOLUME = 0.8;
 const BGM_SRC = `/characters/${encodeURIComponent("君ならできる")}.mp3`;
