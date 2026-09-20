@@ -26,6 +26,17 @@ func isPlaceholder(_ rel: String) -> Bool {
     !FileManager.default.fileExists(atPath: out.appendingPathComponent(rel).path) || made.contains(rel)
 }
 
+/// Paths the piano app deliberately takes from the karate art: nothing is
+/// written to public-piano/, so vite.config.ts falls through to public/.
+/// 2026-09-20: the user chose this for the three characters and for アラン and
+/// バナー. わく is NOT here — the piano app has its own (tools/decor-src-piano).
+let shared: Set<String> = [
+    "characters/alan.jpg", "characters/alan_cheer.jpg",
+    "characters/leo.jpg", "characters/leo_cheer.jpg",
+    "characters/izzy.jpg", "characters/izzy_cheer.jpg",
+    "images/decor-icon.png", "images/decor-banner.png",
+]
+
 for f in ["MPLUSRounded1c-ExtraBold.ttf"] {
     CTFontManagerRegisterFontsForURL(pub.appendingPathComponent("fonts/\(f)") as CFURL, .process, nil)
 }
@@ -115,6 +126,7 @@ func sprinkle(_ w: CGFloat, _ h: CGFloat, count: Int, size: CGFloat, alpha: CGFl
 }
 
 func save(_ rep: NSBitmapImageRep, _ rel: String, to base: URL = out, track: Bool = true) {
+    if track && shared.contains(rel) { print("share \(rel) (karate art)"); return }
     if track && !isPlaceholder(rel) { print("keep  \(rel) (real art)"); return }
     let url = base.appendingPathComponent(rel)
     try! FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
