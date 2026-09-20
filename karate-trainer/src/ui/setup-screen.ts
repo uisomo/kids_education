@@ -7,6 +7,8 @@ import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
 import { openHookModal } from "./hook-modal";
+import { openLetterModal } from "./letter-modal";
+import type { Letter } from "../letter-store";
 
 export interface SetupMember {
   id: string;
@@ -50,10 +52,15 @@ export interface SetupDeps {
   beltHint?: string;
   // E3: the active member's assigned くらす name (read-only label), or null.
   className?: string | null;
-  // E4: the parent's 感想コメント for the active member, shown as a slim sticky
-  // bar at the top of the screen, signed with kansouBy. Empty / absent → none.
-  kansou?: string;
-  kansouBy?: string;
+  // E4 → Phase 2: the parent's おたより for the active member, newest first.
+  // The old always-on sticky banner is gone: a ✉️ chip sits in the header once
+  // there is a letter, with a NEW badge and a short shake only while one is
+  // unread. Tapping it opens the 便箋 card, where older letters are behind
+  // 「‹ まえのおたより」. No letters at all → no chip; the app never invents one.
+  letters?: Letter[];
+  // The kid has now seen this letter. Persist only — do NOT re-render, or the
+  // card is torn out of the DOM while it is being read.
+  onReadLetter?(id: string): void;
   // 🔥 days in a row the member has practiced; shown top-right when > 0.
   streakDays?: number;
   // Member band: every registered kid, so whoever is about to practice can pick
@@ -112,6 +119,52 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   const title = document.createElement("h1");
   title.className = "screen-title";
   title.textContent = "今日の稽古";
+
+  // ✉️ おたより, top-left: on the screen whenever there is a letter to read, so
+  // a kept letter can be read again. The NEW badge and the shake belong to
+  // unread ones only — the shake stops after three swings, because something
+  // that wobbles forever reads as decoration rather than as a message.
+  const letters = deps.letters ?? [];
+  const unread = letters.filter((l) => l.readAt === undefined);
+  if (letters.length) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "setup-letter-chip" + (unread.length ? " is-new" : "");
+    chip.dataset.letterChip = "";
+    chip.setAttribute("aria-label", "おうちの人からのおたより");
+    const icon = document.createElement("span");
+    icon.className = "setup-letter-icon";
+    icon.textContent = "✉️";
+    chip.append(icon);
+
+    const badge = document.createElement("span");
+    badge.className = "setup-letter-new";
+    badge.dataset.letterNew = "";
+    if (unread.length) {
+      badge.textContent = unread.length > 1 ? `NEW ${unread.length}` : "NEW";
+      chip.append(badge);
+    }
+
+    chip.addEventListener("click", () => {
+      // What was read while the card was open, so the badge is right the moment
+      // it closes — the screen is not re-rendered underneath a card being read.
+      const justRead = new Set<string>();
+      openLetterModal(root, {
+        letters,
+        onRead: (id) => { justRead.add(id); deps.onReadLetter?.(id); },
+        onClose: () => {
+          const left = unread.filter((l) => !justRead.has(l.id)).length;
+          if (!left) {
+            badge.remove();          // the ✉️ stays: the letters are still there
+            chip.classList.remove("is-new");
+          } else {
+            badge.textContent = left > 1 ? `NEW ${left}` : "NEW";
+          }
+        },
+      });
+    });
+    header.append(chip);
+  }
 
   header.append(title);
   if (deps.streakDays && deps.streakDays > 0) {
@@ -356,7 +409,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   });
 
   const add = document.createElement("button");
-  add.dataset.add = ""; add.className = "add"; add.textContent = "＋ ドリルを追加";
+  // 種目 everywhere else on the screen (合計 N 種目 / 種目を追加してね), so the
+  // one button that still said ドリル now matches.
+  add.dataset.add = ""; add.className = "add"; add.textContent = "＋ 種目をふやす";
   add.addEventListener("click", () =>
     deps.onChange([...menu, { id: uid(), name: NEW_DRILL_NAME, seconds: 30, kind: "drill" }]));
 
@@ -374,7 +429,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     const secs = totalSeconds(menu);
     const over = secs > MAX_RECORD_SECONDS;
     const limit = `${MAX_RECORD_SECONDS / 60}分`;
-    total.textContent = `合計 ${menu.length} 種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
+    // Short: it now shares one line with the two switches on a 375 px phone.
+    total.textContent = `${menu.length}種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
     total.classList.toggle("is-over", over);
     start.disabled = menu.length === 0 || over;
     start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : "稽古 開始 ▶";
@@ -382,13 +438,17 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   updateTotal();
   totalRow.append(total);
 
-  // 稽古 開始 and the BGM switch travel together: the sticky row is the last
-  // thing anyone touches before practice, so BGM is decided there rather than
-  // up next to the drill total.
+  // The footer is one sticky block: a quiet line of switches with the drill
+  // total on its right, sitting on top of the one loud thing on the screen.
+  // 稽古 開始, BGM and 🪝 used to stand side by side as three chunky 3-D slabs
+  // of equal weight, so the row read as a toolbar and nothing said "press me".
   const startRow = document.createElement("div");
   startRow.className = "start-row";
   startRow.dataset.startRow = "";
-  startRow.append(start);
+
+  const controls = document.createElement("div");
+  controls.className = "start-controls";
+  controls.dataset.startControls = "";
 
   if (deps.onToggleBgm) {
     const BGM_ON_LABEL = "🎵 BGM";
@@ -400,7 +460,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     bgmBtn.textContent = deps.bgmMuted ? BGM_OFF_LABEL : BGM_ON_LABEL;
     bgmBtn.setAttribute("aria-label", "練習BGM on/off");
     bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
-    startRow.append(bgmBtn);
+    controls.append(bgmBtn);
   }
 
   // 🪝 read-aloud hook beside 稽古 開始: one switch for the whole practice, not
@@ -411,7 +471,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     hookBtn.type = "button";
     hookBtn.dataset.hookToggle = "";
     hookBtn.className = "hook-toggle-btn" + (deps.hookOn ? " is-on" : "");
-    hookBtn.textContent = "🪝";
+    // Labelled: a bare 🪝 next to a bare 🎵 gave no clue which was which.
+    hookBtn.textContent = "🪝 よみあげ";
     hookBtn.setAttribute("aria-label", "さいしょに読み上げる ことば on/off");
     hookBtn.addEventListener("click", () => {
       // Off → turn it on and go straight to the words; already on → just edit
@@ -426,38 +487,21 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
         onClose: () => deps.onHookEditorClosed?.(),
       });
     });
-    startRow.append(hookBtn);
+    controls.append(hookBtn);
   }
 
+  // 合計 sits at the right end of the switch line instead of on a line of its
+  // own above the button — same information, one row less between the menu
+  // and 稽古 開始.
+  controls.append(totalRow);
+  startRow.append(controls, start);
 
-  // --- 親御さんからのメッセージ (E4): a slim sticky bar at the very top of 特訓,
-  // where the kid looks first. Long messages scroll inside it rather than
-  // pushing 今日の稽古 and the menu down the page. ---
-  const kansou = deps.kansou?.trim();
-  if (kansou) {
-    const banner = document.createElement("div");
-    banner.className = "setup-kansou-banner";
-    banner.dataset.kansouBanner = "";
-    const text = document.createElement("div");
-    text.className = "setup-kansou-text";
-    text.textContent = `✉️ ${kansou}`;
-    banner.append(text);
-    const by = deps.kansouBy?.trim();
-    if (by) {
-      const sign = document.createElement("div");
-      sign.className = "setup-kansou-by";
-      sign.dataset.kansouBy = "";
-      sign.textContent = `by ${by}`;
-      banner.append(sign);
-    }
-    root.append(banner);
-  }
 
   root.append(header);
   if (memberBand) root.append(memberBand);
   root.append(beltCard);
   if (classLabel) root.append(classLabel);
-  root.append(presetBand, rows, add, totalRow);
+  root.append(presetBand, rows, add);
 
   root.append(startRow);
 }

@@ -30,7 +30,7 @@ import { type Decor, canRemoveDecor, effectiveDecor, loadDecor, setDecor } from 
 import { type Billing, type BillingInfo, type ProductId, planOfProduct, renewalText } from "./billing";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
-import { loadComments, saveComment } from "./comment-store";
+import { loadLetters, addLetter, markLetterRead, removeLetter } from "./letter-store";
 import { getShareAllowed, setShareAllowed } from "./share-setting-store";
 import { renderParentalGate, askParentalGate } from "./parental-gate";
 import {
@@ -529,9 +529,12 @@ export class KarateApp {
       beltHint: "メニューを保存すると、帯と積み重ねがたまるよ",
       // E3: the active member's assigned menu name (read-only label).
       className: this.activeClassName(),
-      // E4: the parent's 感想コメント for the active member (top banner).
-      kansou: loadComments(this.mem()).kansou,
-      kansouBy: loadComments(this.mem()).kansouBy,
+      // E4 → Phase 2: the parent's おたより queue for the active member. The ✉️
+      // chip in the header shows only while one is unread.
+      letters: loadLetters(this.mem()),
+      // Persist only — re-rendering here would rip the 便箋 card out of the DOM
+      // while the kid is reading it. The chip catches up on the next render.
+      onReadLetter: (id) => { markLetterRead(id, this.mem()); },
       streakDays: currentStreak(this.mem()),
       // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
       // its parental gate for adding/removing members and changing plans.
@@ -681,10 +684,11 @@ export class KarateApp {
       // 帯: one per saved menu for the active member; setting one starts its 積み重ね over.
       menuBelts: this.usablePresets().map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt })),
       onSetMenuBelt: (presetId, index) => { setMenuBelt(presetId, index, this.mem()); this.showFamily(); },
-      // E4: 応援コメント for the active member (per-member via mem()). Free on
-      // every plan. Saving re-renders so the input reflects the trimmed value.
-      comments: loadComments(this.mem()),
-      onSaveComment: (kind, text) => { saveComment(kind, text, this.mem()); this.showFamily(); },
+      // おたより for the active member (per-member via mem()). Free on every
+      // plan. Sending re-renders so the new letter shows up in the sent list.
+      letters: loadLetters(this.mem()),
+      onSendLetter: (text, by) => { addLetter(text, by, this.mem()); this.showFamily(); },
+      onDeleteLetter: (id) => { removeLetter(id, this.mem()); this.showFamily(); },
       // 「工夫をぜんぶけす」 for the active member.
       // LINE・SNS: which kids may send their videos out.
       shareAllowed: Object.fromEntries(members.map((m) => [m.id, getShareAllowed(scopedStorage(base, m.id))])),

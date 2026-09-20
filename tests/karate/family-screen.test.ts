@@ -166,38 +166,71 @@ it("omits the class section entirely for pre-E3 callers", () => {
   expect(root.querySelector("[data-class-hint]")).toBeNull();
 });
 
-// --- E4: 応援コメント section (per active member) ---
-function commentDeps(over: Record<string, unknown> = {}) {
+// --- おたより section (per active member) ---
+const LETTERS = [
+  { id: "L2", text: "がんばってるね", by: "パパ", createdAt: 2000 },
+  { id: "L1", text: "きのうも えらかった", by: "ママ", createdAt: 1000, readAt: 1500 },
+];
+
+function letterDeps(over: Record<string, unknown> = {}) {
   return deps({
-    comments: { kansou: "がんばってるね", fight: "あと ちょっと" },
-    onSaveComment: vi.fn(),
+    letters: LETTERS,
+    onSendLetter: vi.fn(),
     ...over,
   });
 }
 
-it("renders the 感想 input prefilled, and no ファイト input", () => {
+it("renders an empty おたより box (sending does not overwrite the last one)", () => {
   const root = document.createElement("div");
-  renderFamilyScreen(root, commentDeps());
-  const kansou = root.querySelector<HTMLInputElement>("[data-comment-kansou]")!;
-  expect(kansou.value).toBe("がんばってるね");
-  expect(root.querySelector("[data-comment-fight]")).toBeNull();
+  renderFamilyScreen(root, letterDeps());
+  const text = root.querySelector<HTMLInputElement>("[data-letter-text]")!;
+  expect(text.value).toBe("");
+  // The signature carries over from the newest letter, so it is typed once.
+  expect(root.querySelector<HTMLInputElement>("[data-letter-by]")!.value).toBe("パパ");
 });
 
-it("saving 感想 fires onSaveComment with kind and text", () => {
+it("おくる fires onSendLetter with the text and the signature", () => {
   const root = document.createElement("div");
-  const onSaveComment = vi.fn();
-  renderFamilyScreen(root, commentDeps({ onSaveComment }));
-  const kansou = root.querySelector<HTMLInputElement>("[data-comment-kansou]")!;
-  kansou.value = "だいすき";
-  root.querySelector<HTMLButtonElement>("[data-comment-save-kansou]")!.click();
-  expect(onSaveComment).toHaveBeenCalledWith("kansou", "だいすき");
+  const onSendLetter = vi.fn();
+  renderFamilyScreen(root, letterDeps({ onSendLetter }));
+  root.querySelector<HTMLInputElement>("[data-letter-text]")!.value = "だいすき";
+  root.querySelector<HTMLInputElement>("[data-letter-by]")!.value = "ママ";
+  root.querySelector<HTMLButtonElement>("[data-letter-send]")!.click();
+  expect(onSendLetter).toHaveBeenCalledWith("だいすき", "ママ");
 });
 
-it("omits the comment section for callers without comment wiring", () => {
+it("おくる on an empty box sends nothing", () => {
   const root = document.createElement("div");
-  renderFamilyScreen(root, deps());   // no comments/onSaveComment
-  expect(root.querySelector("[data-comment-kansou]")).toBeNull();
-  expect(root.querySelector("[data-comment-fight]")).toBeNull();
+  const onSendLetter = vi.fn();
+  renderFamilyScreen(root, letterDeps({ onSendLetter }));
+  root.querySelector<HTMLInputElement>("[data-letter-text]")!.value = "   ";
+  root.querySelector<HTMLButtonElement>("[data-letter-send]")!.click();
+  expect(onSendLetter).not.toHaveBeenCalled();
+});
+
+it("lists the letters already sent with whether the kid read them", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, letterDeps());
+  const items = root.querySelectorAll("[data-letter]");
+  expect(items).toHaveLength(2);
+  expect(items[0].querySelector("[data-letter-state]")!.textContent).toBe("まだ");
+  expect(items[0].textContent).toContain("がんばってるね");
+  expect(items[1].querySelector("[data-letter-state]")!.textContent).toBe("よんだ");
+});
+
+it("けす removes one sent letter", () => {
+  const root = document.createElement("div");
+  const onDeleteLetter = vi.fn();
+  renderFamilyScreen(root, letterDeps({ onDeleteLetter }));
+  root.querySelector<HTMLButtonElement>('[data-letter-delete="L1"]')!.click();
+  expect(onDeleteLetter).toHaveBeenCalledWith("L1");
+});
+
+it("omits the おたより section for callers without letter wiring", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps());   // no letters/onSendLetter
+  expect(root.querySelector("[data-letter-text]")).toBeNull();
+  expect(root.querySelector("[data-letter-sent]")).toBeNull();
 });
 
 // --- 帯 section (parent-controlled) ---
@@ -224,30 +257,26 @@ it("omits the belt section without belt wiring", () => {
   expect(root.querySelector("[data-belt-list]")).toBeNull();
 });
 
-it("the 感想 form has a second 'by' line, and 保存 saves both", () => {
+it("the おたより box says how long a letter can be and how many are kept", () => {
   const root = document.createElement("div");
-  const onSaveComment = vi.fn();
-  renderFamilyScreen(root, commentDeps({ onSaveComment, comments: { kansou: "えらい", kansouBy: "パパ", fight: "" } }));
-  const by = root.querySelector<HTMLInputElement>("[data-comment-kansou-by]")!;
-  expect(by.value).toBe("パパ");
-  by.value = "ママ";
-  root.querySelector<HTMLButtonElement>("[data-comment-save-kansou]")!.click();
-  expect(onSaveComment).toHaveBeenCalledWith("kansouBy", "ママ");
-  expect(onSaveComment).toHaveBeenCalledWith("kansou", "えらい");
+  renderFamilyScreen(root, letterDeps());
+  const note = root.querySelector(".family-comment-note")!;
+  expect(note.textContent).toContain("60文字まで");
+  expect(note.textContent).toContain("5通");
 });
 
 it("manages members first, then frames the picked member's settings, then the plan", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps({
     classes: [{ id: "p1", name: "基本", menu: [] }], assignments: { m1: "p1" }, onAssignClass: vi.fn(),
-    comments: { kansou: "", kansouBy: "", fight: "" }, onSaveComment: vi.fn(),
+    letters: [], onSendLetter: vi.fn(),
   }));
   const labels = [...root.querySelectorAll(".family-section-label, .family-label")].map((e) => e.textContent);
   expect(labels[0]).toBe("メンバーを管理する");
   const box = root.querySelector("[data-member-settings]")!;
   expect(box.textContent).toContain("設定したいメンバー");
   expect(box.querySelector("[data-class-select]")).not.toBeNull();
-  expect(box.querySelector("[data-comment-kansou]")).not.toBeNull();
+  expect(box.querySelector("[data-letter-text]")).not.toBeNull();
   expect(box.querySelector("[data-plan-cards]")).toBeNull();
   const listPos = root.querySelector("[data-member-list]")!.compareDocumentPosition(box);
   expect(listPos & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
