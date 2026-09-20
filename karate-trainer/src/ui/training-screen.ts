@@ -236,7 +236,16 @@ export function renderTrainingScreen(
       readHint.hidden = !on;
       textGrid.hidden = !on;
       timerEl.hidden = on;   // no countdown while the hook plays
-      if (!on) return;
+      // iOS WebKit sometimes keeps painting the composited hook layer after
+      // `hidden` alone, leaving the words stuck over the practice. Taking the
+      // nodes out of the document entirely drops that layer for good; they go
+      // back in (same place, right under the drill name/timer) on the next hook.
+      if (!on) {
+        readHint.remove();
+        textGrid.remove();
+        return;
+      }
+      if (!textGrid.isConnected) centerContent.append(readHint, textGrid);
       grid!.forEach((words) => {
         const line = document.createElement("div");
         line.className = "text-grid-line";

@@ -514,6 +514,9 @@ export class KarateApp {
       onEditHookText: (text: string) => {
         setHook({ ...getHook(this.mem()), text }, this.mem());
       },
+      // No re-render while typing (the iOS IME drops out), so the screen is
+      // refreshed once the popup is closed instead.
+      onHookEditorClosed: () => { this.showSetup(); },
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
@@ -624,6 +627,19 @@ export class KarateApp {
   }
 
   private renderFamily(): void {
+    // Every setting on this long page re-renders the whole screen; without this
+    // the page jumped back to the top and 「かざり」 looked like it had reverted.
+    const keepScroll = typeof window !== "undefined" ? window.scrollY : 0;
+    this.renderFamilyScreenNow();
+    if (keepScroll > 0) {
+      const restore = () => { try { window.scrollTo(0, keepScroll); } catch { /* no-op */ } };
+      restore();
+      // The document is shorter for a tick while images/layout settle.
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(restore);
+    }
+  }
+
+  private renderFamilyScreenNow(): void {
     const base = this.base();
     const members = loadMembers(base);
     renderFamilyScreen(this.root, {
@@ -824,15 +840,20 @@ export class KarateApp {
     const stepMs = this.deps.hookStepMs ?? 1100;
     const wait = (ms: number) => new Promise<void>((r) => (ms > 0 ? setTimeout(r, ms) : r()));
     view.setTexts(grid);
-    const total = textCount(grid);
-    for (let k = 0; k < total; k++) {
-      view.revealText(k);
-      this.playEffect(HOOK_SOUND);
-      this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
-      await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
+    try {
+      const total = textCount(grid);
+      for (let k = 0; k < total; k++) {
+        view.revealText(k);
+        this.playEffect(HOOK_SOUND);
+        this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
+        await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
+      }
+    } finally {
+      // Whatever happens mid-hook (a stop, a sound that throws), the words must
+      // come off the screen — they stayed up on the phone once.
+      view.setTexts(null);
+      this.overlayLog?.setState({ texts: [] });
     }
-    view.setTexts(null);
-    this.overlayLog?.setState({ texts: [] });
   }
 
   // Re-read the active member's per-member state after a member switch.

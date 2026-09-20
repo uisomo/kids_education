@@ -2227,6 +2227,8 @@ input[data-label] {
 }
 
 .bottom-nav-icon { font-size: 1.5rem; line-height: 1; }
+/* 積み重ね's drawn stairs, sized to sit level with the emoji icons beside it. */
+.bottom-nav-icon-img { display: block; width: 1.6rem; height: 1.6rem; object-fit: contain; }
 .bottom-nav-label { font-size: 0.75rem; white-space: nowrap; }
 
 /* Reserve space so screen content isn't hidden behind the fixed nav. */
@@ -2421,6 +2423,118 @@ input[data-label] {
 .decor-option.on {
   border-color: #ffd166;
   background: rgba(255, 209, 102, 0.18);
+}
+
+/* 「いまこれ」 on the picked かざり: the tint alone was too quiet to see. */
+.decor-option { position: relative; }
+
+.decor-option-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.25rem;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: #ffd166;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* --- 🪝 hook popup: three lines, labelled ぎょうめ --- */
+.hook-modal-card { gap: 0.6rem; }
+
+.hook-modal-card .kufu-card-title {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.hook-modal-title-ask { font-size: 1.1rem; }
+
+.hook-modal-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hook-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hook-modal-label {
+  flex: 0 0 4.6rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--ink-dim, #b0a8c8);
+}
+
+.hook-modal-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 1.1rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.hook-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.hook-modal-off {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  min-height: 44px;
+}
+
+.hook-modal-ok { min-height: 44px; }
+
+/* --- 家族 jump nav: sticky chips to the sections of a very long page --- */
+.family-jump-nav {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: -0.35rem -1rem 0;
+  padding: 0.45rem 1rem;
+  background: rgba(26, 22, 43, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.family-jump-nav::-webkit-scrollbar { display: none; }
+
+.family-jump-chip {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: rgba(255, 209, 102, 0.92);
+  border: none;
+  border-radius: 999px;
+  padding: 0.32rem 0.8rem;
+  min-height: 32px;
+}
+
+.family-jump-chip:active { transform: translateY(1px); }
+
+/* Jump targets clear the sticky bar. */
+.screen.family [data-family-anchor] {
+  scroll-margin-top: 3.2rem;
 }
 
 .decor-option.locked {
@@ -2835,19 +2949,33 @@ input[data-label] {
   cursor: pointer;
 }
 
+/* 親御さんからのメッセージ: pinned to the top of 特訓 and deliberately slim — a
+   long message scrolls inside the bar instead of pushing the menu down. */
 .setup-kansou-banner {
-  font-size: 1rem;
+  position: sticky;
+  top: calc(-0.35rem + env(safe-area-inset-top));
+  z-index: 4;
+  flex: 0 0 auto;
+  font-size: 0.95rem;
   font-weight: 900;
-  line-height: 1.4;
+  line-height: 1.35;
   color: #1a162b;
   /* White card: yellow is kept for buttons. */
   background: #fff;
   border: 2px solid rgba(26, 22, 43, 0.12);
-  border-radius: 16px;
-  padding: 0.7rem 0.9rem;
-  margin: 0 0 0.7rem;
+  border-radius: 14px;
+  padding: 0.45rem 0.7rem;
+  margin: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   word-break: break-word;
+}
+
+/* About two lines tall; the rest scrolls within the bar. */
+.setup-kansou-text {
+  max-height: 2.7em;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* E4: 応援コメント editor (家族 screen, parent). */

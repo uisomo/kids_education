@@ -126,6 +126,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- Member list with remove buttons ---
   const listTitle = document.createElement("div");
   listTitle.className = "family-section-label";
+  listTitle.dataset.familyAnchor = "members";
   listTitle.textContent = "メンバーを管理する";
 
   const list = document.createElement("div");
@@ -220,6 +221,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- Plan / upgrade section (one plan for the whole household) ---
   const planTitle = document.createElement("div");
   planTitle.className = "family-section-label";
+  planTitle.dataset.familyAnchor = "plan";
   planTitle.textContent = "プラン";
 
   const planNote = document.createElement("div");
@@ -289,12 +291,50 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const memberSettings = document.createElement("div");
   memberSettings.className = "family-member-settings";
   memberSettings.dataset.memberSettings = "";
+  memberSettings.dataset.familyAnchor = "settings";
   memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes, ...testNodes);
 
   const billingNodes = billing ? buildBillingFooter(billing) : [];
+  const howtoNodes = buildHowtoSection(root);
+  markAnchor(howtoNodes[0], "howto");
+  markAnchor(decorNodes[0], "decor");
 
-  root.append(title, listTitle, list, addRow, memberHint, memberSettings,
-              ...buildParentNote(), ...buildHowtoSection(root), ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+  root.append(title, buildJumpNav(root), listTitle, list, addRow, memberHint, memberSettings,
+              ...buildParentNote(), ...howtoNodes, ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+}
+
+// The 家族 tab is one long page (members → settings → 使い方 → かざり → プラン), so
+// it carries a sticky row of chips that jump straight to a section.
+const JUMP_TARGETS: { anchor: string; label: string }[] = [
+  { anchor: "members", label: "メンバー" },
+  { anchor: "settings", label: "設定" },
+  { anchor: "howto", label: "使い方" },
+  { anchor: "decor", label: "かざり" },
+  { anchor: "plan", label: "プラン" },
+];
+
+function markAnchor(node: Node | undefined, anchor: string): void {
+  if (node instanceof HTMLElement) node.dataset.familyAnchor = anchor;
+}
+
+function buildJumpNav(root: HTMLElement): HTMLElement {
+  const bar = document.createElement("div");
+  bar.className = "family-jump-nav";
+  bar.dataset.familyJump = "";
+  for (const t of JUMP_TARGETS) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "family-jump-chip";
+    chip.dataset.familyJumpTo = t.anchor;
+    chip.textContent = t.label;
+    chip.addEventListener("click", () => {
+      const target = root.querySelector(`[data-family-anchor="${t.anchor}"]`);
+      // scroll-margin-top (CSS) keeps the sticky bar itself off the heading.
+      target?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+    bar.append(chip);
+  }
+  return bar;
 }
 
 // テスト用 (test アプリ only): the active member's 🔥 streak and every drill's
@@ -435,6 +475,15 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
     hint.className = "decor-option-hint";
     hint.textContent = locked ? "プレミアムでえらべます" : meta.hint;
     btn.append(name, hint);
+    // The tinted border alone read as 「戻ってしまった」 on the phone: the picked
+    // one now says so, like the plan cards' 「いま」 badge.
+    if (option === decor) {
+      const badge = document.createElement("span");
+      badge.className = "decor-option-badge";
+      badge.dataset.decorOn = "";
+      badge.textContent = "いまこれ";
+      btn.append(badge);
+    }
     btn.addEventListener("click", () => onSelectDecor(option));
     list.append(btn);
   }

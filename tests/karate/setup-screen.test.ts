@@ -262,16 +262,20 @@ it("omits the class label when className is null/absent", () => {
   expect(root.querySelector("[data-class-label]")).toBeNull();
 });
 
-// --- E4: 感想コメント banner (right above the start button) ---
-it("shows the 感想 comment banner right above the start button when provided", () => {
+// --- E4: 感想コメント banner (slim + sticky at the very top of 特訓) ---
+it("shows the 感想 comment banner at the top of the screen when provided", () => {
   const root = document.createElement("div");
   renderSetupScreen(root, deps({ kansou: "いつも がんばってるね" }));
   const banner = root.querySelector<HTMLElement>("[data-kansou-banner]");
   expect(banner).not.toBeNull();
   expect(banner!.textContent).toBe("✉️ いつも がんばってるね");   // a letter, no 💛
-  // 稽古 開始 now shares its sticky row with the BGM switch.
+  // First thing on the page, above 今日の稽古; the long text scrolls inside it.
+  expect(root.firstElementChild).toBe(banner);
+  expect(banner!.nextElementSibling).toBe(root.querySelector(".toybox-header"));
+  expect(banner!.querySelector(".setup-kansou-text")!.textContent).toBe("✉️ いつも がんばってるね");
+  // 稽古 開始 still shares its sticky row with the BGM switch, at the bottom.
   const startRow = root.querySelector("[data-start-row]")!;
-  expect(banner!.nextElementSibling).toBe(startRow);
+  expect(root.lastElementChild).toBe(startRow);
   expect(startRow.firstElementChild).toBe(root.querySelector("[data-start]"));
 });
 

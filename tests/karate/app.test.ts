@@ -195,11 +195,13 @@ it("🪝 hook: words from the start-row box play once instead of Ready → Go!! 
   });
   await app.start();
 
-  // One 🪝 switch beside 稽古 開始 — none on the drill rows.
+  // One 🪝 switch beside 稽古 開始 — none on the drill rows, and nothing else on
+  // the screen until it is tapped (the words live in a popup).
   expect(root.querySelectorAll("[data-mode]").length).toBe(0);
-  expect(root.querySelector("[data-hook-texts]")).toBeNull();
+  expect(root.querySelector("[data-hook-line]")).toBeNull();
   root.querySelector<HTMLButtonElement>("[data-hook-toggle]")!.click();
-  // Three one-line boxes, 6 characters each — a longer entry is cut to 6.
+  // Three one-line boxes in the popup, 6 characters each — a longer entry is cut to 6.
+  expect(root.querySelector("[data-hook-modal]")).not.toBeNull();
   const lines = root.querySelectorAll<HTMLInputElement>("[data-hook-line]");
   expect(lines.length).toBe(3);
   const type = (i: number, v: string) => {
@@ -213,8 +215,10 @@ it("🪝 hook: words from the start-row box play once instead of Ready → Go!! 
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
   for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
 
-  // The hook is over: grid gone, the countdown is back.
-  expect(root.querySelector<HTMLElement>("[data-text-grid]")!.hidden).toBe(true);
+  // The hook is over: the words are out of the DOM entirely (iOS kept painting
+  // a merely `hidden` layer), and the countdown is back.
+  expect(root.querySelector("[data-text-grid]")).toBeNull();
+  expect(root.querySelector("[data-read-hint]")).toBeNull();
   expect(root.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(false);
 
   for (let t = 0; t < 9000; t += 250) loopCb!(250);   // run out both drills

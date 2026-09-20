@@ -6,7 +6,7 @@ import type { BeltState } from "../belt-store";
 import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
-import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
+import { openHookModal } from "./hook-modal";
 
 export interface SetupMember {
   id: string;
@@ -50,8 +50,8 @@ export interface SetupDeps {
   beltHint?: string;
   // E3: the active member's assigned くらす name (read-only label), or null.
   className?: string | null;
-  // E4: the parent's 感想コメント for the active member, shown as a banner just
-  // above the start button, signed with kansouBy. Empty / absent → no banner.
+  // E4: the parent's 感想コメント for the active member, shown as a slim sticky
+  // bar at the top of the screen, signed with kansouBy. Empty / absent → none.
   kansou?: string;
   kansouBy?: string;
   // 🔥 days in a row the member has practiced; shown top-right when > 0.
@@ -86,6 +86,9 @@ export interface SetupDeps {
   hookText?: string;
   onToggleHook?(): void;
   onEditHookText?(text: string): void;
+  // The popup closed. Typing never re-renders (that would break the IME), so
+  // the caller re-renders here — otherwise reopening it shows stale words.
+  onHookEditorClosed?(): void;
 }
 
 const NEW_DRILL_NAME = "新しい種目";
@@ -400,8 +403,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     startRow.append(bgmBtn);
   }
 
-  // 🪝 read-aloud hook beside 稽古 開始: one switch for the whole practice,
-  // not per drill. The three line boxes sit above the buttons while it's on.
+  // 🪝 read-aloud hook beside 稽古 開始: one switch for the whole practice, not
+  // per drill. The words are typed in a popup — inline boxes crowded the sticky
+  // start row — and with the hook off nothing of it is on the screen at all.
   if (deps.onToggleHook) {
     const hookBtn = document.createElement("button");
     hookBtn.type = "button";
@@ -409,58 +413,33 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     hookBtn.className = "hook-toggle-btn" + (deps.hookOn ? " is-on" : "");
     hookBtn.textContent = "🪝";
     hookBtn.setAttribute("aria-label", "さいしょに読み上げる ことば on/off");
-    hookBtn.addEventListener("click", () => deps.onToggleHook!());
+    hookBtn.addEventListener("click", () => {
+      // Off → turn it on and go straight to the words; already on → just edit
+      // them. onToggleHook re-renders the screen first, so the card is opened
+      // into the fresh DOM.
+      if (!deps.hookOn) deps.onToggleHook!();
+      openHookModal(root, {
+        text: deps.hookText ?? "",
+        onEditText: (text) => deps.onEditHookText?.(text),
+        onTurnOff: () => deps.onToggleHook?.(),
+        // Re-render with what was just typed, so the next tap shows it back.
+        onClose: () => deps.onHookEditorClosed?.(),
+      });
+    });
     startRow.append(hookBtn);
-
-    if (deps.hookOn) {
-      // Three boxes = three lines, each up to 5 characters.
-      const box = document.createElement("div");
-      box.className = "hook-texts";
-      box.dataset.hookTexts = "";
-      const saved = (deps.hookText ?? "").split("\n");
-      const lines: HTMLInputElement[] = [];
-      const save = () => deps.onEditHookText?.(lines.map((l) => l.value).join("\n").replace(/\n+$/, ""));
-      for (let i = 0; i < MAX_TEXT_LINES; i++) {
-        const line = document.createElement("input");
-        line.type = "text";
-        line.className = "hook-line";
-        line.dataset.hookLine = String(i);
-        line.value = clampChars(saved[i] ?? "");
-        line.placeholder = `${i + 1}ぎょうめ・${MAX_TEXT_CHARS}もじ`;
-        line.setAttribute("aria-label", `さいしょに読み上げる ことば ${i + 1}行目`);
-        // Saved in place (no re-render while typing, so IME stays intact).
-        // Clamped by characters (not maxLength, which counts an emoji as 2),
-        // and not mid kana conversion — only once the text is committed.
-        line.addEventListener("input", (e) => {
-          if (!(e as InputEvent).isComposing) line.value = clampChars(line.value);
-          save();
-        });
-        line.addEventListener("compositionend", () => {
-          line.value = clampChars(line.value);
-          save();
-        });
-        lines.push(line);
-        box.append(line);
-      }
-      startRow.prepend(box);
-    }
   }
 
 
-  root.append(header);
-  if (memberBand) root.append(memberBand);
-  root.append(beltCard);
-  if (classLabel) root.append(classLabel);
-  root.append(presetBand, rows, add, totalRow);
-
-  // --- 感想コメント banner (E4, parent message) right above the start button,
-  // where the kid looks just before practice ---
+  // --- 親御さんからのメッセージ (E4): a slim sticky bar at the very top of 特訓,
+  // where the kid looks first. Long messages scroll inside it rather than
+  // pushing 今日の稽古 and the menu down the page. ---
   const kansou = deps.kansou?.trim();
   if (kansou) {
     const banner = document.createElement("div");
     banner.className = "setup-kansou-banner";
     banner.dataset.kansouBanner = "";
     const text = document.createElement("div");
+    text.className = "setup-kansou-text";
     text.textContent = `✉️ ${kansou}`;
     banner.append(text);
     const by = deps.kansouBy?.trim();
@@ -473,5 +452,12 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     }
     root.append(banner);
   }
+
+  root.append(header);
+  if (memberBand) root.append(memberBand);
+  root.append(beltCard);
+  if (classLabel) root.append(classLabel);
+  root.append(presetBand, rows, add, totalRow);
+
   root.append(startRow);
 }

@@ -19,7 +19,7 @@ export interface DecorMeta {
 
 export const DECOR_META: Record<Decor, DecorMeta> = {
   frame: { label: "わく", hint: "どうがのまわりをかこむ" },
-  icon: { label: "アラン", hint: "みぎうえに小さく出る" },
+  icon: { label: "アラン", hint: "ひだり下に小さく出る" },
   banner: { label: "バナー", hint: "いちばん下に帯で出る" },
   none: { label: "なし", hint: "かざりをつけない" },
 };
