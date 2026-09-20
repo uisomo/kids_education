@@ -1,6 +1,6 @@
 // Native backup of the app's localStorage.
 //
-// Everything (members, menus, belts, 強さ, 工夫, comments) lives in the web
+// Everything (members, menus, belts, 積み重ね, 工夫, comments) lives in the web
 // view's localStorage, which iOS may clear under storage pressure and which
 // is easy to orphan if the web view's origin ever changes. On the iOS app we
 // mirror every karate key into a JSON file in the app's Library folder (kept

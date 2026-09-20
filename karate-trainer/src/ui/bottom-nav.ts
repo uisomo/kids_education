@@ -1,4 +1,4 @@
-// Bottom tab bar: 特訓 / 強さ / 家族. Rendered as a standalone element that the
+// Bottom tab bar: 特訓 / 積み重ね / 家族. Rendered as a standalone element that the
 // app appends after a tab screen so it survives the screen's root.textContent
 // reset. Hidden during training / loading / intro / done (full-screen capture).
 

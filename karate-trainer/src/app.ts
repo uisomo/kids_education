@@ -199,7 +199,7 @@ export class KarateApp {
   private recElapsedMs = 0;
   private cueCount = 0;
   // Drills (not 休憩) that ran down to 0 this session, in order, and their menu
-  // rows. Only these raise 強さ (and so the menu's belt); skipped drills don't.
+  // rows. Only these raise 積み重ね (and so the menu's belt); skipped drills don't.
   private finishedDrills: string[] = [];
   private finishedRows = new Set<number>();
   private currentRow = -1;
@@ -262,7 +262,7 @@ export class KarateApp {
   }
 
   // A kid who has never touched a menu starts on 基本, picked, so their very
-  // first practice already fills its 帯 and 強さ. Anyone with a menu or a
+  // first practice already fills its 帯 and 積み重ね. Anyone with a menu or a
   // choice of their own keeps it.
   private ensureStarterMenu(): void {
     const mem = this.mem();
@@ -272,7 +272,7 @@ export class KarateApp {
   }
 
   // The saved menu the active member practices: the dropdown shows it and its
-  // 帯 / 強さ fill. Remembered per member; null when none is picked (or the
+  // 帯 / 積み重ね fill. Remembered per member; null when none is picked (or the
   // plan locked it).
   // How many real 種目 the menu has, and which one we are on. During a 休憩 the
   // number stays on the drills finished so far rather than jumping.
@@ -635,7 +635,7 @@ export class KarateApp {
         addMember(name, base); this.reloadForActiveMember(); this.showFamily();
       },
       onRemoveMember: (id) => {
-        // Removing deletes that child's belt, 強さ, 工夫 and menu for good.
+        // Removing deletes that child's belt, 積み重ね, 工夫 and menu for good.
         const name = members.find((m) => m.id === id)?.name ?? "";
         if (!this.confirm(`「${name}」を削除すると、帯・積み重ね・工夫などの記録もすべて消えます。削除しますか？`)) return;
         removeMember(id, base); this.clampActiveMember(); this.reloadForActiveMember(); this.showFamily();
@@ -662,7 +662,7 @@ export class KarateApp {
       classes: this.usablePresets(),
       assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
       onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
-      // 帯: one per saved menu for the active member; setting one starts its 強さ over.
+      // 帯: one per saved menu for the active member; setting one starts its 積み重ね over.
       menuBelts: this.usablePresets().map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt })),
       onSetMenuBelt: (presetId, index) => { setMenuBelt(presetId, index, this.mem()); this.showFamily(); },
       // E4: 応援コメント for the active member (per-member via mem()). Free on
@@ -1156,7 +1156,7 @@ export class KarateApp {
       // returns, which takes several seconds. Without this the training screen
       // just froze after 終了 with no sign anything was happening.
       renderLoadingScreen(this.root, "動画を保存中…");
-      // Each drill's 強さ for the video's 特訓一覧: its level before this
+      // Each drill's 積み重ね for the video's 特訓一覧: its level before this
       // practice, and whether this row earns one more (lit once it's done).
       const linked = this.linkedPreset();
       const before = linked ? loadMenuBelt(linked.id, this.mem()) : null;

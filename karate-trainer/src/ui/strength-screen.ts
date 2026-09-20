@@ -1,4 +1,4 @@
-// 強さ screen: the picked saved menu's 帯 and each of its drills' level. A drill
+// 積み重ね screen: the picked saved menu's 帯 and each of its drills' level. A drill
 // levels up once per practice it finishes (0..10), shown as Lv.N and N lit
 // bars going red→purple. The belt's bars are the lowest drill level (see
 // menu-belt-store), so the card on top moves only when the weakest drill does.

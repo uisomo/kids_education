@@ -563,7 +563,7 @@ function buildBillingFooter(billing: BillingView): Node[] {
 
 // Parent-controlled 帯, per saved menu of the active member: each menu gets a
 // <select> of every belt. Picking one sets that menu's belt and starts its
-// 強さ over. Returns [] when the belt wiring is absent (earlier callers).
+// 積み重ね over. Returns [] when the belt wiring is absent (earlier callers).
 function buildBeltSection(deps: FamilyDeps): Node[] {
   if (!deps.onSetMenuBelt || !deps.menuBelts) return [];
   const onSet = deps.onSetMenuBelt;

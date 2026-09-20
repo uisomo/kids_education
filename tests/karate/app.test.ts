@@ -418,7 +418,7 @@ it("a finished practice on a saved menu levels its drills up and the 積み重�
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
 
-  // back to setup via もう一度, then open 強さ
+  // back to setup via もう一度, then open 積み重ね
   root.querySelector<HTMLButtonElement>("[data-again]")!.click();
   root.querySelector<HTMLButtonElement>('[data-navtab="strength"]')!.click();
 
@@ -432,7 +432,7 @@ it("a finished practice on a saved menu levels its drills up and the 積み重�
   expect(beltStateFor(loadMenuBelt(preset.id, mem), kihon)).toEqual({ index: 0, bars: 1 });
 });
 
-// Stopping with 終了 keeps the video but must not count toward 強さ or the belt.
+// Stopping with 終了 keeps the video but must not count toward 積み重ね or the belt.
 it("stopping partway with 終了 adds no 積み重ね count and no belt bar", async () => {
   const root = document.createElement("div");
   document.body.append(root);
