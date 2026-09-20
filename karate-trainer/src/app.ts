@@ -40,6 +40,11 @@ import {
   type CharacterState,
 } from "./character-store";
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
+import { parseDrillTexts, textCount, revealedGrid } from "./drill-texts";
+import { getHook, setHook } from "./hook-store";
+
+// The hook's ドン: 「シュッ→ドン」, hitting ~0.2s in — as the line stops zooming.
+const HOOK_SOUND = "/sounds/hook-don.m4a";
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
 import { COPY, IS_PIANO } from "./flavor";
@@ -168,6 +173,8 @@ export interface KarateAppDeps {
   // Per-step duration of the Ready→3→2→1→Go!! intro. Default 700ms.
   // Pass 0 to disable the visible delay (used by tests).
   introStepMs?: number;
+  // Per-line interval of the 🪝 read-aloud hook (the last line holds 1.6×). Default 1100ms.
+  hookStepMs?: number;
   // Yes/no question (plan downgrade). Defaults to window.confirm.
   confirm?(message: string): boolean;
   // Opens this app's page in iOS Settings (camera / mic permission denied).
@@ -498,6 +505,16 @@ export class KarateApp {
             this.showSetup();
           }
         : undefined,
+      hookOn: getHook(this.mem()).on,
+      hookText: getHook(this.mem()).text,
+      onToggleHook: () => {
+        const h = getHook(this.mem());
+        setHook({ ...h, on: !h.on }, this.mem());
+        this.showSetup();
+      },
+      onEditHookText: (text: string) => {
+        setHook({ ...getHook(this.mem()), text }, this.mem());
+      },
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
@@ -800,6 +817,25 @@ export class KarateApp {
     this.overlayLog?.logSound({ kind: "clip", src });
   }
 
+  // 🪝 The read-aloud hook, once per practice before Ready → Go!!: one line
+  // per step, each landing with a ドン (the same one 言えるようになるアプリ
+  // uses), then a longer hold on the last. Every reveal is logged so the saved
+  // video opens the same way; the 読み上げよう hint stays on screen only.
+  private async playTextHook(view: TrainingView, grid: string[][]): Promise<void> {
+    const stepMs = this.deps.hookStepMs ?? 1100;
+    const wait = (ms: number) => new Promise<void>((r) => (ms > 0 ? setTimeout(r, ms) : r()));
+    view.setTexts(grid);
+    const total = textCount(grid);
+    for (let k = 0; k < total; k++) {
+      view.revealText(k);
+      this.playEffect(HOOK_SOUND);
+      this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
+      await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
+    }
+    view.setTexts(null);
+    this.overlayLog?.setState({ texts: [] });
+  }
+
   // Re-read the active member's per-member state after a member switch.
   private reloadForActiveMember(): void {
     this.ensureStarterMenu();
@@ -920,10 +956,17 @@ export class KarateApp {
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
     view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
 
+    // 🪝 read-aloud hook: the words appear one by one (zoom-out + beep) before
+    // anything else, so the saved video opens with the kid reading them.
+    const hook = getHook(this.mem());
+    const hookGrid = hook.on ? parseDrillTexts(hook.text) : [];
+    if (hookGrid.length > 0) await this.playTextHook(view, hookGrid);
+
     // Ready → 3 → 2 → 1 → Go!! intro. Ready is spoken; 3 / 2 / 1 go 「ぷっ」 and
     // Go!! a long 「ぷーん」, logged so the saved video has them too.
-    // BGM and the drill timer both start on "Go!!".
-    await playCountdownIntro(this.root, {
+    // BGM and the drill timer both start on "Go!!". With the 🪝 hook on the
+    // hook already opens the video, so practice starts right after it.
+    if (hookGrid.length === 0) await playCountdownIntro(this.root, {
       stepMs: this.deps.introStepMs,
       onBeat: (cue) => {
         // Burned into the recording too, so the video opens with the same

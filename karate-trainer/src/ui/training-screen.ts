@@ -15,6 +15,11 @@ export interface TrainingView {
   videoEl: HTMLVideoElement;
   setDrill(drill: Drill, index: number, total: number): void;
   setTime(secondsLeft: number): void;
+  // 🪝 read-aloud hook (before Ready → Go!!): build the (hidden) word grid and
+  // show the 読み上げよう hint; null → hook over (grid removed, timer shown).
+  setTexts(grid: string[][] | null): void;
+  // Reveal word #i (reading order) with the zoom-out animation.
+  revealText(index: number): void;
   // Returns the cheer clip that started playing, or null.
   showCue(text: string): CheerClip | null;
   setNext(text: string | null): void;
@@ -119,6 +124,19 @@ export function renderTrainingScreen(
 
   centerContent.append(drillEl, timerRow);
 
+  // 🪝 hook: 読み上げよう hint + the word grid. Both live-only DOM — the
+  // burn-in pass renders the words from the overlay event log, never these.
+  const readHint = document.createElement("div");
+  readHint.dataset.readHint = "";
+  readHint.className = "read-aloud-hint";
+  readHint.textContent = "📢 読み上げよう！";
+  readHint.hidden = true;
+
+  const textGrid = document.createElement("div");
+  textGrid.dataset.textGrid = "";
+  textGrid.className = "text-grid";
+  textGrid.hidden = true;
+
   // Cue toast
   const cueEl = document.createElement("div");
   cueEl.dataset.cue = "";
@@ -170,6 +188,9 @@ export function renderTrainingScreen(
   controls.append(pauseBtn, skipBtn, stopBtn);
 
   // Assemble the screen
+  // The hook rows sit inside centerContent, right below the drill name/timer.
+  centerContent.append(readHint, textGrid);
+
   // Alan's かざり over the camera, exactly where the export burns it.
   const decorEl = document.createElement("img");
   decorEl.dataset.decorPreview = decor;
@@ -211,6 +232,29 @@ export function renderTrainingScreen(
     },
     setTime(secondsLeft: number) {
       timerEl.textContent = String(secondsLeft);
+    },
+    setTexts(grid: string[][] | null) {
+      textGrid.textContent = "";
+      const on = grid !== null && grid.some((line) => line.length > 0);
+      readHint.hidden = !on;
+      textGrid.hidden = !on;
+      timerEl.hidden = on;   // no countdown while the hook plays
+      if (!on) return;
+      grid!.forEach((words) => {
+        const line = document.createElement("div");
+        line.className = "text-grid-line";
+        words.forEach((w) => {
+          const pill = document.createElement("span");
+          pill.className = "text-grid-word";
+          pill.textContent = w;
+          line.append(pill);
+        });
+        textGrid.append(line);
+      });
+    },
+    revealText(index: number) {
+      const pill = textGrid.querySelectorAll<HTMLElement>(".text-grid-word")[index];
+      pill?.classList.add("show");
     },
     showCue(text: string): CheerClip | null {
       cueEl.textContent = text;

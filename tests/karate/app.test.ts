@@ -162,6 +162,80 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
 });
 
+it("🪝 hook: words from the start-row box play once instead of Ready → Go!! and are logged for burn-in", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+
+  let loopCb: ((d: number) => void) | null = null;
+  const store = new VoiceStore(memKv());
+  await store.init();
+
+  const burnOverlay = vi.fn().mockResolvedValue(null);
+
+  const app = new KarateApp(root, {
+    voiceStore: store,
+    audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
+    makeVideoRecorder: () => ({
+      startCamera: vi.fn().mockResolvedValue({ getTracks: () => [] } as unknown as MediaStream),
+      startRecording: vi.fn(),
+      stop: vi.fn().mockResolvedValue(new Blob(["v"])),
+      fileExtension: () => "mp4",
+    }),
+    makeVoiceRecorder: () => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn().mockResolvedValue(new Blob()) }),
+    wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
+    rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
+    shareRecording: vi.fn().mockResolvedValue(undefined),
+    burnOverlay,
+    introStepMs: 0,
+    hookStepMs: 0,
+    menuOverride: [
+      { id: "a", name: "平安初段", seconds: 4, kind: "drill" },
+      { id: "b", name: "前蹴り", seconds: 4, kind: "drill" },
+    ],
+  });
+  await app.start();
+
+  // One 🪝 switch beside 稽古 開始 — none on the drill rows.
+  expect(root.querySelectorAll("[data-mode]").length).toBe(0);
+  expect(root.querySelector("[data-hook-texts]")).toBeNull();
+  root.querySelector<HTMLButtonElement>("[data-hook-toggle]")!.click();
+  // Three one-line boxes, 6 characters each — a longer entry is cut to 6.
+  const lines = root.querySelectorAll<HTMLInputElement>("[data-hook-line]");
+  expect(lines.length).toBe(3);
+  const type = (i: number, v: string) => {
+    lines[i].value = v;
+    lines[i].dispatchEvent(new Event("input"));
+  };
+  type(0, "いち に");
+  type(1, "さんしごろくしち");
+  expect(lines[1].value).toBe("さんしごろく");
+
+  root.querySelector<HTMLButtonElement>("[data-start]")!.click();
+  for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
+
+  // The hook is over: grid gone, the countdown is back.
+  expect(root.querySelector<HTMLElement>("[data-text-grid]")!.hidden).toBe(true);
+  expect(root.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(false);
+
+  for (let t = 0; t < 9000; t += 250) loopCb!(250);   // run out both drills
+  await new Promise((r) => setTimeout(r, 0));
+
+  const events = burnOverlay.mock.calls[0][1] as { patch: { texts?: string[][]; seconds?: number; intro?: string } }[];
+  const textIdx = events.map((e, i) => (e.patch.texts?.length ? i : -1)).filter((i) => i >= 0);
+  // The hook replaces the Ready → 3 → 2 → 1 → Go!! intro.
+  expect(events.some((e) => e.patch.intro)).toBe(false);
+  // One line per patch, full grid last — and only once, before the first drill.
+  const drillIdx = events.findIndex((e) => (e.patch as { drill?: string }).drill);
+  expect(textIdx.length).toBe(2);
+  expect(Math.max(...textIdx)).toBeLessThan(drillIdx);
+  expect(events[textIdx.at(-1)!].patch.texts).toEqual([["いち に"], ["さんしごろく"]]);
+  // Every drill keeps its countdown number.
+  expect(events.some((e) => (e.patch.seconds ?? 0) > 0)).toBe(true);
+
+  // The switch is saved per member; don't leak it into the next tests.
+  for (const k of Object.keys(localStorage)) if (k.endsWith("karate.hook")) localStorage.removeItem(k);
+});
+
 it("passes the recorded blob to shareRecording when save is pressed", async () => {
   const root = document.createElement("div");
   document.body.append(root);

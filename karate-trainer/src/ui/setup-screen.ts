@@ -7,6 +7,7 @@ import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
 import { COPY } from "../flavor";
+import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 
 export interface SetupMember {
   id: string;
@@ -80,6 +81,12 @@ export interface SetupDeps {
   // together to hide the button (e.g. no bgm player configured).
   bgmMuted?: boolean;
   onToggleBgm?(): void;
+  // 🪝 読み上げ hook: words the kid reads aloud once, before Ready → Go!!, so
+  // the saved video opens with them. Raw textarea text (spaces / newlines).
+  hookOn?: boolean;
+  hookText?: string;
+  onToggleHook?(): void;
+  onEditHookText?(text: string): void;
 }
 
 const NEW_DRILL_NAME = "新しい種目";
@@ -338,6 +345,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     }
 
     row.append(del);
+
     rows.append(row);
   });
 
@@ -391,6 +399,52 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     bgmBtn.setAttribute("aria-label", "練習BGM on/off");
     bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
     startRow.append(bgmBtn);
+  }
+
+  // 🪝 read-aloud hook beside 稽古 開始: one switch for the whole practice,
+  // not per drill. The three line boxes sit above the buttons while it's on.
+  if (deps.onToggleHook) {
+    const hookBtn = document.createElement("button");
+    hookBtn.type = "button";
+    hookBtn.dataset.hookToggle = "";
+    hookBtn.className = "hook-toggle-btn" + (deps.hookOn ? " is-on" : "");
+    hookBtn.textContent = "🪝";
+    hookBtn.setAttribute("aria-label", "さいしょに読み上げる ことば on/off");
+    hookBtn.addEventListener("click", () => deps.onToggleHook!());
+    startRow.append(hookBtn);
+
+    if (deps.hookOn) {
+      // Three boxes = three lines, each up to 5 characters.
+      const box = document.createElement("div");
+      box.className = "hook-texts";
+      box.dataset.hookTexts = "";
+      const saved = (deps.hookText ?? "").split("\n");
+      const lines: HTMLInputElement[] = [];
+      const save = () => deps.onEditHookText?.(lines.map((l) => l.value).join("\n").replace(/\n+$/, ""));
+      for (let i = 0; i < MAX_TEXT_LINES; i++) {
+        const line = document.createElement("input");
+        line.type = "text";
+        line.className = "hook-line";
+        line.dataset.hookLine = String(i);
+        line.value = clampChars(saved[i] ?? "");
+        line.placeholder = `${i + 1}ぎょうめ・${MAX_TEXT_CHARS}もじ`;
+        line.setAttribute("aria-label", `さいしょに読み上げる ことば ${i + 1}行目`);
+        // Saved in place (no re-render while typing, so IME stays intact).
+        // Clamped by characters (not maxLength, which counts an emoji as 2),
+        // and not mid kana conversion — only once the text is committed.
+        line.addEventListener("input", (e) => {
+          if (!(e as InputEvent).isComposing) line.value = clampChars(line.value);
+          save();
+        });
+        line.addEventListener("compositionend", () => {
+          line.value = clampChars(line.value);
+          save();
+        });
+        lines.push(line);
+        box.append(line);
+      }
+      startRow.prepend(box);
+    }
   }
 
 

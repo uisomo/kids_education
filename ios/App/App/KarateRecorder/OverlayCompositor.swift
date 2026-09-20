@@ -86,6 +86,8 @@ enum OverlayCompositor {
         var cue = ""
         var caption = ""
         var intro = ""
+        /// 🪝 read-aloud hook: the words revealed so far, in their typed lines.
+        var texts: [[String]] = []
         /// Menu position of the drill now running; -1 before the first drill.
         var drillIndex = -1
 
@@ -162,9 +164,12 @@ enum OverlayCompositor {
                          background: boxTop, backgroundEnd: boxBottom,
                          stroke: gold.withAlphaComponent(0.55))
         case .seconds:
-            return Style(centerX: 0.5, centerY: 230 / designHeight, fontPx: 150,
-                         color: UIColor(red: 1, green: 0xd1 / 255, blue: 0x66 / 255, alpha: 1),
-                         background: UIColor(white: 0, alpha: 0.55), outlined: true)
+            // A small badge on the drill name's line (placed beside the name by
+            // countdownLayers) — a big number lower down covered the child's face.
+            return Style(centerX: 0.5, centerY: 90 / designHeight, fontPx: 40,
+                         color: gold,
+                         background: boxTop, backgroundEnd: boxBottom,
+                         stroke: gold.withAlphaComponent(0.55))
         case .cue:
             return Style(centerX: 0.5, centerY: 0.5, fontPx: 72,
                          color: gold,
@@ -206,6 +211,7 @@ enum OverlayCompositor {
             if let v = event.patch["cue"] as? String { state.cue = v }
             if let v = event.patch["caption"] as? String { state.caption = v }
             if let v = event.patch["intro"] as? String { state.intro = v }
+            if let v = event.patch["texts"] as? [[String]] { state.texts = v }
             if let v = event.patch["drillIndex"] as? NSNumber { state.drillIndex = v.intValue }
             let start = event.t
             let end = i + 1 < events.count ? events[i + 1].t : totalDurationMs
@@ -801,6 +807,181 @@ enum OverlayCompositor {
         layer.add(animation, forKey: "overlayVisibility")
     }
 
+    /// Width of the box labelLayer() draws around `text` (without its shadow
+    /// margin), in video pixels — so neighbouring labels can be placed.
+    private static func labelBoxWidth(_ text: String, fontPx: CGFloat, renderSize: CGSize) -> CGFloat {
+        let fontSize = fontPx * min(renderSize.width / designWidth, renderSize.height / designHeight)
+        let size = NSAttributedString(string: text, attributes: [.font: playfulFont(fontSize)]).size()
+        return ceil(size.width + fontSize)   // + padX * 2
+    }
+
+    /// Holds `layer`'s x at `xs[i]` from `spans[i].start` on (discrete), so one
+    /// layer per number can sit beside whichever drill name is showing.
+    private static func applyPositionX(
+        to layer: CALayer, starts: [Double], xs: [CGFloat], totalMs: Double
+    ) {
+        guard totalMs > 0, let first = xs.first else { return }
+        layer.position.x = first
+        guard xs.count > 1 else { return }
+        let animation = CAKeyframeAnimation(keyPath: "position.x")
+        animation.values = [first] + xs
+        // Discrete: one more key time than values (see applyVisibility).
+        animation.keyTimes = [0] + starts.map { NSNumber(value: max(0, min(1, $0 / totalMs))) } + [1]
+        animation.calculationMode = .discrete
+        animation.beginTime = AVCoreAnimationBeginTimeAtZero
+        animation.duration = totalMs / 1000
+        animation.isRemovedOnCompletion = false
+        animation.fillMode = .both
+        layer.add(animation, forKey: "overlayPositionX")
+    }
+
+    /// The countdown as a small badge right of the drill-name pill. One layer
+    /// per number (as before); its x follows the drill name's width.
+    private static func countdownLayers(
+        segments: [Segment], renderSize: CGSize, topInset: CGFloat, totalMs: Double
+    ) -> [CALayer] {
+        var byText: [String: [(start: Double, end: Double, drill: String)]] = [:]
+        for segment in segments {
+            let text = segment.state.text(for: .seconds)
+            guard !text.isEmpty else { continue }
+            var list = byText[text] ?? []
+            if let last = list.last, abs(last.end - segment.startMs) < 1, last.drill == segment.state.drill {
+                list[list.count - 1].end = segment.endMs
+            } else {
+                list.append((start: segment.startMs, end: segment.endMs, drill: segment.state.drill))
+            }
+            byText[text] = list
+        }
+
+        let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
+        let gap = 12 * scale
+        let drillFont = style(for: .drill).fontPx
+        var drillWidths: [String: CGFloat] = [:]
+        var out: [CALayer] = []
+        for (text, spans) in byText {
+            var itemStyle = style(for: .seconds)
+            itemStyle.centerY += topInset / designHeight
+            let layer = labelLayer(text: text, style: itemStyle, renderSize: renderSize)
+            let secsW = labelBoxWidth(text, fontPx: itemStyle.fontPx, renderSize: renderSize)
+            let sorted = spans.sorted { $0.start < $1.start }
+            let xs: [CGFloat] = sorted.map { span in
+                guard !span.drill.isEmpty else { return renderSize.width / 2 }
+                let drillW = drillWidths[span.drill]
+                    ?? labelBoxWidth(span.drill, fontPx: drillFont, renderSize: renderSize)
+                drillWidths[span.drill] = drillW
+                let x = renderSize.width / 2 + drillW / 2 + gap + secsW / 2
+                // A very long name would push the badge off the frame.
+                return min(x, renderSize.width - secsW / 2 - 8 * scale)
+            }
+            applyVisibility(to: layer, windows: sorted.map { (start: $0.start, end: $0.end) },
+                            totalMs: totalMs)
+            applyPositionX(to: layer, starts: sorted.map { $0.start }, xs: xs, totalMs: totalMs)
+            out.append(layer)
+        }
+        return out
+    }
+
+    /// 🪝 The read-aloud hook at the start of the video, drawn like
+    /// 言えるようになるアプリ's opening: each line huge and white with a thick
+    /// black outline and a solid red drop, a little tilted, landing with a
+    /// zoom-out. Each line keeps its slot, shows from its reveal to the end of
+    /// the hook, and the ドン in the mix hits as it stops.
+    private static func hookLayers(
+        segments: [Segment], renderSize: CGSize, topInset: CGFloat, totalMs: Double
+    ) -> [CALayer] {
+        // The fullest grid logged is the finished layout (one entry per line).
+        guard let grid = segments.map(\.state.texts)
+            .max(by: { $0.count < $1.count }),
+            !grid.isEmpty else { return [] }
+
+        let rowY0: CGFloat = 250, rowH: CGFloat = 185
+        let tilts: [CGFloat] = [-0.07, 0.05, -0.035]
+        var out: [CALayer] = []
+        for (row, words) in grid.enumerated() {
+            let text = words.joined(separator: " ")
+            guard !text.isEmpty else { continue }
+            var spans: [(start: Double, end: Double)] = []
+            for segment in segments where row < segment.state.texts.count {
+                if let last = spans.last, abs(last.end - segment.startMs) < 1 {
+                    spans[spans.count - 1].end = segment.endMs
+                } else {
+                    spans.append((start: segment.startMs, end: segment.endMs))
+                }
+            }
+            guard let firstStart = spans.first?.start else { continue }
+
+            // The tilt lives on a holder so the zoom (a transform.scale
+            // animation, which replaces the whole transform) can't undo it.
+            let line = hookLineLayer(text: text, renderSize: renderSize)
+            let holder = CALayer()
+            holder.bounds = line.bounds
+            line.position = CGPoint(x: line.bounds.midX, y: line.bounds.midY)
+            holder.addSublayer(line)
+            let centerY = (rowY0 + CGFloat(row) * rowH + topInset) * renderSize.height / designHeight
+            // Bottom-left origin: flip Y.
+            holder.position = CGPoint(x: renderSize.width / 2, y: renderSize.height - centerY)
+            // Core Animation's y axis points up, so a positive angle tilts the
+            // other way from the screen's CSS rotate.
+            holder.setAffineTransform(CGAffineTransform(rotationAngle: -tilts[row % tilts.count]))
+            applyVisibility(to: holder, windows: spans, totalMs: totalMs)
+
+            let zoom = CAKeyframeAnimation(keyPath: "transform.scale")
+            zoom.values = [2.6, 0.95, 1.0]
+            zoom.keyTimes = [0, 0.75, 1]
+            zoom.beginTime = firstStart > 0 ? firstStart / 1000 : AVCoreAnimationBeginTimeAtZero
+            zoom.duration = 0.27
+            zoom.isRemovedOnCompletion = false
+            zoom.fillMode = .backwards
+            line.add(zoom, forKey: "hookZoom")
+            out.append(holder)
+        }
+        return out
+    }
+
+    /// One hook line as an image: 130 design px, shrunk to fit 640 px wide.
+    private static func hookLineLayer(text: String, renderSize: CGSize) -> CALayer {
+        let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
+        var fontSize = 130 * scale
+        let maxW = 640 * scale
+        let natural = NSAttributedString(string: text, attributes: [.font: playfulFont(fontSize)]).size().width
+        if natural > maxW { fontSize *= maxW / natural }
+        let font = playfulFont(fontSize)
+
+        let outlineW = fontSize * 0.1          // outline showing outside the glyph
+        let drop = fontSize * 0.1              // red drop offset
+        let red = UIColor(red: 0xe5 / 255, green: 0x24 / 255, blue: 0x3b / 255, alpha: 1)
+        let ink = UIColor(white: 0x11 / 255, alpha: 1)
+        // NSAttributedString stroke widths are a percentage of the font size.
+        let strokePct = outlineW / fontSize * 100 * 2
+        func attr(_ fill: UIColor, stroke: UIColor?) -> NSAttributedString {
+            var a: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: fill]
+            if let stroke { a[.strokeColor] = stroke; a[.strokeWidth] = strokePct }
+            return NSAttributedString(string: text, attributes: a)
+        }
+        let size = attr(.white, stroke: nil).size()
+        let pad = ceil(outlineW + drop + fontSize * 0.05)
+        let imageSize = CGSize(width: ceil(size.width + pad * 2), height: ceil(size.height + pad * 2))
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let image = UIGraphicsImageRenderer(size: imageSize, format: format).image { _ in
+            let origin = CGPoint(x: pad, y: pad)
+            let dropOrigin = CGPoint(x: pad + drop, y: pad + drop)
+            // Red drop (outlined in red too, so it is as fat as the outline).
+            attr(red, stroke: red).draw(at: dropOrigin)
+            attr(red, stroke: nil).draw(at: dropOrigin)
+            // Black outline under the white fill, so the outline doesn't eat it.
+            attr(ink, stroke: ink).draw(at: origin)
+            attr(.white, stroke: nil).draw(at: origin)
+        }
+        let layer = CALayer()
+        layer.bounds = CGRect(origin: .zero, size: imageSize)
+        layer.contents = image.cgImage
+        layer.contentsGravity = .resize
+        return layer
+    }
+
     /// Builds the overlay layer tree for the whole session.
     static func overlayLayer(
         segments: [Segment], totalDurationMs: Double, renderSize: CGSize,
@@ -845,7 +1026,19 @@ enum OverlayCompositor {
             }
         }
 
+        for layer in hookLayers(segments: segments, renderSize: renderSize,
+                                topInset: box.topInset, totalMs: totalDurationMs) {
+            container.addSublayer(layer)
+        }
+
         for region in Region.allCases {
+            if region == .seconds {
+                for layer in countdownLayers(segments: segments, renderSize: renderSize,
+                                             topInset: box.topInset, totalMs: totalDurationMs) {
+                    container.addSublayer(layer)
+                }
+                continue
+            }
             for (text, spans) in windows(in: segments, region: region) {
                 // 工夫 is a panel on the right, not a line of text in a pill.
                 let layer: CALayer
@@ -879,8 +1072,8 @@ enum OverlayCompositor {
                 } else {
                     var itemStyle = style(for: region, text: text)
                     // Only the labels hung from the top move for the frame; the
-                    // cue and the countdown sit in the middle of the picture.
-                    if region == .drill || region == .seconds {
+                    // cue sits in the middle of the picture.
+                    if region == .drill {
                         itemStyle.centerY += box.topInset / designHeight
                     }
                     layer = labelLayer(text: text, style: itemStyle, renderSize: renderSize)
