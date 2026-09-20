@@ -1,5 +1,5 @@
 import type { Drill, Menu } from "./types";
-import { DEFAULT_MENU } from "./menu-store";
+import { DEFAULT_MENU, withoutRests } from "./menu-store";
 
 export interface Preset {
   id: string;
@@ -45,7 +45,10 @@ export function loadPresets(storage: Storage = localStorage): Preset[] {
     const raw = storage.getItem(KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isPreset) : [];
+    if (!Array.isArray(parsed)) return [];
+    // The piano app has no 休憩, so a saved menu from an older piano build
+    // loses its rest rows here rather than showing a kind the app dropped.
+    return parsed.filter(isPreset).map((p) => ({ ...p, menu: withoutRests(p.menu) }));
   } catch {
     return [];
   }

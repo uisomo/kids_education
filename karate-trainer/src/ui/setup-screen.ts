@@ -6,7 +6,7 @@ import type { BeltState } from "../belt-store";
 import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
-import { COPY } from "../flavor";
+import { COPY, IS_PIANO } from "../flavor";
 import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 import { openHookModal } from "./hook-modal";
 import { openLetterModal } from "./letter-modal";
@@ -339,22 +339,28 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     // 🥋 drill ⇄ ☕ 休憩. A 休憩 gets no cheers, no 工夫 and no 積み重ね, and
     // skipping one doesn't cost the belt bar. The default names follow the
     // kind so a fresh row reads right; any name the kid typed is kept.
+    // The piano app has no 休憩 at all, so it gets no toggle either — every
+    // row there is a 種目 and the button would only offer a kind that the app
+    // strips out on load (withoutRests).
     const isRest = drill.kind === "rest";
-    const kind = document.createElement("button");
-    kind.type = "button";
-    kind.className = "row-kind" + (isRest ? " is-rest" : "");
-    kind.dataset.kindToggle = drill.kind;
-    kind.textContent = isRest ? "☕休憩" : COPY.drillIcon;
-    kind.setAttribute("aria-label", isRest ? `${drill.name}: 休憩（タップで種目にする）` : `${drill.name}: 種目（タップで休憩にする）`);
-    kind.title = isRest ? "休憩" : "種目";
-    kind.addEventListener("click", () => {
-      const cur = menu[i];
-      const toRest = cur.kind !== "rest";
-      const renamed = toRest
-        ? (cur.name === NEW_DRILL_NAME ? REST_NAME : cur.name)
-        : (cur.name === REST_NAME ? NEW_DRILL_NAME : cur.name);
-      deps.onChange(menu.map((d, j) => (j === i ? { ...cur, kind: toRest ? "rest" : "drill", name: renamed } : d)));
-    });
+    let kind: HTMLButtonElement | null = null;
+    if (!IS_PIANO) {
+      kind = document.createElement("button");
+      kind.type = "button";
+      kind.className = "row-kind" + (isRest ? " is-rest" : "");
+      kind.dataset.kindToggle = drill.kind;
+      kind.textContent = isRest ? "☕休憩" : COPY.drillIcon;
+      kind.setAttribute("aria-label", isRest ? `${drill.name}: 休憩（タップで種目にする）` : `${drill.name}: 種目（タップで休憩にする）`);
+      kind.title = isRest ? "休憩" : "種目";
+      kind.addEventListener("click", () => {
+        const cur = menu[i];
+        const toRest = cur.kind !== "rest";
+        const renamed = toRest
+          ? (cur.name === NEW_DRILL_NAME ? REST_NAME : cur.name)
+          : (cur.name === REST_NAME ? NEW_DRILL_NAME : cur.name);
+        deps.onChange(menu.map((d, j) => (j === i ? { ...cur, kind: toRest ? "rest" : "drill", name: renamed } : d)));
+      });
+    }
 
     const del = document.createElement("button");
     del.textContent = "✕"; del.className = "row-del";
@@ -366,7 +372,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       deps.onChange(menu.filter((_, j) => j !== i));
     });
 
-    row.append(drag, kind, name, secs);
+    row.append(drag, ...(kind ? [kind] : []), name, secs);
 
     // 💡 工夫: the child's ideas for this 種目, in a centred card. Never
     // disabled — a full 種目 still opens so a 工夫 can be erased.

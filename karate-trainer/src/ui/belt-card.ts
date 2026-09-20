@@ -16,8 +16,10 @@ export function createObi(index: number): HTMLElement {
   obi.setAttribute("aria-hidden", "true");
   obi.style.setProperty("--obi-fill", belt.fill);
   obi.style.setProperty("--obi-ink", belt.ink);
+  // The ♫ is one masked box, not five: the shape lives in the SVG mask in
+  // style.css so the note heads keep their curve and the stems meet the beam.
   const parts = IS_PIANO
-    ? ["note-beam", "note-stem left", "note-stem right", "note-head left", "note-head right"]
+    ? ["note-glyph"]
     : ["obi-band", "obi-tail left", "obi-tail right", "obi-knot"];
   for (const part of parts) {
     const el = document.createElement("span");

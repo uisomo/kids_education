@@ -425,50 +425,38 @@ button {
   transform: rotate(-20deg);
 }
 
-/* アランのピアノ: the same box drawn as a ♫ — two note heads, two stems and
-   a beam, painted with the level's fill. */
-.note-beam,
-.note-stem,
-.note-head {
+/* アランのピアノ: the same box drawn as a ♫ — two beamed quavers. The shape is
+   one SVG mask over a box painted with the level's fill, so every gradient
+   (ほのお … でんせつ) still runs through the note and the heads keep their
+   engraved oval. It used to be five CSS boxes: flat heads with a hard 2px
+   border, a skewed beam and stems that missed them. */
+.note-glyph {
   position: absolute;
+  /* Exactly the mask's own 52x46 box, inset in the 76px obi slot. Sizing the
+     element to the glyph (instead of letting mask-size: contain letterbox it)
+     makes the fill span the note end to end, so でんせつ shows its whole
+     rainbow instead of only the middle of it. */
+  inset: 0 12px;
   background: var(--obi-fill);
-  overflow: hidden;
+  --note-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='12 0 52 46'%3E%3Cg fill='%23000'%3E%3Cpath d='M30 7h4v28h-4z'/%3E%3Cpath d='M60 2h4v28h-4z'/%3E%3Cpath d='M30 7 64 2 64 11.5 30 16.5Z'/%3E%3Cellipse cx='24' cy='35' rx='10' ry='7' transform='rotate(-20 24 35)'/%3E%3Cellipse cx='53' cy='30' rx='10' ry='7' transform='rotate(-20 53 30)'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image: var(--note-mask);
+  mask-image: var(--note-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
-.note-beam {
-  left: 23px;
-  width: 34px;
-  top: 4px;
-  height: 9px;
-  border-radius: 2px;
-  transform: skewY(-10deg);
-}
+/* One outline round the whole ♫ keeps しろの音符 visible on the white card.
+   Drawn in the level's own ink rather than a flat grey, and twice over so the
+   masked edge reads as a line instead of a smudge. */
+.obi.note { filter: drop-shadow(0 0 1px var(--obi-ink)) drop-shadow(0 0 1px var(--obi-ink)); }
+.obi.note.rpg { filter: drop-shadow(0 0 1px var(--obi-ink)) drop-shadow(0 0 1px var(--obi-ink)) drop-shadow(0 0 5px rgba(255, 190, 40, 0.6)); }
 
-.note-stem {
-  top: 6px;
-  width: 5px;
-  height: 30px;
-}
-
-.note-stem.left { left: 23px; }
-.note-stem.right { left: 52px; top: 2px; height: 28px; }
-
-.note-head {
-  width: 20px;
-  height: 14px;
-  border-radius: 50%;
-  transform: rotate(-22deg);
-  border: 2px solid var(--obi-ink);
-}
-
-.note-head.left { left: 7px; top: 28px; }
-.note-head.right { left: 36px; top: 23px; }
-
-/* One outline round the whole ♫ keeps しろの音符 visible on the white card. */
-.obi.note { filter: drop-shadow(0 0 1px rgba(26, 22, 43, 0.6)); }
-.obi.note.rpg { filter: drop-shadow(0 0 1px rgba(26, 22, 43, 0.6)) drop-shadow(0 0 5px rgba(255, 190, 40, 0.6)); }
-
-.obi.rpg .note-beam::after {
+/* The mask clips the streak to the note, so the shine slides along the ♫. */
+.obi.rpg .note-glyph::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -3575,7 +3563,7 @@ input[data-label] {
   .letter-overlay, .letter-card, .setup-letter-chip { animation: none; }
   [data-rows].is-reordering .row { transition: none; }
   .obi.rpg .obi-band::after,
-  .obi.rpg .note-beam::after { animation: none; display: none; }
+  .obi.rpg .note-glyph::after { animation: none; display: none; }
 }
 
 /* --- Native iOS build: camera preview --------------------------------------
