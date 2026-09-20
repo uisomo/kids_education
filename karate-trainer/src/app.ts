@@ -681,8 +681,10 @@ export class KarateApp {
       classes: this.usablePresets(),
       assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
       onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
-      // 帯: one per saved menu for the active member; setting one starts its 積み重ね over.
-      menuBelts: this.usablePresets().map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt })),
+      // 帯: only the menu picked in 「メニュー」 just above — a belt for every
+      // saved menu was a wall of dropdowns for menus this kid isn't doing.
+      // Setting one starts that menu's 積み重ね over.
+      menuBelts: this.beltMenus(),
       onSetMenuBelt: (presetId, index) => { setMenuBelt(presetId, index, this.mem()); this.showFamily(); },
       // おたより for the active member (per-member via mem()). Free on every
       // plan. Sending re-renders so the new letter shows up in the sent list.
@@ -705,6 +707,16 @@ export class KarateApp {
         this.showFamily();
       },
     });
+  }
+
+  // The one menu whose 帯 the 家族 tab shows: the active member's assigned
+  // class, or — when nothing is assigned — the menu they have open on 特訓.
+  // Empty when neither exists (no saved menus yet, or 「なし」 with a fresh menu).
+  private beltMenus(): { id: string; name: string; belt: number }[] {
+    const id = this.assignedClassFor(getActiveId(this.base())) ?? getSelectedPreset(this.mem());
+    return this.usablePresets()
+      .filter((p) => p.id === id)
+      .map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt }));
   }
 
   // test アプリ: the active member's streak and, per usable menu, each drill's

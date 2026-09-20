@@ -302,12 +302,15 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   markAnchor(howtoNodes[0], "howto");
   markAnchor(decorNodes[0], "decor");
 
-  root.append(title, buildJumpNav(root), listTitle, list, addRow, memberHint, memberSettings,
+  // The jump bar goes first: it is pinned at the very top of the screen (CSS),
+  // where its own background covers the strip behind the phone's clock.
+  root.append(buildJumpNav(root), title, listTitle, list, addRow, memberHint, memberSettings,
               ...buildParentNote(), ...howtoNodes, ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
 }
 
 // The 家族 tab is one long page (members → settings → 使い方 → かざり → プラン), so
-// it carries a sticky row of chips that jump straight to a section.
+// it carries a row of chips, pinned at the top of the screen, that jump
+// straight to a section.
 const JUMP_TARGETS: { anchor: string; label: string }[] = [
   { anchor: "members", label: "メンバー" },
   { anchor: "settings", label: "設定" },
@@ -624,8 +627,8 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
   const note = document.createElement("div");
   note.className = "family-plan-note family-belt-note";
   note.textContent = deps.menuBelts.length
-    ? `${activeName} の帯はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
-    : "メニューを保存すると、メニューごとの帯を変えられます。";
+    ? `${activeName} の帯はメニューごと。いま使っているメニューの帯だけが出ます。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
+    : "メニューをえらぶと、そのメニューの帯を変えられます。";
 
   const list = document.createElement("div");
   list.className = "family-class-list";

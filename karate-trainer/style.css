@@ -934,9 +934,12 @@ button {
   box-shadow: 0 5px 0 #c62b38, 0 10px 24px rgba(255, 71, 87, 0.45);
   text-shadow: 0 2px 0 #d63031;
   letter-spacing: 0.06em;
-  min-height: 62px;
-  border-radius: 20px;
-  font-size: 1.22rem;
+  /* Slimmer than the 62px slab it was: still the biggest tap target on the
+     screen, but it no longer eats a sixth of the menu list. */
+  padding: 0.45rem 1rem;
+  min-height: 50px;
+  border-radius: 18px;
+  font-size: 1.15rem;
 }
 
 .btn-start:active {
@@ -951,7 +954,10 @@ button {
    along on its right — it is the last thing decided before practice. */
 .screen.setup .start-row {
   position: sticky;
-  bottom: calc(0.75rem + 4.5rem + env(safe-area-inset-bottom));
+  /* 4rem is the tab bar's own height (its safe-area padding is on top of that),
+     so the button rides right above the bar instead of floating a finger's
+     width over it. */
+  bottom: calc(4.1rem + env(safe-area-inset-bottom));
   z-index: 6;
   display: flex;
   /* A quiet switch line stacked on the one loud button, rather than three
@@ -962,7 +968,7 @@ button {
      way past. A scrim bled to both screen edges plus the ramped blur below lets
      the rows dissolve under it instead. */
   margin: 1.25rem -1rem 0;
-  padding: 0.75rem 1rem 0.2rem;
+  padding: 0.75rem 1rem 0.15rem;
   background: linear-gradient(180deg, rgba(20, 16, 36, 0) 0%, rgba(20, 16, 36, 0.62) 45%, rgba(20, 16, 36, 0.82) 100%);
 }
 
@@ -2576,7 +2582,12 @@ input[data-label] {
 
 .hook-modal-ok { min-height: 44px; }
 
-/* --- 家族 jump nav: sticky chips to the sections of a very long page --- */
+/* --- 家族 jump nav: sticky chips to the sections of a very long page ---
+   It is the first thing in the screen and pinned at top: 0, so it doubles as
+   the tab's header. The status bar is translucent (viewport-fit=cover), so the
+   bar pulls up over the screen's own safe-area padding and then pays it back as
+   padding-top: its background fills the strip behind the clock instead of the
+   page scrolling under it, and the chips start below the clock. */
 .family-jump-nav {
   position: sticky;
   top: 0;
@@ -2586,9 +2597,10 @@ input[data-label] {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  margin: -0.35rem -1rem 0;
-  padding: 0.45rem 1rem;
+  margin: calc(-1.25rem - env(safe-area-inset-top)) -1rem 0;
+  padding: calc(0.45rem + env(safe-area-inset-top)) 1rem 0.45rem;
   background: rgba(26, 22, 43, 0.92);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 
@@ -2609,9 +2621,9 @@ input[data-label] {
 
 .family-jump-chip:active { transform: translateY(1px); }
 
-/* Jump targets clear the sticky bar. */
+/* Jump targets clear the sticky bar (chips + its safe-area top padding). */
 .screen.family [data-family-anchor] {
-  scroll-margin-top: 3.2rem;
+  scroll-margin-top: calc(3.4rem + env(safe-area-inset-top));
 }
 
 .decor-option.locked {
