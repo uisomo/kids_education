@@ -572,7 +572,7 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
   const note = document.createElement("div");
   note.className = "family-plan-note family-belt-note";
   note.textContent = deps.menuBelts.length
-    ? `${activeName} の帯はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると強さは0から。`
+    ? `${activeName} の帯はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
     : "メニューを保存すると、メニューごとの帯を変えられます。";
 
   const list = document.createElement("div");

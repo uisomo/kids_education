@@ -391,7 +391,7 @@ it("the 感想 banner is signed with who wrote it", () => {
 
 it("without a saved menu the belt card becomes a hint", () => {
   const root = document.createElement("div");
-  renderSetupScreen(root, deps({ beltHint: "メニューを保存すると、帯と強さがたまるよ" }));
+  renderSetupScreen(root, deps({ beltHint: "メニューを保存すると、帯と積み重ねがたまるよ" }));
   expect(root.querySelector(".belt-status-card")).toBeNull();
   expect(root.querySelector("[data-belt-hint]")!.textContent).toContain("メニューを保存");
 });

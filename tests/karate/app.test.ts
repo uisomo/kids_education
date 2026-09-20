@@ -378,7 +378,7 @@ function memStorage(): Storage {
   } as Storage;
 }
 
-it("a finished practice on a saved menu levels its drills up and the 強さ tab shows them", async () => {
+it("a finished practice on a saved menu levels its drills up and the 積み重ね tab shows them", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const storage = memStorage();
@@ -433,7 +433,7 @@ it("a finished practice on a saved menu levels its drills up and the 強さ tab 
 });
 
 // Stopping with 終了 keeps the video but must not count toward 強さ or the belt.
-it("stopping partway with 終了 adds no 強さ count and no belt bar", async () => {
+it("stopping partway with 終了 adds no 積み重ね count and no belt bar", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const storage = memStorage();

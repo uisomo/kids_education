@@ -33,7 +33,7 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
 
   const title = document.createElement("h1");
   title.className = "screen-title";
-  title.textContent = "強さ";
+  title.textContent = "積み重ね";
   root.append(title);
 
   const menus = deps.menus ?? [];
@@ -46,7 +46,7 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
   };
 
   if (!menus.length) {
-    empty("メニューを保存すると、帯と強さがたまるよ");
+    empty("メニューを保存すると、帯と積み重ねがたまるよ");
     return;
   }
 

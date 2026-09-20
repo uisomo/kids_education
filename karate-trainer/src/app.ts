@@ -523,7 +523,7 @@ export class KarateApp {
       characterState: this.characterState,
       // The picked saved menu's 帯 (bars = its lowest drill level).
       belt: linked ? beltStateFor(loadMenuBelt(linked.id, this.mem()), linked.menu) : undefined,
-      beltHint: "メニューを保存すると、帯と強さがたまるよ",
+      beltHint: "メニューを保存すると、帯と積み重ねがたまるよ",
       // E3: the active member's assigned menu name (read-only label).
       className: this.activeClassName(),
       // E4: the parent's 感想コメント for the active member (top banner).
@@ -637,7 +637,7 @@ export class KarateApp {
       onRemoveMember: (id) => {
         // Removing deletes that child's belt, 強さ, 工夫 and menu for good.
         const name = members.find((m) => m.id === id)?.name ?? "";
-        if (!this.confirm(`「${name}」を削除すると、帯・強さ・工夫などの記録もすべて消えます。削除しますか？`)) return;
+        if (!this.confirm(`「${name}」を削除すると、帯・積み重ね・工夫などの記録もすべて消えます。削除しますか？`)) return;
         removeMember(id, base); this.clampActiveMember(); this.reloadForActiveMember(); this.showFamily();
       },
       onSelectMember: (id) => {

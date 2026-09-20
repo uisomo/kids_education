@@ -11,7 +11,7 @@ export interface BottomNavDeps {
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: "train", label: "特訓", icon: "🥋" },
-  { id: "strength", label: "強さ", icon: "💪" },
+  { id: "strength", label: "積み重ね", icon: "💪" },
   { id: "family", label: "家族", icon: "👨‍👩‍👧" },
 ];
 

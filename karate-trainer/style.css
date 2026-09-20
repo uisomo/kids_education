@@ -2227,7 +2227,7 @@ input[data-label] {
 }
 
 .bottom-nav-icon { font-size: 1.5rem; line-height: 1; }
-.bottom-nav-label { font-size: 0.75rem; }
+.bottom-nav-label { font-size: 0.75rem; white-space: nowrap; }
 
 /* Reserve space so screen content isn't hidden behind the fixed nav. */
 .screen.has-bottom-nav,
