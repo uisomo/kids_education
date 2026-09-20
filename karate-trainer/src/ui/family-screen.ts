@@ -564,7 +564,7 @@ function buildBillingFooter(billing: BillingView): Node[] {
 
 // Parent-controlled 帯, per saved menu of the active member: each menu gets a
 // <select> of every belt. Picking one sets that menu's belt and starts its
-// 強さ over. Returns [] when the belt wiring is absent (earlier callers).
+// 積み重ね over. Returns [] when the belt wiring is absent (earlier callers).
 function buildBeltSection(deps: FamilyDeps): Node[] {
   if (!deps.onSetMenuBelt || !deps.menuBelts) return [];
   const onSet = deps.onSetMenuBelt;
@@ -573,7 +573,7 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
   const note = document.createElement("div");
   note.className = "family-plan-note family-belt-note";
   note.textContent = deps.menuBelts.length
-    ? `${activeName} の${COPY.belt}はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると強さは0から。`
+    ? `${activeName} の${COPY.belt}はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
     : `メニューを保存すると、メニューごとの${COPY.belt}を変えられます。`;
 
   const list = document.createElement("div");

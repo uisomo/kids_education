@@ -149,7 +149,7 @@ it("a 休憩-only menu earns nothing, and an empty menu can't start", async () =
 
 it("a menu that was never saved earns nothing and says how to start the belt", async () => {
   const { root, mem, stop } = await run(two, (loop) => loop(4500), { saved: false });
-  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("メニューを保存すると、帯と強さがたまるよ");
+  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("メニューを保存すると、帯と積み重ねがたまるよ");
   expect(stop.mock.calls[0][4]).toEqual({ streakLabel: "🔥 1日間 毎日継続中", decor: "frame" });   // streak still counts, no belt
   expect(mem.getItem("karate.menuBelts")).toBeNull();
 });

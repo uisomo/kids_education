@@ -1,4 +1,4 @@
-// Bottom tab bar: 特訓 / 強さ / 家族. Rendered as a standalone element that the
+// Bottom tab bar: 特訓 / 積み重ね / 家族. Rendered as a standalone element that the
 // app appends after a tab screen so it survives the screen's root.textContent
 // reset. Hidden during training / loading / intro / done (full-screen capture).
 
@@ -13,7 +13,7 @@ export interface BottomNavDeps {
 
 const TABS: { id: NavTab; label: string; icon: string }[] = [
   { id: "train", label: "特訓", icon: COPY.drillIcon },
-  { id: "strength", label: "強さ", icon: "💪" },
+  { id: "strength", label: "積み重ね", icon: "💪" },
   { id: "family", label: "家族", icon: "👨‍👩‍👧" },
 ];
 

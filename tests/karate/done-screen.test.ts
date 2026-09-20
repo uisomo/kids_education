@@ -209,7 +209,7 @@ it("says nothing was added when the practice was stopped", () => {
 it("an unsaved menu explains that saving it starts the belt", () => {
   const root = document.createElement("div");
   renderDoneScreen(root, { ...doneBase(), beltResult: { completed: true, bars: 0, promotedTo: null, missed: "no-menu" } });
-  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("メニューを保存すると、帯と強さがたまるよ");
+  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("メニューを保存すると、帯と積み重ねがたまるよ");
 });
 
 // --- 工夫 rows (each opens the 💡 card) ---

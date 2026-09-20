@@ -116,7 +116,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       : stopped
         ? "とちゅうで終了したので、レベルはふえないよ"
         : missed === "no-menu"
-          ? `メニューを保存すると、${COPY.belt}と強さがたまるよ`
+          ? `メニューを保存すると、${COPY.belt}と積み重ねがたまるよ`
           : missed === "no-drills"
             ? "練習した種目がないので、レベルはふえないよ"
             : promotedTo

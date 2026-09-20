@@ -1,4 +1,4 @@
-// 強さ screen: the picked saved menu's 帯 and each of its drills' level. A drill
+// 積み重ね screen: the picked saved menu's 帯 and each of its drills' level. A drill
 // levels up once per practice it finishes (0..10), shown as Lv.N and N lit
 // bars going red→purple. The belt's bars are the lowest drill level (see
 // menu-belt-store), so the card on top moves only when the weakest drill does.
@@ -34,7 +34,7 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
 
   const title = document.createElement("h1");
   title.className = "screen-title";
-  title.textContent = "強さ";
+  title.textContent = "積み重ね";
   root.append(title);
 
   const menus = deps.menus ?? [];
@@ -47,7 +47,7 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
   };
 
   if (!menus.length) {
-    empty(`メニューを保存すると、${COPY.belt}と強さがたまるよ`);
+    empty(`メニューを保存すると、${COPY.belt}と積み重ねがたまるよ`);
     return;
   }
 
