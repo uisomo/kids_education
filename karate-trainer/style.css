@@ -315,7 +315,7 @@ button {
 /* ---------------------------------------------------------
    Belt card (帯): drawn obi + 10-bar meter toward the next belt
 --------------------------------------------------------- */
-/* White card (特訓 and 強さ tabs) so dark belts like 黒帯 stand out. */
+/* White card (特訓 and 積み重ね tabs) so dark belts like 黒帯 stand out. */
 .belt-status-card {
   display: flex;
   align-items: center;
@@ -602,7 +602,7 @@ button {
   background-position: right 2.7rem center;
 }
 
-/* 強さ screen only. There the same pill is a direct child of a COLUMN flex
+/* 積み重ね screen only. There the same pill is a direct child of a COLUMN flex
    container, so `flex: 1 1 auto` above made it swallow all the leftover
    vertical space — the fewer drills the menu had, the taller the dropdown
    grew. Must come AFTER .preset-select (equal specificity would lose on
@@ -2225,7 +2225,7 @@ input[data-label] {
 }
 
 /* ---------------------------------------------------------
-   Bottom tab bar (特訓 / 強さ / 家族)
+   Bottom tab bar (特訓 / 積み重ね / 家族)
 --------------------------------------------------------- */
 .bottom-nav {
   position: fixed;
@@ -2290,7 +2290,7 @@ input[data-label] {
 }
 
 /* ---------------------------------------------------------
-   強さ screen — per-drill level + rainbow 10-bar meter
+   積み重ね screen — per-drill level + rainbow 10-bar meter
 --------------------------------------------------------- */
 .screen.strength,
 .screen.family {

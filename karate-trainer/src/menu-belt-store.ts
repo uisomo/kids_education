@@ -1,4 +1,4 @@
-// 帯 and 強さ per saved menu (preset), per member (read/written through mem()).
+// 帯 and 積み重ね per saved menu (preset), per member (read/written through mem()).
 //
 // Each drill of a menu has a level 0..10: +1 whenever it runs down to 0 in a
 // practice that reaches the end. The menu's belt bars are the LOWEST level
@@ -103,7 +103,7 @@ export function recordPractice(
   return { state: beltStateFor(mb, menu), promoted };
 }
 
-// Parent sets a menu's belt directly (家族 tab); its 強さ starts over.
+// Parent sets a menu's belt directly (家族 tab); its 積み重ね starts over.
 export function setMenuBelt(presetId: string, index: number, storage: Storage = localStorage): MenuBelt {
   const mb: MenuBelt = { belt: clampBelt(index), levels: {} };
   const map = load(storage);

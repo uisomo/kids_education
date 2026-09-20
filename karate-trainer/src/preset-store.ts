@@ -9,7 +9,7 @@ export interface Preset {
 }
 
 // The built-in 基本 menu. It is not in storage, so it never counts toward a
-// plan's menu cap; its 帯 / 強さ are kept under this id like any saved menu.
+// plan's menu cap; its 帯 / 積み重ね are kept under this id like any saved menu.
 export const BASIC_PRESET_ID = "basic";
 export const BASIC_PRESET: Preset = { id: BASIC_PRESET_ID, name: "基本", menu: DEFAULT_MENU, builtIn: true };
 

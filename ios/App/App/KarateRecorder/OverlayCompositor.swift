@@ -61,13 +61,13 @@ enum OverlayCompositor {
         var name: String
         var seconds: Int
         var isRest: Bool
-        /// 強さ level before this practice (saved menus only), 0...10.
+        /// 積み重ね level before this practice (saved menus only), 0...10.
         var level: Int? = nil
         /// This row's drill finished, so it earns one more bar once it's done.
         var gained = false
     }
 
-    /// Red → purple, matching the 強さ screen's bars.
+    /// Red → purple, matching the 積み重ね screen's bars.
     private static let rainbow: [UIColor] = [
         rgb(0xff3b30), rgb(0xff6b22), rgb(0xff9f0a), rgb(0xffd60a), rgb(0x34c759),
         rgb(0x30c0c6), rgb(0x32ade6), rgb(0x5b6cff), rgb(0x8e5bff), rgb(0xbf5af2),
@@ -460,7 +460,7 @@ enum OverlayCompositor {
 
     private static let maxMenuRows = 3
 
-    /// Design width of the 特訓一覧 panel. Rows with 強さ bars need more room,
+    /// Design width of the 特訓一覧 panel. Rows with 積み重ね bars need more room,
     /// or the large three-row font leaves 「正拳突き」 as 「正…」: measured with
     /// the M PLUS Rounded font, 440 fits 「10. 上段揚げ受け」 with bars and
     /// 「30秒」. Capped by `limit` so a 工夫 panel beside it keeps its minimum.
@@ -494,7 +494,7 @@ enum OverlayCompositor {
         // Reserved on every panel of a long menu, so the panel keeps one height
         // as it scrolls instead of jumping when 「あと N」 runs out.
         let footerH: CGFloat = menu.count > maxMenuRows ? 26 * scale : 0
-        // Rows with a 強さ level get 10 small bars, so the panel is a bit wider.
+        // Rows with a 積み重ね level get 10 small bars, so the panel is a bit wider.
         let width = designPanelWidth * scale
 
         // 「強くなるため  ⚪ 白帯」: a saved menu's own name heads the list, an
@@ -566,7 +566,7 @@ enum OverlayCompositor {
                 let secondsW = ceil(seconds.size().width)
                 seconds.draw(in: CGRect(x: pad, y: textY, width: width - pad * 2, height: rowFont.lineHeight))
 
-                // 強さ bars between the name and the seconds: lit up to the
+                // 積み重ね bars between the name and the seconds: lit up to the
                 // level, plus the bar this practice earned once the row is done.
                 var levelW: CGFloat = 0
                 if let level = item.level {

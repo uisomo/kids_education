@@ -1,6 +1,6 @@
 // Progress store: per-drill cumulative practice counts, keyed by drill name.
 // Level = floor(count / 10); the count never resets, but the 10-bar meter fills
-// 0..10 within each level (count % 10). Drives the 強さ screen.
+// 0..10 within each level (count % 10). Drives the 積み重ね screen.
 
 const KEY = "karate.progress";
 export const PER_LEVEL = 10;

@@ -29,7 +29,7 @@ export interface OverlayMenuItem {
   name: string;
   seconds: number;
   kind: "drill" | "rest";
-  // 強さ bars for the row (saved menus only): the level before this practice,
+  // 積み重ね bars for the row (saved menus only): the level before this practice,
   // and whether this row earns one more (lit once the row is done).
   level?: number;
   gained?: boolean;

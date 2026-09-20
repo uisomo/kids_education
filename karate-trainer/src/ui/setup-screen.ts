@@ -279,7 +279,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     drag.type = "button";
     drag.setAttribute("aria-label", `${drill.name} を並べ替え`);
 
-    // 🥋 drill ⇄ ☕ 休憩. A 休憩 gets no cheers, no 工夫 and no 強さ, and
+    // 🥋 drill ⇄ ☕ 休憩. A 休憩 gets no cheers, no 工夫 and no 積み重ね, and
     // skipping one doesn't cost the belt bar. The default names follow the
     // kind so a fresh row reads right; any name the kid typed is kept.
     const isRest = drill.kind === "rest";
