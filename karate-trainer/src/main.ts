@@ -30,12 +30,18 @@ if (!isNative) mountInstallBanner(document.body, detectEnv());
 
 // Background music played during a session (loops from Go!! to session end).
 // The filename is Japanese, so encode it for the URL.
-// The microphone records whatever the speaker plays, so the music has to stay
-// well under the child's own voice in the saved video.
-const BGM_GAIN = 0.2;
+// Every sound the app ships is levelled in the asset itself by
+// tools/normalize-audio.py — voices to -12 dBFS, 効果音 to -18, the music to
+// -27.5 (measured over each file's loudest 400 ms). They used to arrive at
+// wildly different levels, which no single multiplier here could even out, and
+// the music in particular was turned down by a factor on every single play.
+// So the music now plays at its own level, and these two are only the small
+// balance left between kinds. (The music is .m4a, not the original .mp3:
+// CoreAudio cannot write mp3, and the level had to end up inside the file.)
+const BGM_GAIN = 1.0;
 const CHEER_VOICE_VOLUME = 0.9;
 const EFFECT_VOLUME = 0.8;
-const BGM_SRC = `/characters/${encodeURIComponent("君ならできる")}.mp3`;
+const BGM_SRC = `/characters/${encodeURIComponent("君ならできる")}.m4a`;
 
 function makeBgm(): BgmPlayer {
   const src = BGM_SRC;

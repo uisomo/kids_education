@@ -28,6 +28,16 @@ export const RAINBOW: string[] = [
   "#30c0c6", "#32ade6", "#5b6cff", "#8e5bff", "#bf5af2",
 ];
 
+// The hue a step WILL take, dimmed to a ghost. An empty meter used to be ten
+// identical grey blocks, so the rainbow only existed once it was earned; now
+// the whole arc is faintly there from Lv.0 and each new level fills in its own
+// colour — the bar reads as colours stacking up rather than a tank filling.
+export function rainbowGhost(i: number, alpha = 0.24): string {
+  const hex = RAINBOW[i] ?? RAINBOW[RAINBOW.length - 1];
+  const n = Number.parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {}): void {
   root.textContent = "";
   root.className = "screen strength";
@@ -109,7 +119,7 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
       const bar = document.createElement("div");
       const lit = i < level;
       bar.className = `strength-bar${lit ? " lit" : ""}`;
-      if (lit) bar.style.background = RAINBOW[i];
+      bar.style.background = lit ? RAINBOW[i] : rainbowGhost(i);
       bars.append(bar);
     }
 

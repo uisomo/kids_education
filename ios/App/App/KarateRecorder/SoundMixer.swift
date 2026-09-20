@@ -34,8 +34,102 @@ enum SoundMixer {
     /// Levels relative to the voice (1.0). Music sits far under the child so
     /// what they say stays easy to hear (0.22 still drowned it out);
     /// character voices are clear without drowning it.
-    static let musicVolume: Float = 0.08
-    static let clipVolume: Float = 0.85
+    /// One level covers every clip because the files themselves are levelled —
+    /// karate-trainer/tools/normalize-audio.py holds the voice/effect targets.
+    /// These two are the fallback, used when the child's voice cannot be
+    /// measured; normally `levels(voiceDb:)` sets them per recording.
+    static let musicVolume: Float = 0.45
+    static let clipVolume: Float = 0.6
+
+    /// What the shipped files measure over their loudest 400 ms — the targets
+    /// in tools/normalize-audio.py. Because these are known, the mix can be
+    /// set against the one track whose level nobody controls: the microphone.
+    static let clipFileLevelDb = -12.0
+    static let musicFileLevelDb = -27.5
+    /// Where the mix puts each kind relative to the child's own voice. A quiet
+    /// day used to leave the characters shouting over the child.
+    static let clipUnderVoiceDb = 3.0
+    static let musicUnderVoiceDb = 20.0
+    /// A whisper (or a silent take) must not send the other tracks through the
+    /// roof, and a shout must not bury them.
+    static let clipRange: ClosedRange<Float> = 0.12...1.0
+    static let musicRange: ClosedRange<Float> = 0.08...1.0
+
+    /// The volumes for one recording, from the loudness of the child's voice.
+    /// Pure and separate from the mix so it can be checked without a device.
+    static func levels(voiceDb: Double?) -> (clip: Float, music: Float) {
+        guard let voiceDb, voiceDb > -60 else { return (clipVolume, musicVolume) }
+        func volume(target: Double, fileLevel: Double, range: ClosedRange<Float>) -> Float {
+            Float(min(max(pow(10, (target - fileLevel) / 20), Double(range.lowerBound)), Double(range.upperBound)))
+        }
+        return (volume(target: voiceDb - clipUnderVoiceDb, fileLevel: clipFileLevelDb, range: clipRange),
+                volume(target: voiceDb - musicUnderVoiceDb, fileLevel: musicFileLevelDb, range: musicRange))
+    }
+
+    /// dBFS of the loudest 400 ms of a track, measured in 50 ms buckets — the
+    /// same measure normalize-audio.py applies to the asset files, so the two
+    /// numbers can be compared directly. One extra decode pass over the voice
+    /// (a couple of seconds at most); nil when the track cannot be read.
+    static func loudestWindowDb(of asset: AVAsset, track: AVAssetTrack) async -> Double? {
+        let rate = 8000.0
+        guard let reader = try? AVAssetReader(asset: asset) else { return nil }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+            AVSampleRateKey: rate,
+            AVNumberOfChannelsKey: 1,
+        ])
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { return nil }
+        reader.add(output)
+        guard reader.startReading() else { return nil }
+
+        let bucketSize = Int(rate * 0.05)
+        let perWindow = 8                    // 8 × 50 ms = the 400 ms window
+        var buckets: [Double] = []
+        var sum = 0.0
+        var filled = 0
+        while let sample = output.copyNextSampleBuffer() {
+            guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+            let length = CMBlockBufferGetDataLength(block)
+            var floats = [Float](repeating: 0, count: length / MemoryLayout<Float>.size)
+            let copied = floats.withUnsafeMutableBytes { raw -> OSStatus in
+                guard let base = raw.baseAddress else { return -1 }
+                return CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length, destination: base)
+            }
+            guard copied == noErr else { continue }
+            for value in floats {
+                let v = Double(value)
+                sum += v * v
+                filled += 1
+                if filled == bucketSize {
+                    buckets.append(sum / Double(bucketSize))
+                    sum = 0
+                    filled = 0
+                }
+            }
+        }
+        if reader.status == .failed { return nil }
+        guard !buckets.isEmpty else { return nil }
+
+        var mean: Double
+        if buckets.count < perWindow {
+            mean = buckets.reduce(0, +) / Double(buckets.count)
+        } else {
+            var running = buckets[0..<perWindow].reduce(0, +)
+            var best = running
+            for i in perWindow..<buckets.count {
+                running += buckets[i] - buckets[i - perWindow]
+                best = max(best, running)
+            }
+            mean = best / Double(perWindow)
+        }
+        guard mean > 0 else { return nil }
+        return 20 * log10(sqrt(mean))
+    }
 
     /// Maps a web path such as "/characters/cheer/alan-1.m4a" (possibly
     /// percent-encoded) to a file. The app reads its bundled web assets; the
@@ -66,6 +160,10 @@ enum SoundMixer {
         try await step("insert video") { try video.insertTimeRange(whole, of: sourceVideo, at: .zero) }
         video.preferredTransform = try await step("load video transform") { try await sourceVideo.load(.preferredTransform) }
 
+        // How loud the child actually was this time; everything else is placed
+        // under it. Measured on whichever track carries the voice.
+        var voiceDb: Double?
+
         if let voice {
             // Keep each asset in a local while its track is used. An AVAssetTrack
             // does not retain its asset; inserting a track whose temporary asset
@@ -93,11 +191,17 @@ enum SoundMixer {
                         try track.insertTimeRange(CMTimeRange(start: at(trim), duration: at(length)), of: voiceAudio, at: at(placeAt))
                     }
                 }
+                voiceDb = await loudestWindowDb(of: voiceAsset, track: voiceAudio)
             }
         } else if let sourceMic = try await step("load source audio", { try await source.loadTracks(withMediaType: .audio).first }),
                   let mic = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
             try await step("insert source audio") { try mic.insertTimeRange(whole, of: sourceMic, at: .zero) }
+            voiceDb = await loudestWindowDb(of: source, track: sourceMic)
         }
+
+        let level = levels(voiceDb: voiceDb)
+        print(String(format: "⚡️  [SoundMixer] voice %@ dBFS -> clips ×%.2f, music ×%.2f",
+                     voiceDb.map { String(format: "%.1f", $0) } ?? "unknown", level.clip, level.music))
 
         var inputs: [AVMutableAudioMixInputParameters] = []
 
@@ -148,7 +252,7 @@ enum SoundMixer {
                 }
             }
             let params = AVMutableAudioMixInputParameters(track: music)
-            params.setVolume(musicVolume, at: .zero)
+            params.setVolume(level.music, at: .zero)
             inputs.append(params)
         }
 
@@ -186,7 +290,7 @@ enum SoundMixer {
                 clipTracks.append((track, 0))
                 slot = clipTracks.count - 1
                 let params = AVMutableAudioMixInputParameters(track: track)
-                params.setVolume(clipVolume, at: .zero)
+                params.setVolume(level.clip, at: .zero)
                 inputs.append(params)
             }
             guard let i = slot else { continue }

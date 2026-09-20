@@ -19,7 +19,9 @@ export interface DecorMeta {
 
 export const DECOR_META: Record<Decor, DecorMeta> = {
   frame: { label: "わく", hint: "どうがのまわりをかこむ" },
-  icon: { label: "アラン", hint: "みぎうえに小さく出る" },
+  // Checked on the phone 2026-09-20: the badge lands bottom-RIGHT, which is
+  // what the live CSS (.training-decor-icon) and the Swift burn both draw.
+  icon: { label: "アラン", hint: "みぎ下に小さく出る" },
   banner: { label: "バナー", hint: "いちばん下に帯で出る" },
   none: { label: "なし", hint: "かざりをつけない" },
 };

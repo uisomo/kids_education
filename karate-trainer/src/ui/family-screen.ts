@@ -9,7 +9,8 @@ import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
 import { BELTS, BARS_PER_BELT } from "../belt-store";
 import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
-import { COMMENT_MAX_LEN, COMMENT_BY_MAX_LEN } from "../comment-store";
+import { LETTER_MAX_LEN, LETTER_BY_MAX_LEN, LETTER_KEEP } from "../letter-store";
+import type { Letter } from "../letter-store";
 import { COPY } from "../flavor";
 
 export interface FamilyDeps {
@@ -35,11 +36,13 @@ export interface FamilyDeps {
   // earlier callers/tests keep working (section is hidden if absent).
   menuBelts?: { id: string; name: string; belt: number }[];
   onSetMenuBelt?(presetId: string, index: number): void;
-  // E4 応援コメント (parent, for the active member). `comments` = the active
-  // member's saved 感想 / ファイト messages. Optional so pre-E4 callers/tests keep
-  // working (section is hidden if either is absent). Free on every plan.
-  comments?: { kansou: string; kansouBy?: string; fight: string };
-  onSaveComment?(kind: "kansou" | "kansouBy" | "fight", text: string): void;
+  // おたより (parent → the active member), newest first. Sending adds one to the
+  // kid's queue instead of overwriting yesterday's, and the list below the box
+  // shows which have been read. Optional so pre-E4 callers/tests keep working
+  // (section is hidden if either is absent). Free on every plan.
+  letters?: Letter[];
+  onSendLetter?(text: string, by: string): void;
+  onDeleteLetter?(id: string): void;
   // 「工夫をぜんぶけす」 for the active member. Section hidden if absent.
   // Per kid: may the done screen show 「LINE・SNSで送る」 (sent with no gate).
   // Section hidden if absent.
@@ -127,6 +130,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- Member list with remove buttons ---
   const listTitle = document.createElement("div");
   listTitle.className = "family-section-label";
+  listTitle.dataset.familyAnchor = "members";
   listTitle.textContent = "メンバーを管理する";
 
   const list = document.createElement("div");
@@ -221,6 +225,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- Plan / upgrade section (one plan for the whole household) ---
   const planTitle = document.createElement("div");
   planTitle.className = "family-section-label";
+  planTitle.dataset.familyAnchor = "plan";
   planTitle.textContent = "プラン";
 
   const planNote = document.createElement("div");
@@ -278,8 +283,8 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // --- 帯 section (parent sets each member's belt) ---
   const beltNodes = buildBeltSection(deps);
 
-  // --- 応援コメント section (E4, active member) ---
-  const commentNodes = buildCommentSection(deps);
+  // --- おたより section (E4 → Phase 2, active member) ---
+  const commentNodes = buildLetterSection(deps);
   const kufuNodes = buildKufuSection(deps);
   const shareNodes = buildShareSection(deps);
   const decorNodes = buildDecorSection(deps);
@@ -290,12 +295,53 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const memberSettings = document.createElement("div");
   memberSettings.className = "family-member-settings";
   memberSettings.dataset.memberSettings = "";
+  memberSettings.dataset.familyAnchor = "settings";
   memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes, ...testNodes);
 
   const billingNodes = billing ? buildBillingFooter(billing) : [];
+  const howtoNodes = buildHowtoSection(root);
+  markAnchor(howtoNodes[0], "howto");
+  markAnchor(decorNodes[0], "decor");
 
-  root.append(title, listTitle, list, addRow, memberHint, memberSettings,
-              ...buildParentNote(), ...buildHowtoSection(root), ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+  // The jump bar goes first: it is pinned at the very top of the screen (CSS),
+  // where its own background covers the strip behind the phone's clock.
+  root.append(buildJumpNav(root), title, listTitle, list, addRow, memberHint, memberSettings,
+              ...buildParentNote(), ...howtoNodes, ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+}
+
+// The 家族 tab is one long page (members → settings → 使い方 → かざり → プラン), so
+// it carries a row of chips, pinned at the top of the screen, that jump
+// straight to a section.
+const JUMP_TARGETS: { anchor: string; label: string }[] = [
+  { anchor: "members", label: "メンバー" },
+  { anchor: "settings", label: "設定" },
+  { anchor: "howto", label: "使い方" },
+  { anchor: "decor", label: "かざり" },
+  { anchor: "plan", label: "プラン" },
+];
+
+function markAnchor(node: Node | undefined, anchor: string): void {
+  if (node instanceof HTMLElement) node.dataset.familyAnchor = anchor;
+}
+
+function buildJumpNav(root: HTMLElement): HTMLElement {
+  const bar = document.createElement("div");
+  bar.className = "family-jump-nav";
+  bar.dataset.familyJump = "";
+  for (const t of JUMP_TARGETS) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "family-jump-chip";
+    chip.dataset.familyJumpTo = t.anchor;
+    chip.textContent = t.label;
+    chip.addEventListener("click", () => {
+      const target = root.querySelector(`[data-family-anchor="${t.anchor}"]`);
+      // scroll-margin-top (CSS) keeps the sticky bar itself off the heading.
+      target?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+    bar.append(chip);
+  }
+  return bar;
 }
 
 // テスト用 (test アプリ only): the active member's 🔥 streak and every drill's
@@ -436,6 +482,15 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
     hint.className = "decor-option-hint";
     hint.textContent = locked ? "プレミアムでえらべます" : meta.hint;
     btn.append(name, hint);
+    // The tinted border alone read as 「戻ってしまった」 on the phone: the picked
+    // one now says so, like the plan cards' 「いま」 badge.
+    if (option === decor) {
+      const badge = document.createElement("span");
+      badge.className = "decor-option-badge";
+      badge.dataset.decorOn = "";
+      badge.textContent = "いまこれ";
+      btn.append(badge);
+    }
     btn.addEventListener("click", () => onSelectDecor(option));
     list.append(btn);
   }
@@ -573,8 +628,8 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
   const note = document.createElement("div");
   note.className = "family-plan-note family-belt-note";
   note.textContent = deps.menuBelts.length
-    ? `${activeName} の${COPY.belt}はメニューごと。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
-    : `メニューを保存すると、メニューごとの${COPY.belt}を変えられます。`;
+    ? `${activeName} の${COPY.belt}はメニューごと。いま使っているメニューの${COPY.belt}だけが出ます。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
+    : `メニューをえらぶと、そのメニューの${COPY.belt}を変えられます。`;
 
   const list = document.createElement("div");
   list.className = "family-class-list";
@@ -679,37 +734,38 @@ function buildKufuSection(deps: FamilyDeps): Node[] {
   return [sectionTitle, note, btn];
 }
 
-// Per-active-member 応援コメント: the 感想 input with a save button (shown to the
-// kid above the 稽古 開始 button). The ファイト comment was dropped. Returns the nodes to append, or [] when E4 wiring is absent.
-function buildCommentSection(deps: FamilyDeps): Node[] {
-  if (!deps.onSaveComment || !deps.comments) return [];
-  const onSave = deps.onSaveComment;
-  const comments = deps.comments;
+// Per-active-member おたより: a box to write one, 「おくる」 to put it in the
+// kid's queue, and the recent letters underneath with よんだ / まだ so the parent
+// can tell whether the last one landed. Writing no longer overwrites: the kid
+// gets a new ✉️ each time. Returns [] when the wiring is absent.
+function buildLetterSection(deps: FamilyDeps): Node[] {
+  if (!deps.onSendLetter || !deps.letters) return [];
+  const onSend = deps.onSendLetter;
+  const letters = deps.letters;
   const activeName = deps.members.find((m) => m.id === deps.activeId)?.name ?? "";
 
   const sectionTitle = document.createElement("div");
   sectionTitle.className = "family-section-label";
-  sectionTitle.textContent = "応援コメント";
+  sectionTitle.textContent = "おたより";
 
   const note = document.createElement("div");
   note.className = "family-comment-note";
-  note.textContent = `${activeName} へのメッセージ`;
+  note.textContent = `${activeName} へのメッセージ（${LETTER_MAX_LEN}文字まで・あたらしい${LETTER_KEEP}通がのこります）`;
 
   const wrap = document.createElement("div");
   wrap.className = "family-comment-list";
   wrap.dataset.commentList = "";
 
-  // Two lines: [text……] [保存] / by [name]. The text box starts at the left
-  // edge; "by" sits just left of the name box below it.
+  // Two lines: [text……] [おくる] / by [name].
   const row = document.createElement("div");
   row.className = "family-comment-row";
 
   const input = document.createElement("input");
   input.className = "family-comment-input";
-  input.dataset.commentKansou = "";
-  input.maxLength = COMMENT_MAX_LEN;
-  input.value = comments.kansou;
+  input.dataset.letterText = "";
+  input.maxLength = LETTER_MAX_LEN;
   input.placeholder = "いつも がんばってるね";
+  input.setAttribute("aria-label", "おたより");
 
   const byLab = document.createElement("label");
   byLab.className = "family-comment-label family-comment-by-label";
@@ -717,27 +773,61 @@ function buildCommentSection(deps: FamilyDeps): Node[] {
 
   const byInput = document.createElement("input");
   byInput.className = "family-comment-input";
-  byInput.dataset.commentKansouBy = "";
-  byInput.maxLength = COMMENT_BY_MAX_LEN;
-  byInput.value = comments.kansouBy ?? "";
+  byInput.dataset.letterBy = "";
+  byInput.maxLength = LETTER_BY_MAX_LEN;
+  // Whoever signed the last letter, so the parent types their name once.
+  byInput.value = letters[0]?.by ?? "";
   byInput.placeholder = "おかあさん";
 
-  const save = document.createElement("button");
-  save.className = "family-comment-save";
-  save.dataset.commentSaveKansou = "";
-  save.textContent = "保存";
-  save.addEventListener("click", () => {
-    const text = input.value;
-    const by = byInput.value;
-    onSave("kansouBy", by);
-    onSave("kansou", text);
+  const send = document.createElement("button");
+  send.className = "family-comment-save";
+  send.dataset.letterSend = "";
+  send.textContent = "おくる";
+  send.addEventListener("click", () => {
+    const text = input.value.trim();
+    if (!text) return;   // never post a blank 便箋
+    onSend(text, byInput.value);
   });
 
-  input.setAttribute("aria-label", "感想");
-  row.append(input, save, byLab, byInput);
+  row.append(input, send, byLab, byInput);
   wrap.append(row);
 
-  return [sectionTitle, note, wrap];
+  const sent = document.createElement("div");
+  sent.className = "family-letter-sent";
+  sent.dataset.letterSent = "";
+  if (!letters.length) {
+    const empty = document.createElement("div");
+    empty.className = "family-letter-empty";
+    empty.textContent = "まだ おたよりはありません";
+    sent.append(empty);
+  }
+  letters.forEach((l) => {
+    const item = document.createElement("div");
+    item.className = "family-letter-item";
+    item.dataset.letter = l.id;
+
+    const state = document.createElement("span");
+    state.className = "family-letter-state" + (l.readAt === undefined ? " is-unread" : "");
+    state.dataset.letterState = "";
+    state.textContent = l.readAt === undefined ? "まだ" : "よんだ";
+
+    const text = document.createElement("span");
+    text.className = "family-letter-text";
+    text.textContent = l.by ? `${l.text}（${l.by}）` : l.text;
+
+    item.append(state, text);
+    if (deps.onDeleteLetter) {
+      const del = document.createElement("button");
+      del.className = "family-letter-delete";
+      del.dataset.letterDelete = l.id;
+      del.textContent = "けす";
+      del.addEventListener("click", () => deps.onDeleteLetter!(l.id));
+      item.append(del);
+    }
+    sent.append(item);
+  });
+
+  return [sectionTitle, note, wrap, sent];
 }
 
 // The picked kid's メニュー (a saved menu, formerly "くらす"): a <select> of the

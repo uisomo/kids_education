@@ -30,7 +30,7 @@ import { type Decor, canRemoveDecor, effectiveDecor, loadDecor, setDecor } from 
 import { type Billing, type BillingInfo, type ProductId, planOfProduct, renewalText } from "./billing";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
-import { loadComments, saveComment } from "./comment-store";
+import { loadLetters, addLetter, markLetterRead, removeLetter } from "./letter-store";
 import { getShareAllowed, setShareAllowed } from "./share-setting-store";
 import { renderParentalGate, askParentalGate } from "./parental-gate";
 import {
@@ -515,6 +515,9 @@ export class KarateApp {
       onEditHookText: (text: string) => {
         setHook({ ...getHook(this.mem()), text }, this.mem());
       },
+      // No re-render while typing (the iOS IME drops out), so the screen is
+      // refreshed once the popup is closed instead.
+      onHookEditorClosed: () => { this.showSetup(); },
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
@@ -527,9 +530,12 @@ export class KarateApp {
       beltHint: `メニューを保存すると、${COPY.belt}と積み重ねがたまるよ`,
       // E3: the active member's assigned menu name (read-only label).
       className: this.activeClassName(),
-      // E4: the parent's 感想コメント for the active member (top banner).
-      kansou: loadComments(this.mem()).kansou,
-      kansouBy: loadComments(this.mem()).kansouBy,
+      // E4 → Phase 2: the parent's おたより queue for the active member. The ✉️
+      // chip in the header shows only while one is unread.
+      letters: loadLetters(this.mem()),
+      // Persist only — re-rendering here would rip the 便箋 card out of the DOM
+      // while the kid is reading it. The chip catches up on the next render.
+      onReadLetter: (id) => { markLetterRead(id, this.mem()); },
       streakDays: currentStreak(this.mem()),
       // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
       // its parental gate for adding/removing members and changing plans.
@@ -625,6 +631,19 @@ export class KarateApp {
   }
 
   private renderFamily(): void {
+    // Every setting on this long page re-renders the whole screen; without this
+    // the page jumped back to the top and 「かざり」 looked like it had reverted.
+    const keepScroll = typeof window !== "undefined" ? window.scrollY : 0;
+    this.renderFamilyScreenNow();
+    if (keepScroll > 0) {
+      const restore = () => { try { window.scrollTo(0, keepScroll); } catch { /* no-op */ } };
+      restore();
+      // The document is shorter for a tick while images/layout settle.
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(restore);
+    }
+  }
+
+  private renderFamilyScreenNow(): void {
     const base = this.base();
     const members = loadMembers(base);
     renderFamilyScreen(this.root, {
@@ -663,13 +682,16 @@ export class KarateApp {
       classes: this.usablePresets(),
       assignments: Object.fromEntries(members.map((m) => [m.id, this.assignedClassFor(m.id)])),
       onAssignClass: (memberId, presetId) => { this.assignClass(memberId, presetId); this.showFamily(); },
-      // 帯: one per saved menu for the active member; setting one starts its 積み重ね over.
-      menuBelts: this.usablePresets().map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt })),
+      // 帯: only the menu picked in 「メニュー」 just above — a belt for every
+      // saved menu was a wall of dropdowns for menus this kid isn't doing.
+      // Setting one starts that menu's 積み重ね over.
+      menuBelts: this.beltMenus(),
       onSetMenuBelt: (presetId, index) => { setMenuBelt(presetId, index, this.mem()); this.showFamily(); },
-      // E4: 応援コメント for the active member (per-member via mem()). Free on
-      // every plan. Saving re-renders so the input reflects the trimmed value.
-      comments: loadComments(this.mem()),
-      onSaveComment: (kind, text) => { saveComment(kind, text, this.mem()); this.showFamily(); },
+      // おたより for the active member (per-member via mem()). Free on every
+      // plan. Sending re-renders so the new letter shows up in the sent list.
+      letters: loadLetters(this.mem()),
+      onSendLetter: (text, by) => { addLetter(text, by, this.mem()); this.showFamily(); },
+      onDeleteLetter: (id) => { removeLetter(id, this.mem()); this.showFamily(); },
       // 「工夫をぜんぶけす」 for the active member.
       // LINE・SNS: which kids may send their videos out.
       shareAllowed: Object.fromEntries(members.map((m) => [m.id, getShareAllowed(scopedStorage(base, m.id))])),
@@ -686,6 +708,16 @@ export class KarateApp {
         this.showFamily();
       },
     });
+  }
+
+  // The one menu whose 帯 the 家族 tab shows: the active member's assigned
+  // class, or — when nothing is assigned — the menu they have open on 特訓.
+  // Empty when neither exists (no saved menus yet, or 「なし」 with a fresh menu).
+  private beltMenus(): { id: string; name: string; belt: number }[] {
+    const id = this.assignedClassFor(getActiveId(this.base())) ?? getSelectedPreset(this.mem());
+    return this.usablePresets()
+      .filter((p) => p.id === id)
+      .map((p) => ({ id: p.id, name: p.name, belt: loadMenuBelt(p.id, this.mem()).belt }));
   }
 
   // test アプリ: the active member's streak and, per usable menu, each drill's
@@ -825,15 +857,20 @@ export class KarateApp {
     const stepMs = this.deps.hookStepMs ?? 1100;
     const wait = (ms: number) => new Promise<void>((r) => (ms > 0 ? setTimeout(r, ms) : r()));
     view.setTexts(grid);
-    const total = textCount(grid);
-    for (let k = 0; k < total; k++) {
-      view.revealText(k);
-      this.playEffect(HOOK_SOUND);
-      this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
-      await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
+    try {
+      const total = textCount(grid);
+      for (let k = 0; k < total; k++) {
+        view.revealText(k);
+        this.playEffect(HOOK_SOUND);
+        this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
+        await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
+      }
+    } finally {
+      // Whatever happens mid-hook (a stop, a sound that throws), the words must
+      // come off the screen — they stayed up on the phone once.
+      view.setTexts(null);
+      this.overlayLog?.setState({ texts: [] });
     }
-    view.setTexts(null);
-    this.overlayLog?.setState({ texts: [] });
   }
 
   // Re-read the active member's per-member state after a member switch.

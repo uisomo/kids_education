@@ -3,7 +3,7 @@
 // RPG belts (ほのお and up) get a gold frame and a light CSS shimmer.
 
 import { BELTS, BARS_PER_BELT, type BeltState } from "../belt-store";
-import { RAINBOW } from "./strength-screen";
+import { RAINBOW, rainbowGhost } from "./strength-screen";
 import { COPY, IS_PIANO } from "../flavor";
 
 // The obi itself: a band, two hanging tails and a knot, all painted with the
@@ -49,7 +49,9 @@ export function renderBeltCard(state: BeltState): HTMLElement {
     const bar = document.createElement("span");
     const lit = i < state.bars;
     bar.className = `belt-bar${lit ? " lit" : ""}`;
-    if (lit) bar.style.background = RAINBOW[i];
+    // Unlit steps keep their own colour at a whisper (the card is white here,
+    // so it needs a touch more than the dark 積み重ね rows).
+    bar.style.background = lit ? RAINBOW[i] : rainbowGhost(i, 0.16);
     bars.append(bar);
   }
 

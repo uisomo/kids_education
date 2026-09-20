@@ -11,9 +11,13 @@ export interface BottomNavDeps {
   onSelect(tab: NavTab): void;
 }
 
-const TABS: { id: NavTab; label: string; icon: string }[] = [
+// 積み重ね carries drawn artwork (the rainbow stairs) rather than an emoji —
+// 💪 read as "muscle / strength", which is the name the screen no longer uses.
+const STRENGTH_ICON_SRC = "/images/nav-strength.png";
+
+const TABS: { id: NavTab; label: string; icon: string; iconSrc?: string }[] = [
   { id: "train", label: "特訓", icon: COPY.drillIcon },
-  { id: "strength", label: "積み重ね", icon: "💪" },
+  { id: "strength", label: "積み重ね", icon: "🪜", iconSrc: STRENGTH_ICON_SRC },
   { id: "family", label: "家族", icon: "👨‍👩‍👧" },
 ];
 
@@ -27,7 +31,24 @@ export function createBottomNav(deps: BottomNavDeps): HTMLElement {
     btn.type = "button";
     btn.className = `bottom-nav-btn${t.id === deps.active ? " active" : ""}`;
     btn.dataset.navtab = t.id;
-    btn.innerHTML = `<span class="bottom-nav-icon">${t.icon}</span><span class="bottom-nav-label">${t.label}</span>`;
+    const icon = document.createElement("span");
+    icon.className = "bottom-nav-icon";
+    if (t.iconSrc) {
+      // Decoration only — the label under it names the tab. If the artwork
+      // can't be loaded the emoji takes its place rather than an empty gap.
+      const img = document.createElement("img");
+      img.className = "bottom-nav-icon-img";
+      img.src = t.iconSrc;
+      img.alt = "";
+      img.addEventListener("error", () => { icon.textContent = t.icon; });
+      icon.append(img);
+    } else {
+      icon.textContent = t.icon;
+    }
+    const label = document.createElement("span");
+    label.className = "bottom-nav-label";
+    label.textContent = t.label;
+    btn.append(icon, label);
     btn.addEventListener("click", () => deps.onSelect(t.id));
     nav.append(btn);
   });

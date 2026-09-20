@@ -351,11 +351,19 @@ button {
   gap: 0.2rem;
 }
 
+/* Each step carries its own colour from the start (painted inline by
+   belt-card.ts): faint until it is earned, solid once it is. Pill-shaped and a
+   little taller so ten of them read as stacking blocks, not a progress bar. */
 .belt-bar {
   flex: 1 1 0;
-  height: 10px;
-  border-radius: 4px;
+  height: 12px;
+  border-radius: 999px;
   background: rgba(26, 22, 43, 0.1);
+  transition: transform 0.15s ease;
+}
+
+.belt-bar.lit {
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .belt-next {
@@ -755,7 +763,7 @@ button {
    touch-drag reorder the row instead of scrolling the page — without it iOS
    claims the gesture before pointermove ever fires. */
 .row-drag {
-  width: 30px;
+  width: 34px;
   height: 34px;
   flex: 0 0 auto;
   padding: 0;
@@ -893,16 +901,18 @@ button {
   transform: translate(-50%, -50%);
 }
 
+/* Adding a 種目 is housekeeping, not the point of the screen: a slab as loud
+   as the drill rows themselves kept pulling the eye past the menu. */
 .add {
-  padding: 0.95rem 1rem;
-  background: var(--toy-card-bg);
-  border: 2px dashed #ffd166;
-  color: #ffd166;
-  border-radius: 16px;
+  padding: 0.55rem 1rem;
+  background: rgba(45, 38, 74, 0.5);
+  border: 1.5px dashed rgba(255, 209, 102, 0.55);
+  color: rgba(255, 209, 102, 0.92);
+  border-radius: 14px;
   cursor: pointer;
-  font-size: 1.05rem;
+  font-size: 0.92rem;
   font-weight: 800;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  box-shadow: none;
 }
 
 .total {
@@ -911,6 +921,7 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.8rem;
+  font-size: 1rem;
   font-size: 1rem;
   font-weight: 800;
   color: #fff;
@@ -967,17 +978,25 @@ button {
   box-shadow: 0 2px 0 #0984e3, 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
+/* The only thing on 特訓 that keeps the chunky 3-D treatment, and now the only
+   full-width one: everything beside it was demoted to a flat pill. */
 .btn-start {
   background: linear-gradient(180deg, #ff6b81 0%, #ff4757 100%);
   color: #fff;
-  box-shadow: 0 6px 0 #d63031, 0 8px 20px rgba(255, 71, 87, 0.5);
+  box-shadow: 0 5px 0 #c62b38, 0 10px 24px rgba(255, 71, 87, 0.45);
   text-shadow: 0 2px 0 #d63031;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  /* Slimmer than the 62px slab it was: still the biggest tap target on the
+     screen, but it no longer eats a sixth of the menu list. */
+  padding: 0.45rem 1rem;
+  min-height: 50px;
+  border-radius: 18px;
+  font-size: 1.15rem;
 }
 
 .btn-start:active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 #d63031, 0 4px 10px rgba(0, 0, 0, 0.4);
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #c62b38, 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* 稽古 開始 stays on screen. With 9 rows the button sat ~280px below the fold,
@@ -987,42 +1006,122 @@ button {
    along on its right — it is the last thing decided before practice. */
 .screen.setup .start-row {
   position: sticky;
-  bottom: calc(0.75rem + 4.5rem + env(safe-area-inset-bottom));
+  /* 4rem is the tab bar's own height (its safe-area padding is on top of that),
+     so the button rides right above the bar instead of floating a finger's
+     width over it. */
+  bottom: calc(4.1rem + env(safe-area-inset-bottom));
   z-index: 6;
   display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
+  /* A quiet switch line stacked on the one loud button, rather than three
+     equal slabs side by side. */
+  flex-direction: column;
+  gap: 0.45rem;
+  /* The footer floats over the menu, so the list used to collide with it on the
+     way past. A scrim bled to both screen edges plus the ramped blur below lets
+     the rows dissolve under it instead. */
+  margin: 1.25rem -1rem 0;
+  padding: 0.75rem 1rem 0.15rem;
+  background: linear-gradient(180deg, rgba(20, 16, 36, 0) 0%, rgba(20, 16, 36, 0.62) 45%, rgba(20, 16, 36, 0.82) 100%);
+}
+
+/* Progressive blur: two masked backdrop layers instead of one, because a single
+   blurred box switches on at a hard edge and draws a visible seam right across
+   the menu. The soft layer fades in first, the strong one takes over lower
+   down, so a drill row goes slightly soft as it slides behind the switches and
+   is unreadable by the time it reaches 稽古 開始. Both start ABOVE the footer
+   (top: -3rem) so the ramp begins before anything touches a button, and reach
+   past its bottom to cover the gap down to the tab bar.
+   -webkit-* duplicated on purpose: this ships in a WKWebView. */
+.screen.setup .start-row::before,
+.screen.setup .start-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Starts just above the footer: the 1.25rem margin plus the screen's own
+     1rem gap keep the last row sharp where the list comes to rest. */
+  top: -2rem;
+  bottom: -1.5rem;
+  /* Under the switches and the button, over the scrolling menu. */
+  z-index: -1;
+  pointer-events: none;
+}
+
+.screen.setup .start-row::before {
+  -webkit-backdrop-filter: blur(2.5px);
+  backdrop-filter: blur(2.5px);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, #000 34%, #000 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, #000 34%, #000 100%);
+}
+
+.screen.setup .start-row::after {
+  -webkit-backdrop-filter: blur(9px);
+  backdrop-filter: blur(9px);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 36%, #000 76%, #000 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 36%, #000 76%, #000 100%);
 }
 
 .start-row .btn-start {
-  flex: 1 1 auto;
+  width: 100%;
 }
 
-/* 🪝 read-aloud hook switch, on the right of BGM. Blue when on, grey when off. */
-.screen.setup .start-row {
-  flex-wrap: wrap;
+/* BGM and 🪝 with the drill total pushed to the right end of the same line. */
+.start-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
+/* Its own chip, like the switches: the footer is sticky, so plain text here
+   sat straight on top of whichever drill row happened to scroll underneath. */
+.start-controls .total {
+  margin-left: auto;
+  min-height: 34px;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(26, 22, 43, 0.55);
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+  text-shadow: none;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Both switches are the same flat pill: filled = on, outlined = off. They used
+   to be a yellow slab and a grey slab as tall and as raised as 稽古 開始, which
+   made three buttons of equal weight and no obvious one to press. */
+.start-row .bgm-toggle-btn,
 .start-row .hook-toggle-btn {
   flex: 0 0 auto;
-  min-height: 50px;
-  padding: 0 0.8rem;
-  border: none;
-  border-radius: 18px;
-  font-size: 1.2rem;
-  background: linear-gradient(180deg, #736f8c 0%, #57536b 100%);
-  box-shadow: 0 6px 0 #3d3a4d, 0 8px 15px rgba(0, 0, 0, 0.4);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  min-height: 34px;
+  padding: 0 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(26, 22, 43, 0.55);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: transform 0.1s ease;
+}
+
+.start-row .bgm-toggle-btn:active,
+.start-row .hook-toggle-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .start-row .hook-toggle-btn.is-on {
-  background: linear-gradient(180deg, #a5d4ff 0%, #74b9ff 100%);
-  box-shadow: 0 6px 0 #3f86d1, 0 8px 20px rgba(116, 185, 255, 0.45);
-}
-
-.start-row .hook-toggle-btn:active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 #3d3a4d, 0 4px 10px rgba(0, 0, 0, 0.4);
+  background: #74b9ff;
+  border-color: #a5d4ff;
+  color: #0e2137;
 }
 
 /* The hook's three line boxes (≤5 characters each), a full row above the buttons. */
@@ -1053,35 +1152,17 @@ button {
   font-weight: 700;
 }
 
-/* Solid and raised like 稽古 開始, so the two read as one control — the
-   see-through pill looked disabled beside it. Yellow, not red, so it isn't a
-   second start button; off is solid grey rather than faded. */
+/* BGM on = filled yellow, off = the same outlined pill as 🪝. */
 .start-row .bgm-toggle-btn {
-  flex: 0 0 auto;
-  min-height: 50px;
-  padding: 0 0.9rem;
-  border: none;
-  border-radius: 18px;
-  font-size: 0.9rem;
+  background: #ffd166;
+  border-color: #ffe08a;
   color: #1a162b;
-  background: linear-gradient(180deg, #ffe08a 0%, #ffc233 100%);
-  box-shadow: 0 6px 0 #d99a00, 0 8px 20px rgba(255, 194, 51, 0.4);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.start-row .bgm-toggle-btn:active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 #d99a00, 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
 .start-row .bgm-toggle-btn.muted {
-  color: #fff;
-  background: linear-gradient(180deg, #736f8c 0%, #57536b 100%);
-  box-shadow: 0 6px 0 #3d3a4d, 0 8px 15px rgba(0, 0, 0, 0.4);
-}
-
-.start-row .bgm-toggle-btn.muted:active {
-  box-shadow: 0 2px 0 #3d3a4d, 0 4px 10px rgba(0, 0, 0, 0.4);
+  background: rgba(26, 22, 43, 0.55);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 /* Empty menu: nothing to practice yet. */
@@ -1331,6 +1412,10 @@ button {
   flex-direction: column;
   gap: 0.6rem;
   align-items: center;
+  /* The thick stroke and the red drop below paint outside the last line's own
+     box. The padding keeps that ink inside the grid's rect, so the area WebKit
+     erases when the hook ends really covers everything that was drawn. */
+  padding: 0.4rem 0.6rem 1.2rem;
 }
 
 .text-grid-line {
@@ -2279,6 +2364,8 @@ input[data-label] {
 }
 
 .bottom-nav-icon { font-size: 1.5rem; line-height: 1; }
+/* 積み重ね's drawn stairs, sized to sit level with the emoji icons beside it. */
+.bottom-nav-icon-img { display: block; width: 1.6rem; height: 1.6rem; object-fit: contain; }
 .bottom-nav-label { font-size: 0.75rem; white-space: nowrap; }
 
 /* Reserve space so screen content isn't hidden behind the fixed nav. */
@@ -2397,12 +2484,14 @@ input[data-label] {
 .strength-bar {
   flex: 1 1 0;
   height: 18px;
-  border-radius: 6px;
+  border-radius: 7px;
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* Same idea as .belt-bar: the unlit steps already wear their own hue, so the
+   whole rainbow is visible and each level simply turns its block solid. */
 .strength-bar.lit {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .strength-menu-select {
@@ -2473,6 +2562,124 @@ input[data-label] {
 .decor-option.on {
   border-color: #ffd166;
   background: rgba(255, 209, 102, 0.18);
+}
+
+/* 「いまこれ」 on the picked かざり: the tint alone was too quiet to see. */
+.decor-option { position: relative; }
+
+.decor-option-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.25rem;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: #ffd166;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* --- 🪝 hook popup: three lines, labelled ぎょうめ --- */
+.hook-modal-card { gap: 0.6rem; }
+
+.hook-modal-card .kufu-card-title {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.hook-modal-title-ask { font-size: 1.1rem; }
+
+.hook-modal-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hook-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hook-modal-label {
+  flex: 0 0 4.6rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--ink-dim, #b0a8c8);
+}
+
+.hook-modal-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 1.1rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.hook-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.hook-modal-off {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  min-height: 44px;
+}
+
+.hook-modal-ok { min-height: 44px; }
+
+/* --- 家族 jump nav: sticky chips to the sections of a very long page ---
+   It is the first thing in the screen and pinned at top: 0, so it doubles as
+   the tab's header. The status bar is translucent (viewport-fit=cover), so the
+   bar pulls up over the screen's own safe-area padding and then pays it back as
+   padding-top: its background fills the strip behind the clock instead of the
+   page scrolling under it, and the chips start below the clock. */
+.family-jump-nav {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: calc(-1.25rem - env(safe-area-inset-top)) -1rem 0;
+  padding: calc(0.45rem + env(safe-area-inset-top)) 1rem 0.45rem;
+  background: rgba(26, 22, 43, 0.92);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.family-jump-nav::-webkit-scrollbar { display: none; }
+
+.family-jump-chip {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: rgba(255, 209, 102, 0.92);
+  border: none;
+  border-radius: 999px;
+  padding: 0.32rem 0.8rem;
+  min-height: 32px;
+}
+
+.family-jump-chip:active { transform: translateY(1px); }
+
+/* Jump targets clear the sticky bar (chips + its safe-area top padding). */
+.screen.family [data-family-anchor] {
+  scroll-margin-top: calc(3.4rem + env(safe-area-inset-top));
 }
 
 .decor-option.locked {
@@ -2887,19 +3094,209 @@ input[data-label] {
   cursor: pointer;
 }
 
-.setup-kansou-banner {
+/* ✉️ おたより chip, top-left of 今日の稽古. On the screen whenever a letter is
+   kept, so one can be read again; the NEW badge and the shake are for unread
+   ones only. */
+.setup-letter-chip {
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem 0.25rem 0.4rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transform-origin: 50% 20%;
+}
+
+/* Three swings and it settles: a badge that wobbles forever reads as
+   decoration instead of as news. */
+.setup-letter-chip.is-new {
+  animation: letter-wiggle 0.5s ease-in-out 3;
+}
+
+/* Read: the envelope is still there to open, just quiet. */
+.setup-letter-chip:not(.is-new) {
+  opacity: 0.75;
+  padding-right: 0.4rem;
+}
+
+.setup-letter-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.setup-letter-new {
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: #ef476f;
+  border-radius: 999px;
+  padding: 0.12rem 0.32rem;
+  white-space: nowrap;
+}
+
+@keyframes letter-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-7deg); }
+  75% { transform: rotate(7deg); }
+}
+
+/* 便箋 card: one letter, big enough to be read across the room. */
+.letter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background: rgba(10, 8, 20, 0.6);
+  animation: kufu-fade 0.15s ease-out;
+}
+
+.letter-card {
+  width: min(22rem, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: #1a162b;
+  /* Cream paper with ruled lines, tilted a hair so it reads as a letter and
+     not as another dialog. */
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 1.85rem,
+      rgba(26, 22, 43, 0.08) 1.85rem 1.9rem
+    ),
+    #fffaf0;
+  border: 3px solid rgba(26, 22, 43, 0.14);
+  border-radius: 16px;
+  padding: 1rem 1.1rem 1.1rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  transform: rotate(-0.6deg);
+  animation: letter-open 0.22s ease-out;
+}
+
+@keyframes letter-open {
+  from { opacity: 0; transform: rotate(-0.6deg) translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: rotate(-0.6deg) translateY(0) scale(1); }
+}
+
+.letter-card-day {
+  font-size: 0.8rem;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.letter-card-text {
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.9rem;   /* sits on the ruled lines */
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.letter-card-by {
+  text-align: right;
+  font-size: 0.9rem;
+  font-weight: 800;
+  opacity: 0.75;
+}
+
+.letter-card-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+
+.letter-card-step {
+  border: none;
+  background: transparent;
+  color: #1a162b;
+  font-size: 0.85rem;
+  font-weight: 800;
+  opacity: 0.7;
+  padding: 0.25rem 0.1rem;
+  cursor: pointer;
+}
+
+.letter-card-step[hidden] { display: none; }
+
+.letter-card-close {
+  align-self: stretch;
+  border: none;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  background: #ffd166;
+  color: #1a162b;
   font-size: 1rem;
   font-weight: 900;
-  line-height: 1.4;
-  color: #1a162b;
-  /* White card: yellow is kept for buttons. */
-  background: #fff;
-  border: 2px solid rgba(26, 22, 43, 0.12);
-  border-radius: 16px;
-  padding: 0.7rem 0.9rem;
-  margin: 0 0 0.7rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  word-break: break-word;
+  cursor: pointer;
+}
+
+/* 家族: the letters already sent, with whether the kid has read them. */
+.family-letter-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0.2rem;
+}
+
+.family-letter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.family-letter-state {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 0.12rem 0.4rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--ink-dim, #b0a8c8);
+}
+
+.family-letter-state.is-unread {
+  background: #ef476f;
+  color: #fff;
+}
+
+.family-letter-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.family-letter-delete {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--ink, #f3f0ff);
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.family-letter-empty {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-dim, #b0a8c8);
 }
 
 /* E4: 応援コメント editor (家族 screen, parent). */
@@ -2946,7 +3343,7 @@ input[data-label] {
   font-style: italic;
 }
 
-.family-comment-row > [data-comment-kansou] {
+.family-comment-row > [data-letter-text] {
   grid-column: 1 / 3;
 }
 
@@ -2973,6 +3370,7 @@ input[data-label] {
   background: #ffd166;
   color: #1a162b;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -3174,6 +3572,7 @@ input[data-label] {
   .loading-spinner { animation: none; }
   .countdown-intro-label.pop { animation: none; }
   .kufu-overlay, .kufu-card { animation: none; }
+  .letter-overlay, .letter-card, .setup-letter-chip { animation: none; }
   [data-rows].is-reordering .row { transition: none; }
   .obi.rpg .obi-band::after,
   .obi.rpg .note-beam::after { animation: none; display: none; }

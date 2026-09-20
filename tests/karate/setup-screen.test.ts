@@ -262,25 +262,97 @@ it("omits the class label when className is null/absent", () => {
   expect(root.querySelector("[data-class-label]")).toBeNull();
 });
 
-// --- E4: 感想コメント banner (right above the start button) ---
-it("shows the 感想 comment banner right above the start button when provided", () => {
+// --- おたより: ✉️ chip in the header + 便箋 card (Phase 2) ---
+const UNREAD = { id: "L2", text: "いつも がんばってるね", by: "おかあさん", createdAt: 2000 };
+const READ = { id: "L1", text: "きのうも えらかった", by: "パパ", createdAt: 1000, readAt: 1500 };
+
+it("shows the ✉️ chip with NEW while a letter is unread", () => {
   const root = document.createElement("div");
-  renderSetupScreen(root, deps({ kansou: "いつも がんばってるね" }));
-  const banner = root.querySelector<HTMLElement>("[data-kansou-banner]");
-  expect(banner).not.toBeNull();
-  expect(banner!.textContent).toBe("✉️ いつも がんばってるね");   // a letter, no 💛
-  // 稽古 開始 now shares its sticky row with the BGM switch.
+  renderSetupScreen(root, deps({ letters: [UNREAD, READ] }));
+  const chip = root.querySelector<HTMLElement>("[data-letter-chip]");
+  expect(chip).not.toBeNull();
+  expect(chip!.querySelector("[data-letter-new]")!.textContent).toBe("NEW");
+  // In the header, left of 今日の稽古 — not a bar pushing the menu down.
+  expect(chip!.parentElement).toBe(root.querySelector(".toybox-header"));
+  expect(root.firstElementChild).toBe(root.querySelector(".toybox-header"));
+  // 稽古 開始 still ends the page, under its own line of switches.
   const startRow = root.querySelector("[data-start-row]")!;
-  expect(banner!.nextElementSibling).toBe(startRow);
-  expect(startRow.firstElementChild).toBe(root.querySelector("[data-start]"));
+  expect(root.lastElementChild).toBe(startRow);
+  expect(startRow.lastElementChild).toBe(root.querySelector("[data-start]"));
 });
 
-it("omits the 感想 banner when kansou is empty/absent", () => {
+it("counts the unread letters on the badge when more than one is waiting", () => {
   const root = document.createElement("div");
-  renderSetupScreen(root, deps({ kansou: "" }));
-  expect(root.querySelector("[data-kansou-banner]")).toBeNull();
+  renderSetupScreen(root, deps({ letters: [UNREAD, { ...READ, readAt: undefined }] }));
+  expect(root.querySelector("[data-letter-new]")!.textContent).toBe("NEW 2");
+});
+
+it("keeps the ✉️ chip once everything is read, without the NEW badge", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ letters: [READ] }));
+  const chip = root.querySelector<HTMLElement>("[data-letter-chip]")!;
+  expect(chip).not.toBeNull();
+  expect(chip.classList.contains("is-new")).toBe(false);   // no shake either
+  expect(root.querySelector("[data-letter-new]")).toBeNull();
+  // A read letter can still be opened and paged through.
+  chip.click();
+  expect(root.querySelector("[data-letter-text]")!.textContent).toBe("きのうも えらかった");
+});
+
+it("hides the ✉️ chip when there is no letter at all (never invents one)", () => {
+  const root = document.createElement("div");
+  renderSetupScreen(root, deps({ letters: [] }));
+  expect(root.querySelector("[data-letter-chip]")).toBeNull();
   renderSetupScreen(root, deps());
-  expect(root.querySelector("[data-kansou-banner]")).toBeNull();
+  expect(root.querySelector("[data-letter-chip]")).toBeNull();
+});
+
+it("tapping the ✉️ opens the 便箋 with the newest letter, signed, and marks it read", () => {
+  const root = document.createElement("div");
+  const onReadLetter = vi.fn();
+  renderSetupScreen(root, deps({ letters: [UNREAD, READ], onReadLetter }));
+  root.querySelector<HTMLButtonElement>("[data-letter-chip]")!.click();
+  const card = root.querySelector("[data-letter-modal]")!;
+  expect(card.querySelector("[data-letter-text]")!.textContent).toBe("いつも がんばってるね");
+  expect(card.querySelector("[data-letter-by]")!.textContent).toBe("by おかあさん");
+  expect(onReadLetter).toHaveBeenCalledWith("L2");
+  expect(onReadLetter).toHaveBeenCalledTimes(1);
+});
+
+it("the NEW badge goes away as soon as the card is closed, the ✉️ stays", () => {
+  const root = document.createElement("div");
+  const second = { ...READ, id: "L3", readAt: undefined };
+  renderSetupScreen(root, deps({ letters: [UNREAD, second], onReadLetter: vi.fn() }));
+  root.querySelector<HTMLButtonElement>("[data-letter-chip]")!.click();
+  // One of the two read → the badge counts down instead of disappearing.
+  root.querySelector<HTMLButtonElement>("[data-letter-close]")!.click();
+  expect(root.querySelector("[data-letter-new]")!.textContent).toBe("NEW");
+  // Read the other one too → the badge and the shake go, the envelope remains.
+  root.querySelector<HTMLButtonElement>("[data-letter-chip]")!.click();
+  root.querySelector<HTMLButtonElement>("[data-letter-prev]")!.click();
+  root.querySelector<HTMLButtonElement>("[data-letter-close]")!.click();
+  expect(root.querySelector("[data-letter-new]")).toBeNull();
+  const chip = root.querySelector<HTMLElement>("[data-letter-chip]")!;
+  expect(chip).not.toBeNull();
+  expect(chip.classList.contains("is-new")).toBe(false);
+});
+
+it("「まえのおたより」 pages back through the kept letters, and とじる closes", () => {
+  const root = document.createElement("div");
+  const onReadLetter = vi.fn();
+  renderSetupScreen(root, deps({ letters: [UNREAD, READ], onReadLetter }));
+  root.querySelector<HTMLButtonElement>("[data-letter-chip]")!.click();
+  const prev = root.querySelector<HTMLButtonElement>("[data-letter-prev]")!;
+  expect(prev.hidden).toBe(false);
+  prev.click();
+  expect(root.querySelector("[data-letter-text]")!.textContent).toBe("きのうも えらかった");
+  // Oldest letter: nowhere further back, and it was already read.
+  expect(root.querySelector<HTMLButtonElement>("[data-letter-prev]")!.hidden).toBe(true);
+  expect(onReadLetter).toHaveBeenCalledTimes(1);
+  root.querySelector<HTMLButtonElement>("[data-letter-next]")!.click();
+  expect(root.querySelector("[data-letter-text]")!.textContent).toBe("いつも がんばってるね");
+  root.querySelector<HTMLButtonElement>("[data-letter-close]")!.click();
+  expect(root.querySelector("[data-letter-modal]")).toBeNull();
 });
 
 // --- Member band: kids pick who is practicing, no parental gate ---
@@ -383,11 +455,7 @@ it("a 休憩 row's toggle reads ☕休憩 and keeps the name input", () => {
   expect(root.querySelector<HTMLInputElement>(".drill-name")!.value).toBe("水のむ");
 });
 
-it("the 感想 banner is signed with who wrote it", () => {
-  const root = document.createElement("div");
-  renderSetupScreen(root, deps({ kansou: "がんばったね", kansouBy: "おかあさん" }));
-  expect(root.querySelector("[data-kansou-by]")!.textContent).toBe("by おかあさん");
-});
+
 
 it("without a saved menu the belt card becomes a hint", () => {
   const root = document.createElement("div");
@@ -488,14 +556,17 @@ it("shows 🔥 N日継続中 at the top right when there is a streak, nothing at
   expect(root.querySelector("[data-streak]")).toBeNull();
 });
 
-it("keeps the BGM switch next to 稽古 開始, not up by the drill total", () => {
+it("keeps the BGM switch in the sticky footer, on the switch line above 稽古 開始", () => {
   const root = document.createElement("div");
   renderSetupScreen(root, deps({ bgmMuted: false, onToggleBgm: vi.fn() }));
   const row = root.querySelector("[data-start-row]")!;
+  const controls = root.querySelector("[data-start-controls]")!;
   const bgm = root.querySelector<HTMLButtonElement>("[data-bgm-toggle]")!;
-  expect(bgm.parentElement).toBe(row);
-  expect(row.firstElementChild).toBe(root.querySelector("[data-start]"));
-  expect(row.lastElementChild).toBe(bgm);
+  expect(bgm.parentElement).toBe(controls);
+  expect(row.firstElementChild).toBe(controls);
+  expect(row.lastElementChild).toBe(root.querySelector("[data-start]"));
+  // 合計 rides at the end of that same line, not on a row of its own.
+  expect(controls.lastElementChild).toBe(root.querySelector(".total"));
   expect(root.querySelector(".total [data-bgm-toggle]")).toBeNull();
 });
 

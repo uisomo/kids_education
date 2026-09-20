@@ -1,6 +1,10 @@
 node_modules/
 dist/
 data/children/
+
+# Xcode DerivedData と実機ログの置き場（1GB超）。ビルド生成物なので追跡しない。
+build/
+
 *.backup.*
 .superpowers/
 

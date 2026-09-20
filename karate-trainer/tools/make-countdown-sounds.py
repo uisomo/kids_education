@@ -3,6 +3,10 @@
 # few odd harmonics for a slightly electronic sound, written as AAC .m4a.
 #
 #   python3 karate-trainer/tools/make-countdown-sounds.py
+#
+# Regenerating puts the tones back at this script's own level, which is louder
+# than the rest of the app; run tools/normalize-audio.py afterwards to bring
+# them back in line with the character voices.
 import math, os, subprocess, struct, tempfile, wave
 
 RATE = 44100
