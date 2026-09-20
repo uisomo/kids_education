@@ -85,6 +85,10 @@ it("piano build: a stored menu loses its 休憩 rows on the way in", async () =>
   localStorage.setItem("karate.menu", JSON.stringify(stored));
   const loaded = menu.loadMenu();
   expect(loaded.map((d) => d.name)).toEqual(["ドレミの音階", "両手で ひいてみよう"]);
+  // …and the 休憩 is gone from storage too, not just from what was returned:
+  // the app mirrors localStorage into karate-backup.json, so a row left behind
+  // there would come back on the next restore.
+  expect(JSON.parse(localStorage.getItem("karate.menu")!)).toHaveLength(2);
   localStorage.clear();
 });
 
@@ -99,6 +103,7 @@ it("piano build: a saved menu loses its 休憩 rows too", async () => {
     ],
   }]));
   expect(presets.loadPresets()[0].menu.map((d) => d.name)).toEqual(["右手の練習"]);
+  expect(JSON.parse(localStorage.getItem("karate.presets")!)[0].menu).toHaveLength(1);
   localStorage.clear();
 });
 

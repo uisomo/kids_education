@@ -53,7 +53,17 @@ export function loadMenu(storage: Storage = localStorage): Menu {
     const raw = storage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT_MENU);
     const parsed = JSON.parse(raw);
-    return isMenu(parsed) ? withoutRests(parsed) : structuredClone(DEFAULT_MENU);
+    if (!isMenu(parsed)) return structuredClone(DEFAULT_MENU);
+    const menu = withoutRests(parsed);
+    // Write the stripped menu straight back. Filtering on the way in alone
+    // would leave the 休憩 rows sitting in storage (and in the native
+    // karate-backup.json the app mirrors them to), so every restore would
+    // bring them round again. A refused write (quota / private mode) just
+    // means the stripping happens again next launch.
+    if (menu.length !== parsed.length) {
+      try { saveMenu(menu, storage); } catch { /* keep the stripped menu anyway */ }
+    }
+    return menu;
   } catch {
     return structuredClone(DEFAULT_MENU);
   }

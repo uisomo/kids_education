@@ -47,8 +47,13 @@ export function loadPresets(storage: Storage = localStorage): Preset[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     // The piano app has no 休憩, so a saved menu from an older piano build
-    // loses its rest rows here rather than showing a kind the app dropped.
-    return parsed.filter(isPreset).map((p) => ({ ...p, menu: withoutRests(p.menu) }));
+    // loses its rest rows here rather than showing a kind the app dropped —
+    // and the stripped list is written back, so they are gone from storage
+    // (and from the native backup file) rather than stripped again forever.
+    const kept = parsed.filter(isPreset);
+    const list = kept.map((p) => ({ ...p, menu: withoutRests(p.menu) }));
+    if (list.some((p, i) => p.menu.length !== kept[i].menu.length)) writePresets(list, storage);
+    return list;
   } catch {
     return [];
   }
