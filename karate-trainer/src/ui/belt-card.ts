@@ -16,12 +16,19 @@ export function createObi(index: number): HTMLElement {
   obi.setAttribute("aria-hidden", "true");
   obi.style.setProperty("--obi-fill", belt.fill);
   obi.style.setProperty("--obi-ink", belt.ink);
-  // The ♫ is one masked box, not five: the shape lives in the SVG mask in
-  // style.css so the note heads keep their curve and the stems meet the beam.
-  const parts = IS_PIANO
-    ? ["note-glyph"]
-    : ["obi-band", "obi-tail left", "obi-tail right", "obi-knot"];
-  for (const part of parts) {
+  // The piano levels are drawn artwork — one picture per level, しろの音符 up
+  // to でんせつの音符 — so there is nothing here to paint with the fill: each
+  // note carries its own colour, flames, gems and sparkles.
+  if (IS_PIANO) {
+    const level = Math.min(Math.max(index, 0), BELTS.length - 1);
+    const img = document.createElement("img");
+    img.className = "note-img";
+    img.src = `/images/notes/note-${String(level + 1).padStart(2, "0")}.png`;
+    img.alt = "";
+    obi.append(img);
+    return obi;
+  }
+  for (const part of ["obi-band", "obi-tail left", "obi-tail right", "obi-knot"]) {
     const el = document.createElement("span");
     el.className = part;
     obi.append(el);

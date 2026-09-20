@@ -425,44 +425,21 @@ button {
   transform: rotate(-20deg);
 }
 
-/* アランのピアノ: the same box drawn as a ♫ — two beamed quavers. The shape is
-   one SVG mask over a box painted with the level's fill, so every gradient
-   (ほのお … でんせつ) still runs through the note and the heads keep their
-   engraved oval. It used to be five CSS boxes: flat heads with a hard 2px
-   border, a skewed beam and stems that missed them. */
-.note-glyph {
-  position: absolute;
-  /* Exactly the mask's own 52x46 box, inset in the 76px obi slot. Sizing the
-     element to the glyph (instead of letting mask-size: contain letterbox it)
-     makes the fill span the note end to end, so でんせつ shows its whole
-     rainbow instead of only the middle of it. */
-  inset: 0 12px;
-  background: var(--obi-fill);
-  --note-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='12 0 52 46'%3E%3Cg fill='%23000'%3E%3Cpath d='M30 7h4v28h-4z'/%3E%3Cpath d='M60 2h4v28h-4z'/%3E%3Cpath d='M30 7 64 2 64 11.5 30 16.5Z'/%3E%3Cellipse cx='24' cy='35' rx='10' ry='7' transform='rotate(-20 24 35)'/%3E%3Cellipse cx='53' cy='30' rx='10' ry='7' transform='rotate(-20 53 30)'/%3E%3C/g%3E%3C/svg%3E");
-  -webkit-mask-image: var(--note-mask);
-  mask-image: var(--note-mask);
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-size: contain;
-  mask-size: contain;
-}
+/* アランのピアノ: the level is a picture, not a shape the app draws — 14 notes
+   (しろ … でんせつ) with their own colour, flames, gems and sparkles. The slot
+   is square here rather than the obi's 76x46, because the art is upright. */
+.obi.note { width: 46px; }
+/* The RPG levels bring their own flames, lightning and sparkle, so the card's
+   gold glow is switched off for them — on ダイヤモンド it read as a yellow
+   haze round a blue gem. */
+.obi.note.rpg { filter: none; }
 
-/* One outline round the whole ♫ keeps しろの音符 visible on the white card.
-   Drawn in the level's own ink rather than a flat grey, and twice over so the
-   masked edge reads as a line instead of a smudge. */
-.obi.note { filter: drop-shadow(0 0 1px var(--obi-ink)) drop-shadow(0 0 1px var(--obi-ink)); }
-.obi.note.rpg { filter: drop-shadow(0 0 1px var(--obi-ink)) drop-shadow(0 0 1px var(--obi-ink)) drop-shadow(0 0 5px rgba(255, 190, 40, 0.6)); }
-
-/* The mask clips the streak to the note, so the shine slides along the ♫. */
-.obi.rpg .note-glyph::after {
-  content: "";
+.note-img {
   position: absolute;
   inset: 0;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.9) 50%, transparent 65%);
-  transform: translateX(-100%);
-  animation: obi-shine 2.8s ease-in-out infinite;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* RPG belts: soft glow plus a light streak sliding across the band now and
@@ -3562,8 +3539,7 @@ input[data-label] {
   .kufu-overlay, .kufu-card { animation: none; }
   .letter-overlay, .letter-card, .setup-letter-chip { animation: none; }
   [data-rows].is-reordering .row { transition: none; }
-  .obi.rpg .obi-band::after,
-  .obi.rpg .note-glyph::after { animation: none; display: none; }
+  .obi.rpg .obi-band::after { animation: none; display: none; }
 }
 
 /* --- Native iOS build: camera preview --------------------------------------
