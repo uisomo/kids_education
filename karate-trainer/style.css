@@ -1558,6 +1558,14 @@ button {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
 
+.next-btn {
+  flex: 1.6;
+  background: #2ed573;
+  color: #fff;
+  font-size: 1.15rem;
+  box-shadow: 0 4px 0 #20a85a;
+}
+
 .stop-btn {
   background: #ff4757;
   color: #fff;

@@ -127,3 +127,42 @@ it("piano build: a row has no ☕休憩 toggle, the karate build does", async ()
   karate.setup.renderSetupScreen(karateRoot, setupDeps());
   expect(karateRoot.querySelectorAll("[data-kind-toggle]")).toHaveLength(1);
 });
+
+it("piano build: a row has no seconds box and the total is just the 種目 count", async () => {
+  const piano = await load("piano");
+  const pianoRoot = document.createElement("div");
+  piano.setup.renderSetupScreen(pianoRoot, setupDeps({
+    menu: [{ id: "d1", name: "ドレミの音階", seconds: 900, kind: "drill" as const }],
+  }));
+  expect(pianoRoot.querySelectorAll(".drill-secs")).toHaveLength(0);
+  expect(pianoRoot.querySelector(".total span")?.textContent).toBe("1種目");
+  // No 10分 gate from leftover seconds — the piano app has no drill times.
+  expect(pianoRoot.querySelector<HTMLButtonElement>("[data-start]")!.disabled).toBe(false);
+
+  const karate = await load("karate");
+  const karateRoot = document.createElement("div");
+  karate.setup.renderSetupScreen(karateRoot, setupDeps());
+  expect(karateRoot.querySelectorAll(".drill-secs")).toHaveLength(1);
+});
+
+it("untimed training screen: no countdown, 次へ ▶ instead of スキップ, おわり ✓ on the last one", async () => {
+  const { training } = await load("piano");
+  const root = document.createElement("div");
+  const view = training.renderTrainingScreen(root, "alan", "none", false, true);
+  const timer = root.querySelector<HTMLElement>("[data-timer]")!;
+  const btn = root.querySelector<HTMLButtonElement>("[data-skip]")!;
+  expect(timer.hidden).toBe(true);
+  view.setNext("右手の練習");
+  expect(btn.textContent).toBe("次へ ▶");
+  view.setNext(null);
+  expect(btn.textContent).toBe("おわり ✓");
+  // The 🪝 hook ending must not bring the countdown back.
+  view.setTexts([["ド"]]);
+  view.setTexts(null);
+  expect(timer.hidden).toBe(true);
+
+  const karateRoot = document.createElement("div");
+  training.renderTrainingScreen(karateRoot, "alan", "none", true);
+  expect(karateRoot.querySelector("[data-skip]")!.textContent).toBe("⏭ スキップ");
+  expect(karateRoot.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(false);
+});

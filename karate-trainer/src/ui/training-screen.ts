@@ -38,6 +38,9 @@ export function renderTrainingScreen(
   characterId: CharacterId = "alan",
   decor: Decor = "none",
   showBgm = true,
+  // The piano app: no countdown on screen, and ⏭ スキップ becomes 次へ ▶ —
+  // the child moves on when the piece is done (おわり ✓ on the last one).
+  untimed = false,
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -115,6 +118,7 @@ export function renderTrainingScreen(
   timerEl.dataset.timer = "";
   timerEl.className = "timer";
   timerEl.textContent = "0";
+  timerEl.hidden = untimed;
 
   // The character pops up right beside the number, where the child is already
   // looking; the row centres on the number alone.
@@ -178,7 +182,10 @@ export function renderTrainingScreen(
   const skipBtn = document.createElement("button");
   skipBtn.dataset.skip = "";
   skipBtn.className = "ctrl-btn skip-btn";
-  skipBtn.textContent = "⏭ スキップ";
+  const NEXT_LABEL = "次へ ▶";
+  const LAST_LABEL = "おわり ✓";
+  skipBtn.textContent = untimed ? NEXT_LABEL : "⏭ スキップ";
+  if (untimed) skipBtn.classList.add("next-btn");
 
   const stopBtn = document.createElement("button");
   stopBtn.dataset.stop = "";
@@ -260,7 +267,7 @@ export function renderTrainingScreen(
       const on = grid !== null && grid.some((line) => line.length > 0);
       readHint.hidden = !on;
       textGrid.hidden = !on;
-      timerEl.hidden = on;   // no countdown while the hook plays
+      timerEl.hidden = on || untimed;   // no countdown while the hook plays
       // iOS WebKit sometimes keeps painting the composited hook layer after
       // `hidden` alone, leaving the words stuck over the practice. Taking the
       // nodes out of the document entirely drops that layer for good; they go
@@ -324,6 +331,7 @@ export function renderTrainingScreen(
     setNext(text: string | null) {
       nextName.textContent = text ?? "";
       nextEl.hidden = !text;
+      if (untimed) skipBtn.textContent = text ? NEXT_LABEL : LAST_LABEL;
     },
     setCaption(text: string) {
       // No 「工夫:」 prefix on screen: the pill is narrow beside Next and the

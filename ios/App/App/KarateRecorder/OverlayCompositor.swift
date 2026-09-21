@@ -560,11 +560,15 @@ enum OverlayCompositor {
                 }
 
                 let textY = rowY + (rowH - rowFont.lineHeight) / 2
-                let seconds = NSAttributedString(string: "\(item.seconds)秒", attributes: [
-                    .font: rowFont, .foregroundColor: color, .paragraphStyle: rightAligned, .shadow: shadow,
-                ])
-                let secondsW = ceil(seconds.size().width)
-                seconds.draw(in: CGRect(x: pad, y: textY, width: width - pad * 2, height: rowFont.lineHeight))
+                // 0 = no time on the row (アランのピアノ: a drill ends on 次へ).
+                var secondsW: CGFloat = 0
+                if item.seconds > 0 {
+                    let seconds = NSAttributedString(string: "\(item.seconds)秒", attributes: [
+                        .font: rowFont, .foregroundColor: color, .paragraphStyle: rightAligned, .shadow: shadow,
+                    ])
+                    secondsW = ceil(seconds.size().width)
+                    seconds.draw(in: CGRect(x: pad, y: textY, width: width - pad * 2, height: rowFont.lineHeight))
+                }
 
                 // 積み重ね bars between the name and the seconds: lit up to the
                 // level, plus the bar this practice earned once the row is done.

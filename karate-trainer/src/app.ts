@@ -896,7 +896,9 @@ export class KarateApp {
   private async beginTraining(): Promise<void> {
     // Past the limit the video gets too big to save and share (the setup
     // screen already disables 開始; this guards any other way in).
-    if (totalSeconds(this.menu) > MAX_RECORD_SECONDS) {
+    // The piano app has no drill times, so there is no total to check — the
+    // recording is capped while it runs instead (startRecTimer).
+    if (!IS_PIANO && totalSeconds(this.menu) > MAX_RECORD_SECONDS) {
       this.showSetup(`録画は${MAX_RECORD_SECONDS / 60}分までです。種目か秒数をへらしてね`);
       return;
     }
@@ -913,7 +915,7 @@ export class KarateApp {
     } catch {
       free = null;
     }
-    const need = recordingBytesNeeded(totalSeconds(this.menu));
+    const need = recordingBytesNeeded(IS_PIANO ? MAX_RECORD_SECONDS : totalSeconds(this.menu));
     if (free !== null && free < need) {
       this.showSetup(`iPhoneの空き容量が足りません。あと約${Math.max(0.1, (need - free) / 1e9).toFixed(1)}GB あけてね`);
       return;
@@ -933,7 +935,7 @@ export class KarateApp {
 
     const view = renderTrainingScreen(this.root, this.characterState.selectedId,
                                       effectiveDecor(loadPlan(this.base()), this.base()),
-                                      !!this.deps.bgm);
+                                      !!this.deps.bgm, IS_PIANO);
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -1072,7 +1074,8 @@ export class KarateApp {
       onSessionEnd: () => { void this.finishSession(true); },
     };
 
-    const scheduler = new SessionScheduler(this.menu, handlers);
+    // Piano: a drill has no clock; it ends when the child taps 次へ.
+    const scheduler = new SessionScheduler(this.menu, handlers, { untimed: IS_PIANO });
 
     // ⏸ stops the drill timer and the music; the camera keeps recording.
     const setPaused = (paused: boolean) => {
@@ -1099,7 +1102,8 @@ export class KarateApp {
       this.detachVisibility = () => document.removeEventListener("visibilitychange", onVisibility);
     }
     recorder.onInterrupted?.(() => { void this.finishSession(false, true); });
-    view.onSkip(() => scheduler.skip());
+    // Piano's 次へ finishes the drill (it counts); karate's ⏭ skips it.
+    view.onSkip(() => (IS_PIANO ? scheduler.next() : scheduler.skip()));
     // 終了 partway: the video is still saved, but nothing counts toward progress.
     view.onStop(() => { void this.finishSession(false); });
     view.onToggleBgm(() => {
@@ -1149,6 +1153,9 @@ export class KarateApp {
     this.recTimerHandle = setInterval(() => {
       this.recElapsedMs += 1000;
       view.setRecElapsed(`REC ${formatMMSS(Math.floor(this.recElapsedMs / 1000))}`);
+      // Nothing ends an untimed piano practice by itself, so it stops at the
+      // recording limit, keeping every drill the child already finished.
+      if (IS_PIANO && this.recElapsedMs >= MAX_RECORD_SECONDS * 1000) void this.finishSession(true);
     }, 1000);
   }
 
@@ -1203,11 +1210,13 @@ export class KarateApp {
       // practice, and whether this row earns one more (lit once it's done).
       const linked = this.linkedPreset();
       const before = linked ? loadMenuBelt(linked.id, this.mem()) : null;
-      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds, kind }, i) => (
-        before && kind !== "rest" && name.trim()
+      // seconds 0 = no 「60秒」 on the burned panel (the piano app has no times).
+      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds: secs, kind }, i) => {
+        const seconds = IS_PIANO ? 0 : secs;
+        return before && kind !== "rest" && name.trim()
           ? { name, seconds, kind, level: levelOf(before, name), gained: completed && this.finishedRows.has(i) }
-          : { name, seconds, kind }
-      ));
+          : { name, seconds, kind };
+      });
       // 🔥 A practice that ran to the end with a finished drill counts for today.
       const streak = completed && this.finishedDrills.length > 0
         ? recordPracticeDay(this.mem())

@@ -88,4 +88,38 @@ describe("SessionScheduler", () => {
     s.skip();
     expect(h.onDrillEnd).not.toHaveBeenCalled();
   });
+
+  describe("untimed (the piano app)", () => {
+    it("never ends a drill by time and shows no countdown", () => {
+      const h = handlers();
+      const s = new SessionScheduler(menu, h, { untimed: true });
+      s.start();
+      pump(s, 60_000);
+      expect(h.onDrillStart).toHaveBeenCalledTimes(1);
+      expect(h.onTick).not.toHaveBeenCalled();
+      expect(h.onCountdown).not.toHaveBeenCalled();
+      expect(h.onDrillEnd).not.toHaveBeenCalled();
+    });
+
+    it("still cheers while a drill runs", () => {
+      const h = handlers();
+      const s = new SessionScheduler(menu, h, { untimed: true, encourageEveryMs: 1000, jitterMs: 0 });
+      s.start();
+      pump(s, 3000);
+      expect(h.onEncourage).toHaveBeenCalledTimes(3);
+    });
+
+    it("next() finishes the drill (it counts) and moves on; the last one ends the session", () => {
+      const h = handlers();
+      const s = new SessionScheduler(menu, h, { untimed: true });
+      s.start();
+      s.next();
+      expect(h.onDrillEnd).toHaveBeenCalledWith(menu[0], true);
+      expect(h.onDrillStart).toHaveBeenLastCalledWith(menu[1], 1, 2);
+      s.next();
+      expect(h.onSessionEnd).toHaveBeenCalledTimes(1);
+      s.next();
+      expect(h.onDrillEnd).toHaveBeenCalledTimes(2);
+    });
+  });
 });

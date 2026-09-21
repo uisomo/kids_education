@@ -372,7 +372,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       deps.onChange(menu.filter((_, j) => j !== i));
     });
 
-    row.append(drag, ...(kind ? [kind] : []), name, secs);
+    // The piano app has no drill times (a drill ends on 次へ), so no seconds box.
+    row.append(drag, ...(kind ? [kind] : []), name, ...(IS_PIANO ? [] : [secs]));
 
     // 💡 工夫: the child's ideas for this 種目, in a centred card. Never
     // disabled — a full 種目 still opens so a 工夫 can be erased.
@@ -435,10 +436,14 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   // the video gets too big to save and share.
   function updateTotal(): void {
     const secs = totalSeconds(menu);
-    const over = secs > MAX_RECORD_SECONDS;
+    // Piano: no times to add up — only the 種目 count, and no 10分 gate here
+    // (the recording itself stops at the limit).
+    const over = !IS_PIANO && secs > MAX_RECORD_SECONDS;
     const limit = `${MAX_RECORD_SECONDS / 60}分`;
     // Short: it now shares one line with the two switches on a 375 px phone.
-    total.textContent = `${menu.length}種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
+    total.textContent = IS_PIANO
+      ? `${menu.length}種目`
+      : `${menu.length}種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
     total.classList.toggle("is-over", over);
     start.disabled = menu.length === 0 || over;
     start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : `${COPY.practice} 開始 ▶`;
