@@ -36,5 +36,5 @@ appstore/
 【公開ページ（プライバシー・サポート）】
 - 空手：karate-trainer/public/privacy.html と support.html → https://karate-trainer.pages.dev/privacy ・ /support（Cloudflare Pages karate-trainer）
 - ピアノ：karate-trainer/piano-site/privacy.html と support.html → https://alan-piano.pages.dev/privacy ・ /support（Cloudflare Pages alan-piano）
-  - 公開：npx wrangler pages deploy karate-trainer/piano-site --project-name=alan-piano --branch=main（初回は npx wrangler pages project create alan-piano --production-branch=main）。外部に出る操作なので、実行前にユーザーに確認する。
+  - 公開：npx wrangler pages deploy karate-trainer/piano-site --project-name=alan-piano --branch=main（初回だけ npx wrangler pages project create alan-piano --production-branch=main --force。新しい wrangler は --force なしだと Workers 側に回って失敗する。2026-09-22 公開ずみ）。外部に出る操作なので、実行前にユーザーに確認する。
 - アプリ内のリンクは karate-trainer/src/billing.ts の PRIVACY_URL（ピアノビルドのときだけピアノのURL）。
