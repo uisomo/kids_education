@@ -120,13 +120,10 @@ export function renderTrainingScreen(
   timerEl.textContent = "0";
   timerEl.hidden = untimed;
 
-  // The character pops up right beside the number, where the child is already
-  // looking; the row centres on the number alone.
-  const timerRow = document.createElement("div");
-  timerRow.className = "training-timer-row";
-  timerRow.append(timerEl, companionOverlay);
-
-  centerContent.append(drillEl, timerRow);
+  // The character pops up at a fixed spot at the right of the drill row. It
+  // is not laid out with the name: a long 種目 pushed it off the screen, and
+  // overlapping the name is fine.
+  centerContent.append(drillEl, timerEl, companionOverlay);
 
   // 🪝 hook: 読み上げよう hint + the word grid. Both live-only DOM — the
   // burn-in pass renders the words from the overlay event log, never these.

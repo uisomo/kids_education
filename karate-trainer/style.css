@@ -1247,23 +1247,28 @@ button {
 }
 
 /* Companion cheer overlay on Training Screen — a transparent character clip
-   that pops up right of the countdown on each cue, then fades away. Random
-   character each time (no partner selection). A 3+ digit count would push it
-   off-screen, so its left edge is capped to keep the clip on the phone. */
-.training-timer-row {
-  position: relative;
-}
-
+   that pops up on each cue, then fades away. Random character each time (no
+   partner selection). Its spot is fixed: the right edge of the screen, centred
+   on the drill-name row. It used to follow the countdown, so a long 種目 name
+   pushed it off the phone; it may overlap the name instead. */
 .companion-training-overlay {
   position: absolute;
-  top: 50%;
-  margin-top: -48px;        /* half the clip, so it centres on the number */
-  left: min(100%, calc(50vw + 50% - 0.5rem - 96px));
+  /* .training-center (transformed, full width) is the containing block. The
+     drill-name pill is ~1.8rem x 1.2 line + 1rem padding + 4px border tall. */
+  top: calc(1.58rem + 2px - 48px);  /* centre the 96px clip on that row */
+  right: 0.5rem;
   z-index: 15;
   pointer-events: none;
   opacity: 0;
   transform: translateY(12px) scale(0.9);
   transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* With a countdown (karate) the number owns the right edge, so the character
+   stands just left of it — over the name, never over the number. Sized for a
+   3-digit count (~5.4rem wide). */
+[data-timer]:not([hidden]) ~ .companion-training-overlay {
+  right: calc(1rem + 5.4rem + 0.4rem);
 }
 
 .companion-training-overlay.cheering {
