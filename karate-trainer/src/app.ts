@@ -99,6 +99,10 @@ export interface WakeGuardLike {
   release(): Promise<void>;
 }
 
+// The loop that advances the practice: it hands the scheduler the elapsed
+// milliseconds, over and over, until stop(). Named after requestAnimationFrame,
+// which is what it used to be — main.ts drives it off a timer now, because rAF
+// stopped being delivered mid-practice on the phone and froze the countdown.
 export interface RafLoop {
   start(cb: (deltaMs: number) => void): void;
   stop(): void;
