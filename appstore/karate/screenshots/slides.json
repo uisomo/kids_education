@@ -1,0 +1,14 @@
+{
+  "out": ".",
+  "sizes": [[1320, 2868], [1284, 2778]],
+  "folders": ["6.9inch", "6.5inch"],
+  "theme": { "top": "#1B1E52", "bottom": "#46206A", "title": "#FFD23F", "sub": "#FFFFFF", "chip": "#FFD23F", "chipText": "#1B1E52" },
+  "slides": [
+    { "file": "01.png", "src": "source/rec-boy.png",   "title": ["撮るだけで、", "自分から稽古する子に"], "sub": "空手の自主練を、録画でまるごと応援" },
+    { "file": "02.png", "src": "source/rec-girl.png",  "title": ["ネコのなかまが", "ずっと応援してくれる"], "sub": "ひとりの自主練も、声かけで楽しく続く" },
+    { "file": "03.png", "src": "source/strength.png",  "title": ["種目ごとにレベルアップ", "帯が上がる！"], "sub": "がんばりが虹色のメーターで見える" },
+    { "file": "04.png", "src": "source/menu.png",      "title": ["毎日の稽古が", "習慣になる"], "sub": "連続記録＋はじめての人向け「基本」メニュー" },
+    { "file": "05.png", "src": "source/rec-frame.png", "title": ["がんばった動画を", "かわいく残す"], "sub": "フレーム付きで保存。家族みんなで使える" },
+    { "file": "06.png", "src": "source/gate.png",      "title": ["広告なし。", "親も子も安心"], "sub": "おうちの人の設定は保護者ゲートの先に", "chips": ["広告なし", "登録不要", "動画は端末の中だけ"] }
+  ]
+}
