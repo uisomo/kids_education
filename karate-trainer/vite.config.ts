@@ -33,5 +33,6 @@ export default defineConfig(({ mode }) => ({
   // strictPort so a stale instance can't silently move ports (Talk Quest convention).
   server: { port: 5273, strictPort: true, host: true }, // host:true → reachable from iPhone on LAN
   build: { outDir: "dist", emptyOutDir: true },
-  plugins: mode === "piano" ? [overlayPublic(resolve(__dirname, "public-piano"))] : [],
+  // "piano" and "piano-test" — both are the piano app, so both get its art.
+  plugins: mode.startsWith("piano") ? [overlayPublic(resolve(__dirname, "public-piano"))] : [],
 }));

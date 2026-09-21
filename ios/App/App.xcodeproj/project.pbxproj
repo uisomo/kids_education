@@ -205,7 +205,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# The test app (VITE_TEST_MODE), the piano app (VITE_APP_FLAVOR=piano) and the\n# App Store karate app must never swap web bundles. Every build copies the web\n# app into App/public, so check which one is there.\nassets=\"${SRCROOT}/App/public/assets\"\nif grep -rqs ALAN_PIANO_BUILD \"$assets\"; then have=com.alan.piano\nelif grep -rqs KARATE_TEST_BUILD \"$assets\"; then have=com.alan.karate.test\nelse have=com.alan.karate; fi\ncase \"${PRODUCT_BUNDLE_IDENTIFIER}\" in\n  com.alan.piano) sync=\"npm run cap:sync:piano\" ;;\n  com.alan.karate.test) sync=\"npm run cap:sync:test\" ;;\n  *) sync=\"npm run cap:sync\" ;;\nesac\nif [ \"${PRODUCT_BUNDLE_IDENTIFIER}\" != \"$have\" ]; then\n  echo \"error: App/public is the web build for $have. Run $sync before building ${PRODUCT_BUNDLE_IDENTIFIER}.\"\n  exit 1\nfi\n";
+			shellScript = "# The test apps (VITE_TEST_MODE), the piano app (VITE_APP_FLAVOR=piano) and the\n# App Store karate app must never swap web bundles. Every build copies the web\n# app into App/public, so check which one is there. A piano test bundle carries\n# BOTH markers, so check that pair first.\nassets=\"${SRCROOT}/App/public/assets\"\nis_piano=no\nis_test=no\nif grep -rqs ALAN_PIANO_BUILD \"$assets\"; then is_piano=yes; fi\nif grep -rqs KARATE_TEST_BUILD \"$assets\"; then is_test=yes; fi\nif [ \"$is_piano\" = yes ] && [ \"$is_test\" = yes ]; then have=com.alan.piano.test\nelif [ \"$is_piano\" = yes ]; then have=com.alan.piano\nelif [ \"$is_test\" = yes ]; then have=com.alan.karate.test\nelse have=com.alan.karate; fi\ncase \"${PRODUCT_BUNDLE_IDENTIFIER}\" in\n  com.alan.piano.test) sync=\"npm run cap:sync:piano:test\" ;;\n  com.alan.piano) sync=\"npm run cap:sync:piano\" ;;\n  com.alan.karate.test) sync=\"npm run cap:sync:test\" ;;\n  *) sync=\"npm run cap:sync\" ;;\nesac\nif [ \"${PRODUCT_BUNDLE_IDENTIFIER}\" != \"$have\" ]; then\n  echo \"error: App/public is the web build for $have. Run $sync before building ${PRODUCT_BUNDLE_IDENTIFIER}.\"\n  exit 1\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -422,6 +422,64 @@
 			};
 			name = Test;
 		};
+		7E1A2B3C4D5E6F7081920330 /* PianoTest */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = PianoTest;
+		};
 		504EC3151FED79650016851F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -599,6 +657,31 @@
 			};
 			name = Test;
 		};
+		7E1A2B3C4D5E6F7081920331 /* PianoTest */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
+			buildSettings = {
+				APP_DISPLAY_NAME = "ピアノtest";
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Piano";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 5PBG36CV85;
+				INFOPLIST_FILE = App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
+				PRODUCT_BUNDLE_IDENTIFIER = com.alan.piano.test;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = PianoTest;
+		};
 		504EC3181FED79650016851F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -656,6 +739,7 @@
 				7E1A2B3C4D5E6F7081920310 /* Test */,
 				7E1A2B3C4D5E6F7081920320 /* PianoDebug */,
 				7E1A2B3C4D5E6F7081920321 /* PianoRelease */,
+				7E1A2B3C4D5E6F7081920330 /* PianoTest */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -668,6 +752,7 @@
 				7E1A2B3C4D5E6F7081920311 /* Test */,
 				7E1A2B3C4D5E6F7081920322 /* PianoDebug */,
 				7E1A2B3C4D5E6F7081920323 /* PianoRelease */,
+				7E1A2B3C4D5E6F7081920331 /* PianoTest */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
