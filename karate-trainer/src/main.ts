@@ -12,6 +12,7 @@ import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
 import { makeRevenueCatBilling } from "./revenuecat-billing";
 import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
+import { makeTickLoop } from "./tick-loop";
 
 // iOS App Store build. The native recorder captures with AVFoundation and
 // burns the overlay itself, so neither MediaRecorder nor the ffmpeg.wasm pass
@@ -117,20 +118,7 @@ function makeBgm(): BgmPlayer {
   };
 }
 
-const rafLoop = (() => {
-  let raf = 0, last = 0;
-  return {
-    start(cb: (d: number) => void) {
-      last = performance.now();
-      // Capped: after the app was in the background rAF resumes with a delta of
-      // seconds or minutes, which would jump the drill timer. The session
-      // pauses itself when hidden, so dropping that time is correct.
-      const step = (t: number) => { cb(Math.min(250, Math.max(0, t - last))); last = t; raf = requestAnimationFrame(step); };
-      raf = requestAnimationFrame(step);
-    },
-    stop() { cancelAnimationFrame(raf); },
-  };
-})();
+const tickLoop = makeTickLoop();
 
 await store.init();
 
@@ -184,7 +172,7 @@ const app = new KarateApp(root, {
   // branch, so the keep-awake plugin never ran on device and the screen could
   // still sleep mid-practice.
   wakeGuard: makeWakeGuard({ isNative: () => isNative }),
-  rafLoop,
+  rafLoop: tickLoop,
   shareRecording,
   bgm: isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),
   playEffect: isNative
