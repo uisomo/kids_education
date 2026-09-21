@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>サポート — アランのピアノ</title>
+<meta name="description" content="アランのピアノ (Alan's Piano) の使い方とよくある質問 / Support" />
+<style>
+  :root {
+    --ink: #24203a;
+    --ink-dim: #5d5878;
+    --line: #e4e0ef;
+    --accent: #c47b00;
+    --bg: #fdfbf7;
+    --card: #ffffff;
+    --shot-bg: #1b1830;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2.5rem 1rem 4rem;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.85;
+    font-size: 16px;
+  }
+  main {
+    max-width: 44rem;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 2rem 1.5rem;
+  }
+  h1 { font-size: 1.5rem; line-height: 1.5; margin: 0 0 0.25rem; }
+  .updated { color: var(--ink-dim); font-size: 0.9rem; margin: 0 0 1.5rem; }
+  h2 {
+    font-size: 1.15rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--line);
+  }
+  nav ol { margin: 0; padding-left: 1.4rem; }
+  nav li { margin: 0.15rem 0; }
+  details {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin: 0.75rem 0;
+    padding: 0 1.1rem;
+  }
+  details[open] { padding-bottom: 1.1rem; }
+  summary {
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0.85rem 0;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "Q. "; color: var(--accent); }
+  summary::after { content: "＋"; float: right; color: var(--ink-dim); }
+  details[open] summary::after { content: "－"; }
+  figure { margin: 1rem 0; }
+  figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    background: var(--shot-bg);
+  }
+  figure.narrow img { max-width: 22rem; margin: 0 auto; }
+  figcaption { color: var(--ink-dim); font-size: 0.85rem; margin-top: 0.4rem; text-align: center; }
+  ol.steps { padding-left: 1.4rem; margin: 0.5rem 0; }
+  ol.steps li { margin: 0.2rem 0; }
+  .icons { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.95rem; }
+  .icons td { padding: 0.35rem 0.4rem; border-top: 1px solid var(--line); vertical-align: top; }
+  .icons td:first-child { white-space: nowrap; font-weight: 700; width: 4.5rem; text-align: center; }
+  .note { color: var(--ink-dim); font-size: 0.9rem; }
+  .contact {
+    background: #fff7e6;
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+  }
+  a { color: #0a63c2; }
+  footer {
+    max-width: 44rem;
+    margin: 1.5rem auto 0;
+    color: var(--ink-dim);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+  @media (min-width: 40rem) {
+    main { padding: 2.5rem 3rem; }
+    h1 { font-size: 1.75rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>サポート / Support<br />アランのピアノ (Alan's Piano)</h1>
+  <p class="updated">最終更新 / Last updated: 2026-09-21</p>
+
+  <p>使い方でわからないことがあれば、下の質問をタップしてください。解決しないときは
+    <a href="#contact">お問い合わせ</a>からご連絡ください。</p>
+
+  <h2>練習メニュー</h2>
+
+  <details open>
+    <summary>曲や練習（種目）を追加するには？</summary>
+    <ol class="steps">
+      <li>下の <strong>特訓</strong> タブを開き、いちばん下までスクロールします。</li>
+      <li><strong>「＋ 種目をふやす」</strong> を押します。</li>
+      <li>増えた「新しい種目」の名前をタップして、曲名やフレーズ（例：ドレミの音階）を入力します。</li>
+    </ol>
+    <p class="note">アランのピアノには時間の設定がありません。練習中に「次へ ▶」を押して、種目を進めます。</p>
+  </details>
+
+  <details>
+    <summary>種目の順番を変えたり、削除するには？</summary>
+    <table class="icons">
+      <tr><td>≡</td><td>押したまま上下にうごかすと、順番を入れかえられます。</td></tr>
+      <tr><td>名前</td><td>タップして、曲名やフレーズを書きかえます。</td></tr>
+      <tr><td>💡</td><td>その種目の工夫を書きます（下の「工夫」を見てください）。</td></tr>
+      <tr><td>✕</td><td>その行を削除します（確認が出ます）。</td></tr>
+    </table>
+  </details>
+
+  <details>
+    <summary>作ったメニューを保存するには？</summary>
+    <ol class="steps">
+      <li>特訓タブの上にある、メニューのプルダウンの右のボタンを押します。</li>
+      <li>ボタンは状態によって <strong>「作る」</strong>（新しいメニュー）、<strong>「保存」</strong>（「基本」をコピー）、<strong>「上書き保存」</strong>（保存ずみのメニューを更新）になります。</li>
+      <li>名前をつけると、次からプルダウンでえらべます。</li>
+    </ol>
+    <p class="note">はじめから入っている「基本」は上書きできません。変えたいときは「保存」で自分のメニューとして残してください。保存できるメニューの数はプランによってちがいます。</p>
+  </details>
+
+  <h2>練習と録画</h2>
+
+  <details>
+    <summary>練習の進めかたは？</summary>
+    <ol class="steps">
+      <li>特訓タブで <strong>「練習 開始」</strong> を押します。</li>
+      <li>カメラに向かって、ピアノをひきます。画面にいまの種目が出ます。</li>
+      <li>その種目がおわったら <strong>「次へ ▶」</strong> を押します（最後は「おわり ✓」）。</li>
+      <li>おわったら、動画を見返して、気づいたことを工夫に書きます。</li>
+    </ol>
+    <p class="note">練習の録画は10分までです。10分になると、自動でおわります。</p>
+  </details>
+
+  <details>
+    <summary>音符が上がるしくみは？</summary>
+    <p>種目をおわりまで進めるたびに、その種目のレベルが 1 つ上がります（Lv.10 まで）。メニューのぜんぶの種目が Lv.10 になると、<strong>音符</strong>（しろの音符 → … → でんせつの音符）が 1 つ上がります。積み重ねタブで、種目ごとのレベルを虹色のメーターで見られます。</p>
+  </details>
+
+  <h2>工夫（くふう）</h2>
+
+  <details>
+    <summary>工夫を書くには？</summary>
+    <ol class="steps">
+      <li>特訓タブで、工夫を書きたい種目の <strong>💡</strong> を押します。</li>
+      <li>「つぎ どうする？」の欄に、次に気をつけることを書きます（15文字まで）。</li>
+      <li><strong>「ほぞん」</strong> を押します。書いた工夫はカードの上に並びます。</li>
+    </ol>
+    <p>工夫のある種目は 💡 が光ります。練習中はその種目の工夫が画面の下に出て、保存した動画にも入ります。</p>
+    <p class="note">書ける工夫の数はプランによってちがいます（フリー：1つ、プレミアム・ファミリー：1種目3つまで）。いっぱいのときは、古い工夫を「けす」と書けるようになります。</p>
+  </details>
+
+  <details>
+    <summary>練習のあとに工夫を書くことはできますか？</summary>
+    <p>できます。練習がおわった画面で、動画を見返したあとに <strong>「今後やるときの工夫を書いておこう！」</strong> の一覧から、種目の <strong>💡</strong>（まだないときは <strong>「💡 かく」</strong>）を押してください。</p>
+  </details>
+
+  <details>
+    <summary>工夫をけすには？</summary>
+    <p><strong>1つずつけす：</strong> 種目の 💡 を押して、けしたい工夫の <strong>「けす」</strong> を押します。</p>
+    <p><strong>ぜんぶけす：</strong> おうちの人が <strong>家族</strong> タブの「工夫をけす」から、メンバーごとにまとめてけせます。</p>
+  </details>
+
+  <h2>おうちの人むけ</h2>
+
+  <details>
+    <summary>家族タブを開くと計算問題が出ます</summary>
+    <p>家族タブ（メンバー・プラン・工夫の一括削除など）と動画の共有は、お子さまが一人で操作しないように保護者向けの確認をしています。かけ算の答えを入力して「OK」を押してください。</p>
+    <p class="note">3回まちがえると、30秒間は入力できなくなります。家族タブからはなれると、また確認が出ます。</p>
+  </details>
+
+  <details>
+    <summary>カメラやマイクが使えません</summary>
+    <p>「カメラかマイクを開始できませんでした」と出るときは、アクセスが許可されていません。</p>
+    <ol class="steps">
+      <li>iPhone の <strong>設定</strong> アプリを開きます。</li>
+      <li>下にスクロールして <strong>アランのピアノ</strong> を開きます。</li>
+      <li><strong>カメラ</strong> と <strong>マイク</strong> をオンにして、アプリを開きなおします。</li>
+    </ol>
+    <p class="note">録画した動画はこの iPhone の中だけに保存され、どこにもアップロードされません。</p>
+  </details>
+
+  <details>
+    <summary>購入したプランが反映されません（購入の復元）</summary>
+    <p>家族タブのプランの下にある <strong>「購入を復元」</strong> を押してください。機種変更やアプリの入れなおしのあとも、同じ Apple ID ならこれで元にもどります。</p>
+  </details>
+
+  <details>
+    <summary>サブスクリプションを解約するには？</summary>
+    <p>家族タブの <strong>「サブスクリプションを管理」</strong>、または iPhone の <strong>設定 → 自分の名前 → サブスクリプション</strong> から解約できます。</p>
+    <p class="note">現在の期間がおわる24時間前までに解約しないと、自動で更新されます。解約しても期間の最後までは使えます。返金は Apple が対応します（<a href="https://reportaproblem.apple.com/">reportaproblem.apple.com</a>）。</p>
+  </details>
+
+  <h2 id="contact">お問い合わせ / Contact</h2>
+  <div class="contact">
+    <p style="margin:0">ご質問・不具合のご連絡は、メールでお送りください。<br />
+      <a href="mailto:alan.omocha@gmail.com">alan.omocha@gmail.com</a></p>
+    <p class="note" style="margin:0.5rem 0 0">お使いの iPhone の機種・iOS のバージョン・起きたことをお書きいただくと、早くお答えできます。</p>
+  </div>
+  <p>For questions or bug reports in English, please email
+    <a href="mailto:alan.omocha@gmail.com">alan.omocha@gmail.com</a>.</p>
+  <p><a href="/privacy">プライバシーポリシー / Privacy Policy</a></p>
+</main>
+<footer>アランのピアノ / Alan's Piano</footer>
+</body>
+</html>
