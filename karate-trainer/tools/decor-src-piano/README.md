@@ -1,12 +1,13 @@
 # ピアノのかざりの元画像
 
-`public-piano/images/decor-*.png` の元です。空手版（`decor-src/`）と同じ作り方で、
-緑背景／白背景のまま置いてあります。作り直すときはリポジトリのルートから:
+`public-piano/images/decor-*.png`（わく・アラン・バナー）の元です。
+どれも背景が透明なので、大きさを変えるだけで使えます。リポジトリのルートから:
 
 ```
-swift karate-trainer/tools/make-decor.swift karate-trainer/tools/decor-src-piano/frame-green.png frame karate-trainer/public-piano/images/decor-frame.png 1080 1920
+sips -s format png -z 1920 1080 karate-trainer/tools/decor-src-piano/frame-alpha.png  --out karate-trainer/public-piano/images/decor-frame.png
+sips -s format png -z  460  460 karate-trainer/tools/decor-src-piano/icon-alpha.png   --out karate-trainer/public-piano/images/decor-icon.png
+sips -s format png -z  405 1080 karate-trainer/tools/decor-src-piano/banner-alpha.png --out karate-trainer/public-piano/images/decor-banner.png
 ```
 
-ここに無いかざり（アラン・バナー）は空手版をそのまま使っています。
-ピアノ版を作ったら、同じ名前・同じ大きさで `public-piano/images/` に置き、
-`tools/make-piano-placeholders.swift` の `shared` からその行を消してください。
+背景が白や緑のままの素材を使うときだけ、`tools/make-decor.swift` で先に切り抜きます
+（使い方は `tools/decor-src/README.md`）。

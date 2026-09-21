@@ -28,13 +28,12 @@ func isPlaceholder(_ rel: String) -> Bool {
 
 /// Paths the piano app deliberately takes from the karate art: nothing is
 /// written to public-piano/, so vite.config.ts falls through to public/.
-/// 2026-09-20: the user chose this for the three characters and for アラン and
-/// バナー. わく is NOT here — the piano app has its own (tools/decor-src-piano).
+/// 2026-09-20: the user chose this for the three characters. わく・アラン・バナー
+/// are NOT here — the piano app has its own since 2026-09-21 (tools/decor-src-piano).
 let shared: Set<String> = [
     "characters/alan.jpg", "characters/alan_cheer.jpg",
     "characters/leo.jpg", "characters/leo_cheer.jpg",
     "characters/izzy.jpg", "characters/izzy_cheer.jpg",
-    "images/decor-icon.png", "images/decor-banner.png",
 ]
 
 for f in ["MPLUSRounded1c-ExtraBold.ttf"] {
