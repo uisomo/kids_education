@@ -72,6 +72,9 @@ export interface TestToolsView {
   menus: { id: string; name: string; drills: { name: string; level: number }[] }[];
   onSetLevel(presetId: string, drill: string, level: number): void;
   onSetAllLevels(presetId: string, level: number): void;
+  // ★ Show Apple's rating sheet now — the real app only asks by itself from
+  // the second day on, which is hard to sit and wait for.
+  onAskReview?(): void;
 }
 
 export interface BillingView {
@@ -381,6 +384,20 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
   streakRow.append(streakInput, suffix, streakSet);
 
   box.append(heading, streakLabel, streakRow);
+
+  // ★ レビュー: iOS decides whether the sheet really appears, so it may do
+  // nothing at all — that is the system, not the button.
+  if (tools.onAskReview) {
+    const reviewRow = document.createElement("div");
+    reviewRow.className = "family-test-row";
+    const reviewBtn = testButton("★ レビュー画面を出す", () => tools.onAskReview!());
+    reviewBtn.dataset.testAskReview = "";
+    const note = document.createElement("span");
+    note.className = "family-plan-note";
+    note.textContent = "出ないこともあります（iOSが決めます）";
+    reviewRow.append(reviewBtn, note);
+    box.append(reviewRow);
+  }
 
   // 種目のレベル, per menu
   tools.menus.forEach((menu) => {

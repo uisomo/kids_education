@@ -93,8 +93,12 @@ export interface SetupDeps {
   // the saved video opens with them. Raw textarea text (spaces / newlines).
   hookOn?: boolean;
   hookText?: string;
+  // 「じどうでえらぶ」: the words come from HOOK_PRESETS, a different one each
+  // practice, and hookText is left alone.
+  hookAuto?: boolean;
   onToggleHook?(): void;
   onEditHookText?(text: string): void;
+  onToggleHookAuto?(auto: boolean): void;
   // The popup closed. Typing never re-renders (that would break the IME), so
   // the caller re-renders here — otherwise reopening it shows stale words.
   onHookEditorClosed?(): void;
@@ -494,7 +498,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       if (!deps.hookOn) deps.onToggleHook!();
       openHookModal(root, {
         text: deps.hookText ?? "",
+        auto: deps.hookAuto === true,
         onEditText: (text) => deps.onEditHookText?.(text),
+        onToggleAuto: (auto) => deps.onToggleHookAuto?.(auto),
         onTurnOff: () => deps.onToggleHook?.(),
         // Re-render with what was just typed, so the next tap shows it back.
         onClose: () => deps.onHookEditorClosed?.(),

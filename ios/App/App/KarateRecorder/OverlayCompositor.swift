@@ -88,6 +88,10 @@ enum OverlayCompositor {
         var intro = ""
         /// 🪝 read-aloud hook: the words revealed so far, in their typed lines.
         var texts: [[String]] = []
+        /// Which hookPalettes entry those words are painted in, and whether the
+        /// colour changes per line or per character.
+        var textPalette = 0
+        var textColorMode = "line"
         /// Menu position of the drill now running; -1 before the first drill.
         var drillIndex = -1
 
@@ -212,6 +216,8 @@ enum OverlayCompositor {
             if let v = event.patch["caption"] as? String { state.caption = v }
             if let v = event.patch["intro"] as? String { state.intro = v }
             if let v = event.patch["texts"] as? [[String]] { state.texts = v }
+            if let v = event.patch["textPalette"] as? NSNumber { state.textPalette = v.intValue }
+            if let v = event.patch["textColorMode"] as? String { state.textColorMode = v }
             if let v = event.patch["drillIndex"] as? NSNumber { state.drillIndex = v.intValue }
             let start = event.t
             let end = i + 1 < events.count ? events[i + 1].t : totalDurationMs
@@ -403,9 +409,12 @@ enum OverlayCompositor {
         return layer
     }
 
-    /// 「🔥 N日間 毎日継続中」 pinned top-left for the whole video. Small enough to
-    /// sit above the drill-name pill (whose top is at ~52 in design space).
-    private static func streakLayer(text: String, renderSize: CGSize, topInset: CGFloat = 0) -> CALayer {
+    /// 「🔥 N日間 毎日継続中」 top-left and 「📅 2026年9月23日(火)」 top-right,
+    /// for the whole video. Small enough to sit above the drill-name pill
+    /// (whose top is at ~52 in design space).
+    private static func streakLayer(
+        text: String, renderSize: CGSize, topInset: CGFloat = 0, alignRight: Bool = false
+    ) -> CALayer {
         let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
         let fontSize = 22 * scale
         let font = playfulFont(fontSize)
@@ -430,7 +439,8 @@ enum OverlayCompositor {
         }
 
         // Core Animation's origin is bottom-left; design coordinates are from the top.
-        let left = 24 * renderSize.width / designWidth
+        let margin = 24 * renderSize.width / designWidth
+        let left = alignRight ? renderSize.width - margin - w : margin
         let top = (12 + topInset) * renderSize.height / designHeight
         let layer = CALayer()
         layer.frame = CGRect(x: left, y: renderSize.height - top - h, width: w, height: h)
@@ -885,6 +895,21 @@ enum OverlayCompositor {
         return out
     }
 
+    /// 🪝 The hook's colours, one entry per practice so two videos in a row
+    /// never make the same thumbnail. ⚠️ Mirrors HOOK_PALETTES in
+    /// karate-trainer/src/hook-style.ts — the burned video has to match what
+    /// the child saw on screen, so the two lists are edited together.
+    private static let hookPalettes: [(fills: [UIColor], drop: UIColor)] = [
+        ([rgb(0xffffff), rgb(0xffe14d), rgb(0xffffff)], rgb(0xe5243b)),
+        ([rgb(0xffe14d), rgb(0xff8f1f), rgb(0xffffff)], rgb(0x7a2a00)),
+        ([rgb(0x7ef9ff), rgb(0xffffff), rgb(0x4de1ff)], rgb(0x0b3d91)),
+        ([rgb(0xc8ff2e), rgb(0xffffff), rgb(0xc8ff2e)], rgb(0x1b6b2a)),
+        ([rgb(0xff5fa2), rgb(0xffffff), rgb(0xffd6e8)], rgb(0x7a0f3d)),
+        ([rgb(0xffffff), rgb(0xff4757), rgb(0xffd166)], rgb(0x1b1b1b)),
+        ([rgb(0xb9ffd8), rgb(0xffffff), rgb(0x35e08b)], rgb(0x0f5132)),
+        ([rgb(0xd6a6ff), rgb(0xffffff), rgb(0xb388ff)], rgb(0x3b0d6b)),
+    ]
+
     /// 🪝 The read-aloud hook at the start of the video, drawn like
     /// 言えるようになるアプリ's opening: each line huge and white with a thick
     /// black outline and a solid red drop, a little tilted, landing with a
@@ -900,6 +925,12 @@ enum OverlayCompositor {
 
         let rowY0: CGFloat = 250, rowH: CGFloat = 185
         let tilts: [CGFloat] = [-0.07, 0.05, -0.035]
+        // The practice picked one palette for the whole hook, logged with the
+        // first line it revealed.
+        let painted = segments.first { !$0.state.texts.isEmpty }?.state
+        let palette = hookPalettes[((painted?.textPalette ?? 0) % hookPalettes.count + hookPalettes.count)
+            % hookPalettes.count]
+        let perChar = (painted?.textColorMode ?? "line") == "char"
         var out: [CALayer] = []
         for (row, words) in grid.enumerated() {
             let text = words.joined(separator: " ")
@@ -916,7 +947,8 @@ enum OverlayCompositor {
 
             // The tilt lives on a holder so the zoom (a transform.scale
             // animation, which replaces the whole transform) can't undo it.
-            let line = hookLineLayer(text: text, renderSize: renderSize)
+            let line = hookLineLayer(text: text, renderSize: renderSize, row: row,
+                                     fills: palette.fills, drop: palette.drop, perChar: perChar)
             let holder = CALayer()
             holder.bounds = line.bounds
             line.position = CGPoint(x: line.bounds.midX, y: line.bounds.midY)
@@ -943,7 +975,12 @@ enum OverlayCompositor {
     }
 
     /// One hook line as an image: 130 design px, shrunk to fit 640 px wide.
-    private static func hookLineLayer(text: String, renderSize: CGSize) -> CALayer {
+    /// `fills` is the practice's palette — one colour per line, or (perChar)
+    /// cycled through the characters of this one.
+    private static func hookLineLayer(
+        text: String, renderSize: CGSize, row: Int,
+        fills: [UIColor], drop dropColor: UIColor, perChar: Bool
+    ) -> CALayer {
         let scale = min(renderSize.width / designWidth, renderSize.height / designHeight)
         var fontSize = 130 * scale
         let maxW = 640 * scale
@@ -952,17 +989,27 @@ enum OverlayCompositor {
         let font = playfulFont(fontSize)
 
         let outlineW = fontSize * 0.1          // outline showing outside the glyph
-        let drop = fontSize * 0.1              // red drop offset
-        let red = UIColor(red: 0xe5 / 255, green: 0x24 / 255, blue: 0x3b / 255, alpha: 1)
+        let drop = fontSize * 0.1              // coloured drop offset
         let ink = UIColor(white: 0x11 / 255, alpha: 1)
         // NSAttributedString stroke widths are a percentage of the font size.
         let strokePct = outlineW / fontSize * 100 * 2
-        func attr(_ fill: UIColor, stroke: UIColor?) -> NSAttributedString {
-            var a: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: fill]
-            if let stroke { a[.strokeColor] = stroke; a[.strokeWidth] = strokePct }
-            return NSAttributedString(string: text, attributes: a)
+        let characters = Array(text)
+        // Same run for every pass, so the drop, the outline and the fill land
+        // on exactly the same glyphs — only their colours differ.
+        func attr(_ fill: (Int) -> UIColor, stroke: UIColor?) -> NSAttributedString {
+            let out = NSMutableAttributedString()
+            for (i, character) in characters.enumerated() {
+                var a: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: fill(i)]
+                if let stroke { a[.strokeColor] = stroke; a[.strokeWidth] = strokePct }
+                out.append(NSAttributedString(string: String(character), attributes: a))
+            }
+            return out
         }
-        let size = attr(.white, stroke: nil).size()
+        func lineFill(_ index: Int) -> UIColor {
+            guard !fills.isEmpty else { return .white }
+            return perChar ? fills[(index + row) % fills.count] : fills[row % fills.count]
+        }
+        let size = attr({ _ in .white }, stroke: nil).size()
         let pad = ceil(outlineW + drop + fontSize * 0.05)
         let imageSize = CGSize(width: ceil(size.width + pad * 2), height: ceil(size.height + pad * 2))
 
@@ -972,12 +1019,12 @@ enum OverlayCompositor {
         let image = UIGraphicsImageRenderer(size: imageSize, format: format).image { _ in
             let origin = CGPoint(x: pad, y: pad)
             let dropOrigin = CGPoint(x: pad + drop, y: pad + drop)
-            // Red drop (outlined in red too, so it is as fat as the outline).
-            attr(red, stroke: red).draw(at: dropOrigin)
-            attr(red, stroke: nil).draw(at: dropOrigin)
-            // Black outline under the white fill, so the outline doesn't eat it.
-            attr(ink, stroke: ink).draw(at: origin)
-            attr(.white, stroke: nil).draw(at: origin)
+            // The drop (outlined in its own colour too, so it is as fat as the outline).
+            attr({ _ in dropColor }, stroke: dropColor).draw(at: dropOrigin)
+            attr({ _ in dropColor }, stroke: nil).draw(at: dropOrigin)
+            // Black outline under the fill, so the outline doesn't eat it.
+            attr({ _ in ink }, stroke: ink).draw(at: origin)
+            attr(lineFill, stroke: nil).draw(at: origin)
         }
         let layer = CALayer()
         layer.bounds = CGRect(origin: .zero, size: imageSize)
@@ -990,7 +1037,7 @@ enum OverlayCompositor {
     static func overlayLayer(
         segments: [Segment], totalDurationMs: Double, renderSize: CGSize,
         menu: [MenuItem] = [], beltLabel: String? = nil, menuName: String? = nil,
-        streakLabel: String? = nil, decor: Decor = .none
+        streakLabel: String? = nil, dateLabel: String? = nil, decor: Decor = .none
     ) -> CALayer {
         let container = CALayer()
         container.frame = CGRect(origin: .zero, size: renderSize)
@@ -1089,6 +1136,13 @@ enum OverlayCompositor {
 
         if let streakLabel, !streakLabel.isEmpty {
             container.addSublayer(streakLayer(text: streakLabel, renderSize: renderSize, topInset: box.topInset))
+        }
+        // 📅 The day of the practice, opposite the streak: months later the
+        // camera roll is the only place these videos live, and one practice
+        // looks exactly like the next without it.
+        if let dateLabel, !dateLabel.isEmpty {
+            container.addSublayer(streakLayer(text: dateLabel, renderSize: renderSize,
+                                              topInset: box.topInset, alignRight: true))
         }
 
         return container
@@ -1219,6 +1273,7 @@ enum OverlayCompositor {
         sounds: [Sound] = [],
         voice: VoiceTrack? = nil,
         streakLabel: String? = nil,
+        dateLabel: String? = nil,
         beltLabel: String? = nil,
         menuName: String? = nil,
         decor: Decor = .none,
@@ -1259,7 +1314,7 @@ enum OverlayCompositor {
         parentLayer.addSublayer(
             overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size,
                          menu: menu, beltLabel: beltLabel, menuName: menuName,
-                         streakLabel: streakLabel, decor: decor)
+                         streakLabel: streakLabel, dateLabel: dateLabel, decor: decor)
         )
         composition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer, in: parentLayer

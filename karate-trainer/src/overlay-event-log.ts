@@ -14,6 +14,11 @@ export interface CompositorState {
   // Empty/absent hides it. The live-only 読み上げよう hint is deliberately NOT
   // part of this state, so it is never burned into the recording.
   texts?: string[][];
+  // 🪝 which HOOK_PALETTES entry those words are painted in, and whether the
+  // colour changes per line or per character (hook-style.ts). The native
+  // burn-in reads both; the web burn-in ignores them.
+  textPalette?: number;
+  textColorMode?: "line" | "char";
 }
 
 // A sound the phone played during the session. With echo-cancelled input the

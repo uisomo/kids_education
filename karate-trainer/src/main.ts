@@ -6,7 +6,7 @@ import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording } from "./platform";
 import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
-import { NativeVideoRecorder, nativeSaveTracker, openAppSettings } from "./native-recorder";
+import { NativeVideoRecorder, nativeSaveTracker, openAppSettings, requestAppReview } from "./native-recorder";
 import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
 import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
@@ -14,6 +14,7 @@ import { makeRevenueCatBilling } from "./revenuecat-billing";
 import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
 import { makeTickLoop } from "./tick-loop";
 import { COPY, IS_PIANO, PIANO_BUILD_MARKER } from "./flavor";
+import { shouldAskReview, markReviewAsked } from "./review-store";
 
 // iOS App Store build. The native recorder captures with AVFoundation and
 // burns the overlay itself, so neither MediaRecorder nor the ffmpeg.wasm pass
@@ -164,6 +165,7 @@ const app = new KarateApp(root, {
   billing: isNative && !TEST_MODE ? makeRevenueCatBilling(import.meta.env.VITE_REVENUECAT_API_KEY ?? "") : undefined,
   testTools: TEST_MODE,
   openSettings: isNative ? () => { void openAppSettings(); } : undefined,
+  requestReview: isNative ? () => { void requestAppReview(); } : undefined,
   exportFile: isNative ? exportFile : undefined,
   voiceStore: store,
   audioSink: new BrowserAudioSink(),
@@ -195,3 +197,16 @@ const app = new KarateApp(root, {
         burnOverlay(rawVideoBlob, events, totalDurationMs, ext, {}, onError),
 });
 await app.start();
+
+// ★ From the second day on, once: Apple's rating sheet, which is five stars
+// and a tap — no writing. Delayed so it lands on a screen that is already up
+// and not over the loading screen. The test app never asks.
+if (isNative && !TEST_MODE) {
+  const reviewStorage = storage ?? localStorage;
+  if (shouldAskReview(reviewStorage)) {
+    setTimeout(() => {
+      markReviewAsked(reviewStorage);
+      void requestAppReview();
+    }, 3000);
+  }
+}

@@ -16,6 +16,8 @@ export interface Copy {
   appName: string;
   practice: string;      // 稽古 / 練習 — the session itself
   belt: string;          // 帯 / 音符 — the level ladder
+  skill: string;         // 技 / 曲 — one thing practised, as the 🪝 presets say it
+  artName: string;       // 空手 / ピアノ — the art itself, without アランの
   drillIcon: string;     // the 特訓 tab and a drill row's kind button
   againIcon: string;     // done screen 「もう一度」
   listTitle: string;     // heading of the video's menu panel when the menu has no name
@@ -26,6 +28,8 @@ export const COPY: Copy = IS_PIANO
       appName: "アランのピアノ",
       practice: "練習",
       belt: "音符",
+      skill: "曲",
+      artName: "ピアノ",
       drillIcon: "🎹",
       againIcon: "🎹",
       listTitle: "練習メニュー",
@@ -34,6 +38,8 @@ export const COPY: Copy = IS_PIANO
       appName: "アランの空手",
       practice: "稽古",
       belt: "帯",
+      skill: "技",
+      artName: "空手",
       drillIcon: "🥋",
       againIcon: "🥋",
       listTitle: "特訓一覧",

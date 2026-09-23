@@ -9,10 +9,15 @@
 // (hook-store) as they are typed, so nothing is lost if the card is dismissed.
 
 import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
+import { HOOK_PRESETS, nextPresetIndex } from "../hook-presets";
 
 export interface HookModalDeps {
   // Raw stored text: one line per row, newline separated.
   text: string;
+  // 「自動」: the words are drawn from HOOK_PRESETS at the start of every
+  // practice, so the three boxes are left alone (and shown disabled).
+  auto?: boolean;
+  onToggleAuto?(auto: boolean): void;
   // Called on every keystroke (already clamped to MAX_TEXT_CHARS per line).
   onEditText(text: string): void;
   // 「つかわない」: turn the hook off. The caller re-renders, which closes this.
@@ -23,6 +28,10 @@ export interface HookModalDeps {
 // Two sentences, kept on their own lines: WebKit otherwise breaks Japanese
 // anywhere and split 「なににする？」 across the wrap.
 const TITLE_LINES = ["さいしょに出てくる言葉だよ。", "なににする？"];
+
+const AUTO_LABEL = "🎲 じどうでえらぶ";
+const AUTO_NOTE = "毎回ちがう言葉が じどうで入ります";
+const CHANGE_LABEL = "🔁 チェンジ";
 
 // Renders the card into `host` and returns a close() that is safe to call more
 // than once. Opening a second card replaces the first.
@@ -50,6 +59,27 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   const lines: HTMLInputElement[] = [];
   const saved = (deps.text ?? "").split("\n");
   const save = () => deps.onEditText(lines.map((l) => l.value).join("\n").replace(/\n+$/, ""));
+
+  // 「じどうでえらぶ」: the three boxes keep whatever was typed, but the practice
+  // ignores them and draws a preset instead — so they are shown disabled
+  // rather than emptied.
+  let auto = deps.auto === true;
+
+  const autoRow = document.createElement("label");
+  autoRow.className = "hook-modal-auto";
+  const autoBox = document.createElement("input");
+  autoBox.type = "checkbox";
+  autoBox.dataset.hookAuto = "";
+  autoBox.checked = auto;
+  const autoText = document.createElement("span");
+  autoText.textContent = AUTO_LABEL;
+  autoRow.append(autoBox, autoText);
+
+  const autoNote = document.createElement("div");
+  autoNote.className = "hook-modal-auto-note";
+  autoNote.dataset.hookAutoNote = "";
+  autoNote.textContent = AUTO_NOTE;
+  autoNote.hidden = !auto;
 
   const rows = document.createElement("div");
   rows.className = "hook-modal-lines";
@@ -85,6 +115,39 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
     rows.append(row);
   }
 
+  // 「チェンジ」: drop one of the presets into the boxes to keep or edit. It
+  // never turns 「じどう」 on — the parent asked for exactly one of them at a
+  // time, so while 自動 is on this is off with the boxes.
+  const changeBtn = document.createElement("button");
+  changeBtn.type = "button";
+  changeBtn.className = "hook-modal-change";
+  changeBtn.dataset.hookChange = "";
+  changeBtn.textContent = CHANGE_LABEL;
+  let shown: number | null = HOOK_PRESETS.findIndex(
+    (preset) => preset.join("\n") === (deps.text ?? "").trim(),
+  );
+  if (shown < 0) shown = null;
+  changeBtn.addEventListener("click", () => {
+    if (auto) return;
+    shown = nextPresetIndex(shown);
+    const preset = HOOK_PRESETS[shown];
+    lines.forEach((line, i) => { line.value = clampChars(preset[i] ?? ""); });
+    save();
+  });
+
+  const applyAuto = (): void => {
+    lines.forEach((line) => { line.disabled = auto; });
+    changeBtn.disabled = auto;
+    rows.classList.toggle("is-auto", auto);
+    autoNote.hidden = !auto;
+  };
+  autoBox.addEventListener("change", () => {
+    auto = autoBox.checked;
+    applyAuto();
+    deps.onToggleAuto?.(auto);
+  });
+  applyAuto();
+
   const actions = document.createElement("div");
   actions.className = "kufu-card-actions hook-modal-actions";
 
@@ -101,7 +164,7 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   okBtn.textContent = "これでOK";
 
   actions.append(offBtn, okBtn);
-  card.append(title, rows, actions);
+  card.append(title, autoRow, autoNote, rows, changeBtn, actions);
   overlay.append(card);
   host.append(overlay);
 
@@ -138,6 +201,6 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   // close first so the observer has nothing to do.
   offBtn.addEventListener("click", () => { close(); deps.onTurnOff(); });
 
-  lines[0]?.focus();
+  if (!auto) lines[0]?.focus();
   return close;
 }

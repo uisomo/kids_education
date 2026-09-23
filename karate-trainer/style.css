@@ -1396,6 +1396,8 @@ button {
 /* YouTube-style hook words (same look as 言えるようになるアプリ): huge white
    letters, a thick black outline and a solid red drop, each line tilted. */
 .text-grid-word {
+  /* Overwritten per line by setTexts() from the practice's palette; the drop
+     colour rides along in --hook-drop (hook-style.ts). */
   color: #fff;
   font-size: min(14vw, 4.6rem);
   font-weight: 900;
@@ -1403,7 +1405,7 @@ button {
   white-space: nowrap;
   -webkit-text-stroke: 0.2em #111;
   paint-order: stroke fill;
-  text-shadow: 0.1em 0.1em 0 #e5243b;
+  text-shadow: 0.1em 0.1em 0 var(--hook-drop, #e5243b);
   /* Reserve the slot before the line lands so the grid never jumps. */
   visibility: hidden;
 }
@@ -2615,6 +2617,55 @@ input[data-label] {
 }
 
 .hook-modal-ok { min-height: 44px; }
+
+/* 🎲 じどう + 🔁 チェンジ: pick the words instead of typing them. */
+.hook-modal-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #fff;
+  min-height: 44px;
+}
+
+.hook-modal-auto input {
+  width: 1.4rem;
+  height: 1.4rem;
+  accent-color: #ffd166;
+}
+
+.hook-modal-auto-note {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-dim, #b0a8c8);
+  margin-top: -0.35rem;
+}
+
+.hook-modal-auto-note[hidden] { display: none; }
+
+/* While じどう is on the boxes still show what was typed, greyed: the words
+   are not lost, they are just not the ones the practice will use. */
+.hook-modal-lines.is-auto { opacity: 0.45; }
+
+.hook-modal-change {
+  align-self: center;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #1a162b;
+  background: linear-gradient(135deg, #ffd166 0%, #ff8811 100%);
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.4rem;
+  min-height: 44px;
+}
+
+.hook-modal-change:disabled {
+  opacity: 0.4;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
 
 /* --- 家族 jump nav: sticky chips to the sections of a very long page ---
    It is the first thing in the screen and pinned at top: 0, so it doubles as
