@@ -1,5 +1,6 @@
 import type { CharacterId } from "../character-store";
 import { openKufuModal } from "./kufu-modal";
+import { COPY } from "../flavor";
 
 export interface DoneKufuDrill {
   name: string;
@@ -98,7 +99,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   title.className = "done-title";
   const stopped = deps.beltResult?.completed === false;
   const missed = deps.beltResult?.missed;
-  title.textContent = stopped || missed ? "おつかれさま！" : "稽古完了！よく頑張ったね！";
+  title.textContent = stopped || missed ? "おつかれさま！" : `${COPY.practice}完了！よく頑張ったね！`;
   headText.append(title);
 
   const stars = document.createElement("div");
@@ -115,12 +116,12 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       : stopped
         ? "とちゅうで終了したので、レベルはふえないよ"
         : missed === "no-menu"
-          ? "メニューを保存すると、帯と積み重ねがたまるよ"
+          ? `メニューを保存すると、${COPY.belt}と積み重ねがたまるよ`
           : missed === "no-drills"
             ? "練習した種目がないので、レベルはふえないよ"
             : promotedTo
               ? `🎉 ${promotedTo}に昇級！`
-              : `帯のバー ${bars}/10`;
+              : `${COPY.belt}のバー ${bars}/10`;
     headText.append(beltLine);
   }
   header.append(trophyImg, headText, stars);
@@ -278,9 +279,9 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   const confirm = deps.confirm
     ?? ((m: string) => (typeof window !== "undefined" && typeof window.confirm === "function" ? window.confirm(m) !== false : true));
   const again = document.createElement("button");
-  again.dataset.again = ""; again.className = "btn-again"; again.textContent = "もう一度 🥋";
+  again.dataset.again = ""; again.className = "btn-again"; again.textContent = `もう一度 ${COPY.againIcon}`;
   again.addEventListener("click", () => {
-    if (!shareTapped && !confirm("動画はまだ保存していません。保存しないで もう一度 稽古しますか？")) return;
+    if (!shareTapped && !confirm(`動画はまだ保存していません。保存しないで もう一度 ${COPY.practice}しますか？`)) return;
     closeSheet?.();
     deps.onAgain();
   });

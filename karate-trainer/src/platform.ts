@@ -1,5 +1,6 @@
 import { WakeGuard } from "./wake-lock";
 import type { WakeGuardLike } from "./app";
+import { COPY } from "./flavor";
 
 export interface PlatformDeps {
   isNative?: () => boolean;
@@ -56,7 +57,7 @@ export async function shareRecording(
   // get the app killed.
   if (native && fileUri) {
     const { Share } = await import("@capacitor/share");
-    await Share.share({ title: "アランの空手", url: fileUri });
+    await Share.share({ title: COPY.appName, url: fileUri });
     return;
   }
 
@@ -72,7 +73,7 @@ export async function shareRecording(
       data,
       directory: Directory.Cache,
     });
-    await Share.share({ title: "アランの空手", url: written.uri });
+    await Share.share({ title: COPY.appName, url: written.uri });
     return;
   }
 

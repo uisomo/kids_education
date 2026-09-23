@@ -2,6 +2,8 @@
 // app appends after a tab screen so it survives the screen's root.textContent
 // reset. Hidden during training / loading / intro / done (full-screen capture).
 
+import { COPY } from "../flavor";
+
 export type NavTab = "train" | "strength" | "family";
 
 export interface BottomNavDeps {
@@ -14,7 +16,7 @@ export interface BottomNavDeps {
 const STRENGTH_ICON_SRC = "/images/nav-strength.png";
 
 const TABS: { id: NavTab; label: string; icon: string; iconSrc?: string }[] = [
-  { id: "train", label: "特訓", icon: "🥋" },
+  { id: "train", label: "特訓", icon: COPY.drillIcon },
   { id: "strength", label: "積み重ね", icon: "🪜", iconSrc: STRENGTH_ICON_SRC },
   { id: "family", label: "家族", icon: "👨‍👩‍👧" },
 ];

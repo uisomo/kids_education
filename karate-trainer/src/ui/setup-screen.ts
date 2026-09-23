@@ -6,6 +6,8 @@ import type { BeltState } from "../belt-store";
 import { renderBeltCard } from "./belt-card";
 import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
+import { COPY, IS_PIANO } from "../flavor";
+import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 import { openHookModal } from "./hook-modal";
 import { openLetterModal } from "./letter-modal";
 import type { Letter } from "../letter-store";
@@ -91,8 +93,12 @@ export interface SetupDeps {
   // the saved video opens with them. Raw textarea text (spaces / newlines).
   hookOn?: boolean;
   hookText?: string;
+  // 「じどうでえらぶ」: the words come from HOOK_PRESETS, a different one each
+  // practice, and hookText is left alone.
+  hookAuto?: boolean;
   onToggleHook?(): void;
   onEditHookText?(text: string): void;
+  onToggleHookAuto?(auto: boolean): void;
   // The popup closed. Typing never re-renders (that would break the IME), so
   // the caller re-renders here — otherwise reopening it shows stale words.
   onHookEditorClosed?(): void;
@@ -118,7 +124,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
 
   const title = document.createElement("h1");
   title.className = "screen-title";
-  title.textContent = "今日の稽古";
+  title.textContent = `今日の${COPY.practice}`;
 
   // ✉️ おたより, top-left: on the screen whenever there is a letter to read, so
   // a kept letter can be read again. The NEW badge and the shake belong to
@@ -337,22 +343,28 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     // 🥋 drill ⇄ ☕ 休憩. A 休憩 gets no cheers, no 工夫 and no 積み重ね, and
     // skipping one doesn't cost the belt bar. The default names follow the
     // kind so a fresh row reads right; any name the kid typed is kept.
+    // The piano app has no 休憩 at all, so it gets no toggle either — every
+    // row there is a 種目 and the button would only offer a kind that the app
+    // strips out on load (withoutRests).
     const isRest = drill.kind === "rest";
-    const kind = document.createElement("button");
-    kind.type = "button";
-    kind.className = "row-kind" + (isRest ? " is-rest" : "");
-    kind.dataset.kindToggle = drill.kind;
-    kind.textContent = isRest ? "☕休憩" : "🥋";
-    kind.setAttribute("aria-label", isRest ? `${drill.name}: 休憩（タップで種目にする）` : `${drill.name}: 種目（タップで休憩にする）`);
-    kind.title = isRest ? "休憩" : "種目";
-    kind.addEventListener("click", () => {
-      const cur = menu[i];
-      const toRest = cur.kind !== "rest";
-      const renamed = toRest
-        ? (cur.name === NEW_DRILL_NAME ? REST_NAME : cur.name)
-        : (cur.name === REST_NAME ? NEW_DRILL_NAME : cur.name);
-      deps.onChange(menu.map((d, j) => (j === i ? { ...cur, kind: toRest ? "rest" : "drill", name: renamed } : d)));
-    });
+    let kind: HTMLButtonElement | null = null;
+    if (!IS_PIANO) {
+      kind = document.createElement("button");
+      kind.type = "button";
+      kind.className = "row-kind" + (isRest ? " is-rest" : "");
+      kind.dataset.kindToggle = drill.kind;
+      kind.textContent = isRest ? "☕休憩" : COPY.drillIcon;
+      kind.setAttribute("aria-label", isRest ? `${drill.name}: 休憩（タップで種目にする）` : `${drill.name}: 種目（タップで休憩にする）`);
+      kind.title = isRest ? "休憩" : "種目";
+      kind.addEventListener("click", () => {
+        const cur = menu[i];
+        const toRest = cur.kind !== "rest";
+        const renamed = toRest
+          ? (cur.name === NEW_DRILL_NAME ? REST_NAME : cur.name)
+          : (cur.name === REST_NAME ? NEW_DRILL_NAME : cur.name);
+        deps.onChange(menu.map((d, j) => (j === i ? { ...cur, kind: toRest ? "rest" : "drill", name: renamed } : d)));
+      });
+    }
 
     const del = document.createElement("button");
     del.textContent = "✕"; del.className = "row-del";
@@ -364,7 +376,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       deps.onChange(menu.filter((_, j) => j !== i));
     });
 
-    row.append(drag, kind, name, secs);
+    // The piano app has no drill times (a drill ends on 次へ), so no seconds box.
+    row.append(drag, ...(kind ? [kind] : []), name, ...(IS_PIANO ? [] : [secs]));
 
     // 💡 工夫: the child's ideas for this 種目, in a centred card. Never
     // disabled — a full 種目 still opens so a 工夫 can be erased.
@@ -427,13 +440,17 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   // the video gets too big to save and share.
   function updateTotal(): void {
     const secs = totalSeconds(menu);
-    const over = secs > MAX_RECORD_SECONDS;
+    // Piano: no times to add up — only the 種目 count, and no 10分 gate here
+    // (the recording itself stops at the limit).
+    const over = !IS_PIANO && secs > MAX_RECORD_SECONDS;
     const limit = `${MAX_RECORD_SECONDS / 60}分`;
     // Short: it now shares one line with the two switches on a 375 px phone.
-    total.textContent = `${menu.length}種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
+    total.textContent = IS_PIANO
+      ? `${menu.length}種目`
+      : `${menu.length}種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
     total.classList.toggle("is-over", over);
     start.disabled = menu.length === 0 || over;
-    start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : "稽古 開始 ▶";
+    start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : `${COPY.practice} 開始 ▶`;
   }
   updateTotal();
   totalRow.append(total);
@@ -481,7 +498,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       if (!deps.hookOn) deps.onToggleHook!();
       openHookModal(root, {
         text: deps.hookText ?? "",
+        auto: deps.hookAuto === true,
         onEditText: (text) => deps.onEditHookText?.(text),
+        onToggleAuto: (auto) => deps.onToggleHookAuto?.(auto),
         onTurnOff: () => deps.onToggleHook?.(),
         // Re-render with what was just typed, so the next tap shows it back.
         onClose: () => deps.onHookEditorClosed?.(),

@@ -84,3 +84,11 @@ it("the highest active subscription wins, not just the one the entitlement names
   // A leftover subscription list without any active entitlement is Free.
   expect(infoFromCustomer(customer({}, ["monthly_2"]))).toMatchObject({ plan: "free" });
 });
+
+it("reads the piano app's piano_-prefixed store ids as ours", () => {
+  expect(toProductId("piano_premium_monthly")).toBe("premium_monthly");
+  expect(toProductId("piano_family_yearly")).toBe("family_yearly");
+  expect(planOfProduct("piano_family_monthly")).toBe("family");
+  expect(planOfProduct("piano_premium_yearly")).toBe("premium");
+  expect(toProductId("piano_weekly")).toBeNull();
+});

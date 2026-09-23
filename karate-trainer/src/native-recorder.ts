@@ -62,8 +62,10 @@ export interface KarateRecorderPluginLike {
     totalDurationMs: number;
     menu: OverlayMenuItem[];
     sounds: SoundEvent[];
-    // 「🔥 N日間 毎日継続中」 (top-left) and 「🟢 緑帯」 (next to 特訓一覧).
+    // 「🔥 N日間 毎日継続中」 (top-left), 「📅 2026年9月23日(火)」 (top-right)
+    // and 「🟢 緑帯」 (next to 特訓一覧).
     streakLabel?: string;
+    dateLabel?: string;
     beltLabel?: string;
     // The saved menu's name, heading the 特訓一覧 panel (wraps to two lines).
     menuName?: string;
@@ -75,6 +77,9 @@ export interface KarateRecorderPluginLike {
   cancelRecording?(): Promise<void>;
   // Opens this app's page in the iOS Settings app (camera/mic permissions).
   openSettings?(): Promise<void>;
+  // ★ Apple's own rating sheet (stars only). The system decides whether it
+  // really appears; see review-store.ts for when we ask.
+  requestReview?(): Promise<void>;
   // Free space on the phone ("important usage" capacity), in bytes.
   freeDiskSpace?(): Promise<{ bytes: number }>;
   // Capacitor's event subscription; "recordingInterrupted" carries { reason }.
@@ -233,6 +238,22 @@ export function karateRecorderPlugin(): KarateRecorderPluginLike {
 
 // Opens the app's page in iOS Settings, e.g. after camera permission was
 // denied. A no-op off native; never rejects.
+// ★ Asks iOS to show Apple's rating sheet. Whether it actually appears is the
+// system's call (already rated, or asked too often this year) — which is why
+// review-store.ts counts the asks, not the ratings.
+export async function requestAppReview(
+  deps: { plugin?: KarateRecorderPluginLike; isNative?: boolean } = {},
+): Promise<void> {
+  const isNative = deps.isNative ?? Capacitor.isNativePlatform();
+  if (!isNative) return;
+  try {
+    const plugin = deps.plugin ?? karateRecorderPlugin();
+    await plugin.requestReview?.();
+  } catch (e) {
+    console.warn("requestAppReview failed", e);
+  }
+}
+
 export async function openAppSettings(
   deps: { plugin?: KarateRecorderPluginLike; isNative?: boolean } = {},
 ): Promise<void> {
@@ -359,7 +380,10 @@ export class NativeVideoRecorder {
     totalDurationMs = 0,
     menu: OverlayMenuItem[] = [],
     sounds: SoundEvent[] = [],
-    labels: { streakLabel?: string; beltLabel?: string; menuName?: string; decor?: string } = {},
+    labels: {
+      streakLabel?: string; dateLabel?: string; beltLabel?: string;
+      menuName?: string; decor?: string;
+    } = {},
   ): Promise<Blob> {
     const plugin = this.getPlugin();
     this.removeInterruptListener();

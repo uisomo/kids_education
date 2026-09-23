@@ -22,3 +22,10 @@ karate-trainer/public/characters/*.wav
 
 # macOS folder metadata
 .DS_Store
+
+# App Store assets: keep the text (listing, notes, slides.json) in git, the big
+# images (screenshots, review shots, sources) only on disk — see appstore/README.md
+appstore/**/*.png
+appstore/**/*.jpg
+appstore/**/*.jpeg
+appstore/**/*.webp

@@ -11,6 +11,7 @@ import { BELTS, BARS_PER_BELT } from "../belt-store";
 import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { LETTER_MAX_LEN, LETTER_BY_MAX_LEN, LETTER_KEEP } from "../letter-store";
 import type { Letter } from "../letter-store";
+import { COPY } from "../flavor";
 
 export interface FamilyDeps {
   members: Member[];
@@ -71,6 +72,9 @@ export interface TestToolsView {
   menus: { id: string; name: string; drills: { name: string; level: number }[] }[];
   onSetLevel(presetId: string, drill: string, level: number): void;
   onSetAllLevels(presetId: string, level: number): void;
+  // ★ Show Apple's rating sheet now — the real app only asks by itself from
+  // the second day on, which is hard to sit and wait for.
+  onAskReview?(): void;
 }
 
 export interface BillingView {
@@ -381,6 +385,20 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
 
   box.append(heading, streakLabel, streakRow);
 
+  // ★ レビュー: iOS decides whether the sheet really appears, so it may do
+  // nothing at all — that is the system, not the button.
+  if (tools.onAskReview) {
+    const reviewRow = document.createElement("div");
+    reviewRow.className = "family-test-row";
+    const reviewBtn = testButton("★ レビュー画面を出す", () => tools.onAskReview!());
+    reviewBtn.dataset.testAskReview = "";
+    const note = document.createElement("span");
+    note.className = "family-plan-note";
+    note.textContent = "出ないこともあります（iOSが決めます）";
+    reviewRow.append(reviewBtn, note);
+    box.append(reviewRow);
+  }
+
   // 種目のレベル, per menu
   tools.menus.forEach((menu) => {
     const menuTitle = document.createElement("div");
@@ -429,7 +447,7 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
 
   const note = document.createElement("div");
   note.className = "family-plan-note";
-  note.textContent = "ここで決めた数字はスタート地点です。あとは練習するたびに、ふつうのアプリと同じように増えます（連続日数は今日の練習で+1）。帯そのものは上の「帯を変える」で。プランは下のカードで無料で切りかえられます。";
+  note.textContent = `ここで決めた数字はスタート地点です。あとは練習するたびに、ふつうのアプリと同じように増えます（連続日数は今日の練習で+1）。${COPY.belt}そのものは上の「${COPY.belt}を変える」で。プランは下のカードで無料で切りかえられます。`;
   box.append(note);
 
   return [box];
@@ -627,8 +645,8 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
   const note = document.createElement("div");
   note.className = "family-plan-note family-belt-note";
   note.textContent = deps.menuBelts.length
-    ? `${activeName} の帯はメニューごと。いま使っているメニューの帯だけが出ます。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
-    : "メニューをえらぶと、そのメニューの帯を変えられます。";
+    ? `${activeName} の${COPY.belt}はメニューごと。いま使っているメニューの${COPY.belt}だけが出ます。ぜんぶの種目が Lv.10 になると上がります。ここで変えると積み重ねは0から。`
+    : `メニューをえらぶと、そのメニューの${COPY.belt}を変えられます。`;
 
   const list = document.createElement("div");
   list.className = "family-class-list";
@@ -641,7 +659,7 @@ function buildBeltSection(deps: FamilyDeps): Node[] {
 
     const name = document.createElement("div");
     name.className = "family-section-label family-belt-title";
-    name.textContent = `${mb.name}の帯を変える`;
+    name.textContent = `${mb.name}の${COPY.belt}を変える`;
 
     const select = document.createElement("select");
     select.className = "family-class-select";
@@ -676,7 +694,7 @@ function buildShareSection(deps: FamilyDeps): Node[] {
 
   const note = document.createElement("div");
   note.className = "family-plan-note";
-  note.textContent = "チェックすると、稽古のあとに練習動画を連携するボタンを表示します。";
+  note.textContent = `チェックすると、${COPY.practice}のあとに練習動画を連携するボタンを表示します。`;
 
   const list = document.createElement("div");
   list.className = "family-class-list";

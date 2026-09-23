@@ -6,6 +6,8 @@
 //   npx wrangler pages deploy karate-trainer/howto-site --project-name=karate-trainer --branch=howto
 const HOWTO_BASE = "https://howto.karate-trainer.pages.dev/howto";
 
+import { COPY, IS_PIANO } from "../flavor";
+
 export interface HowtoVideo {
   id: string;
   label: string;
@@ -22,11 +24,13 @@ export const HOWTO_VIDEOS: HowtoVideo[] = [
 ];
 
 export const PARENT_NOTE_LINES = [
-  "お子さんの成長を見たいときは、稽古のあとに「LINE・SNSで送る」でご家族に送るか、「動画を保存」して、あとで一緒に見返しましょう。",
+  `お子さんの成長を見たいときは、${COPY.practice}のあとに「LINE・SNSで送る」でご家族に送るか、「動画を保存」して、あとで一緒に見返しましょう。`,
   "見返すときは、言いたいことはたくさんあると思いますが、まずは褒めてあげてください。",
   "そのうえで、お子さん自身に動画を見てもらい、気づいたことを 💡工夫 に書くよう促してください。",
   "少し上達させることより、続けることを習慣にし、自分で気づいて直せるようになることの方が、はるかに大切です。",
-  "やり方がわからないときは、まずは簡単な型や技ひとつからでも構いません。",
+  IS_PIANO
+    ? "やり方がわからないときは、まずは簡単な曲やフレーズひとつからでも構いません。"
+    : "やり方がわからないときは、まずは簡単な型や技ひとつからでも構いません。",
 ];
 
 export function buildParentNote(): Node[] {

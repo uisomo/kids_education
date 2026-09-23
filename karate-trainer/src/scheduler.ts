@@ -13,6 +13,10 @@ export interface SchedulerOpts {
   encourageEveryMs?: number;
   jitterMs?: number;
   rng?: () => number;
+  // The piano app: no clock on a drill. It runs until next() — the child
+  // taps 次へ when the piece is done — so there is no countdown, no 3-2-1
+  // and no end by time; the cheers still come every few seconds.
+  untimed?: boolean;
 }
 
 export class SessionScheduler {
@@ -26,11 +30,13 @@ export class SessionScheduler {
   private readonly everyMs: number;
   private readonly jitterMs: number;
   private readonly rng: () => number;
+  private readonly untimed: boolean;
 
   constructor(private menu: Menu, private h: SchedulerHandlers, opts: SchedulerOpts = {}) {
     this.everyMs = opts.encourageEveryMs ?? 8500;
     this.jitterMs = opts.jitterMs ?? 2000;
     this.rng = opts.rng ?? Math.random;
+    this.untimed = opts.untimed ?? false;
   }
 
   start(): void { this.enter(0); }
@@ -38,6 +44,8 @@ export class SessionScheduler {
   resume(): void { this.paused = false; }
   stop(): void { this.done = true; }
   skip(): void { if (!this.done && this.idx >= 0) this.finishDrill(false); }
+  // Untimed: the drill is done because the child said so, so it counts.
+  next(): void { if (!this.done && this.idx >= 0) this.finishDrill(true); }
 
   private scheduleEncourage(): void {
     this.nextEncourageMs = this.everyMs + (this.rng() * 2 - 1) * this.jitterMs;
@@ -50,6 +58,7 @@ export class SessionScheduler {
     this.remainingMs = drill.seconds * 1000;
     this.lastWholeSecond = drill.seconds;
     this.scheduleEncourage();
+    if (this.untimed) { this.h.onDrillStart(drill, i, this.menu.length); return; }
     // A drill that starts already inside the final-3s window must still emit
     // its entry-second countdown. tick() skips that second because
     // lastWholeSecond is set to the entry second here, so remember it as
@@ -69,6 +78,16 @@ export class SessionScheduler {
   tick(deltaMs: number): void {
     if (this.done || this.paused || this.idx < 0) return;
     const drill = this.menu[this.idx];
+
+    if (this.untimed) {
+      if (drill.kind === "rest") return;
+      this.nextEncourageMs -= deltaMs;
+      if (this.nextEncourageMs <= 0) {
+        this.h.onEncourage();
+        this.scheduleEncourage();
+      }
+      return;
+    }
 
     // Emit the entry-second countdown (for drills that begin inside the
     // final-3s window) on the first tick of the drill, before decrementing.

@@ -41,12 +41,22 @@ import {
 } from "./character-store";
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
 import { parseDrillTexts, textCount, revealedGrid } from "./drill-texts";
-import { getHook, setHook } from "./hook-store";
+import { getHook, setHook, getHookPick, setHookPick } from "./hook-store";
+import { presetText, nextPresetIndex } from "./hook-presets";
+import { nextHookPalette, HOOK_COLOR_MODE } from "./hook-style";
 
 // The hook's ドン: 「シュッ→ドン」, hitting ~0.2s in — as the line stops zooming.
 const HOOK_SOUND = "/sounds/hook-don.m4a";
+
+// 📅 The day burned into the saved video: 「2026年9月23日(火)」. Written out
+// rather than 2026/09/23 because it is read by children as often as parents.
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+export function videoDateLabel(now: Date): string {
+  return `📅 ${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日(${WEEKDAYS[now.getDay()]})`;
+}
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
+import { COPY, IS_PIANO } from "./flavor";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
@@ -64,7 +74,10 @@ export interface VideoRecorderLike {
     totalDurationMs?: number,
     menu?: OverlayMenuItem[],
     sounds?: SoundEvent[],
-    labels?: { streakLabel?: string; beltLabel?: string; menuName?: string; decor?: string },
+    labels?: {
+      streakLabel?: string; dateLabel?: string; beltLabel?: string;
+      menuName?: string; decor?: string;
+    },
   ): Promise<Blob>;
   fileExtension(): string;
   // Native only: bytes free on the phone, or null when unknown.
@@ -182,6 +195,10 @@ export interface KarateAppDeps {
   confirm?(message: string): boolean;
   // Opens this app's page in iOS Settings (camera / mic permission denied).
   openSettings?(): void;
+  // ★ Asks iOS for Apple's rating sheet. The real app does this by itself on
+  // the second day (see main.ts); this is here so the test アプリ can call it
+  // on demand from 家族 → テスト用.
+  requestReview?(): void;
   // Hands a file to the OS share sheet (voice backup export on native).
   exportFile?(filename: string, blob: Blob): Promise<void>;
   // Parental gate before anything leaves the app (sharing the video). Defaults
@@ -510,6 +527,7 @@ export class KarateApp {
         : undefined,
       hookOn: getHook(this.mem()).on,
       hookText: getHook(this.mem()).text,
+      hookAuto: getHook(this.mem()).auto,
       onToggleHook: () => {
         const h = getHook(this.mem());
         setHook({ ...h, on: !h.on }, this.mem());
@@ -517,6 +535,9 @@ export class KarateApp {
       },
       onEditHookText: (text: string) => {
         setHook({ ...getHook(this.mem()), text }, this.mem());
+      },
+      onToggleHookAuto: (auto: boolean) => {
+        setHook({ ...getHook(this.mem()), auto }, this.mem());
       },
       // No re-render while typing (the iOS IME drops out), so the screen is
       // refreshed once the popup is closed instead.
@@ -530,7 +551,7 @@ export class KarateApp {
       characterState: this.characterState,
       // The picked saved menu's 帯 (bars = its lowest drill level).
       belt: linked ? beltStateFor(loadMenuBelt(linked.id, this.mem()), linked.menu) : undefined,
-      beltHint: "メニューを保存すると、帯と積み重ねがたまるよ",
+      beltHint: `メニューを保存すると、${COPY.belt}と積み重ねがたまるよ`,
       // E3: the active member's assigned menu name (read-only label).
       className: this.activeClassName(),
       // E4 → Phase 2: the parent's おたより queue for the active member. The ✉️
@@ -660,7 +681,7 @@ export class KarateApp {
       onRemoveMember: (id) => {
         // Removing deletes that child's belt, 積み重ね, 工夫 and menu for good.
         const name = members.find((m) => m.id === id)?.name ?? "";
-        if (!this.confirm(`「${name}」を削除すると、帯・積み重ね・工夫などの記録もすべて消えます。削除しますか？`)) return;
+        if (!this.confirm(`「${name}」を削除すると、${COPY.belt}・積み重ね・工夫などの記録もすべて消えます。削除しますか？`)) return;
         removeMember(id, base); this.clampActiveMember(); this.reloadForActiveMember(); this.showFamily();
       },
       onSelectMember: (id) => {
@@ -740,6 +761,7 @@ export class KarateApp {
         preset?.drills.forEach((d) => setDrillLevel(presetId, d.name, level, this.mem()));
         this.showFamily();
       },
+      onAskReview: this.deps.requestReview ? () => this.deps.requestReview!() : undefined,
     };
   }
 
@@ -856,16 +878,20 @@ export class KarateApp {
   // per step, each landing with a ドン (the same one 言えるようになるアプリ
   // uses), then a longer hold on the last. Every reveal is logged so the saved
   // video opens the same way; the 読み上げよう hint stays on screen only.
-  private async playTextHook(view: TrainingView, grid: string[][]): Promise<void> {
+  private async playTextHook(view: TrainingView, grid: string[][], palette = 0): Promise<void> {
     const stepMs = this.deps.hookStepMs ?? 1100;
     const wait = (ms: number) => new Promise<void>((r) => (ms > 0 ? setTimeout(r, ms) : r()));
-    view.setTexts(grid);
+    view.setTexts(grid, palette);
     try {
       const total = textCount(grid);
       for (let k = 0; k < total; k++) {
         view.revealText(k);
         this.playEffect(HOOK_SOUND);
-        this.overlayLog?.setState({ texts: revealedGrid(grid, k + 1) });
+        // The colours ride along with the words: the native burn-in paints the
+        // saved video from this log, and it has to match the screen.
+        this.overlayLog?.setState({
+          texts: revealedGrid(grid, k + 1), textPalette: palette, textColorMode: HOOK_COLOR_MODE,
+        });
         await wait(k === total - 1 ? stepMs * 1.6 : stepMs);
       }
     } finally {
@@ -895,7 +921,9 @@ export class KarateApp {
   private async beginTraining(): Promise<void> {
     // Past the limit the video gets too big to save and share (the setup
     // screen already disables 開始; this guards any other way in).
-    if (totalSeconds(this.menu) > MAX_RECORD_SECONDS) {
+    // The piano app has no drill times, so there is no total to check — the
+    // recording is capped while it runs instead (startRecTimer).
+    if (!IS_PIANO && totalSeconds(this.menu) > MAX_RECORD_SECONDS) {
       this.showSetup(`録画は${MAX_RECORD_SECONDS / 60}分までです。種目か秒数をへらしてね`);
       return;
     }
@@ -912,7 +940,7 @@ export class KarateApp {
     } catch {
       free = null;
     }
-    const need = recordingBytesNeeded(totalSeconds(this.menu));
+    const need = recordingBytesNeeded(IS_PIANO ? MAX_RECORD_SECONDS : totalSeconds(this.menu));
     if (free !== null && free < need) {
       this.showSetup(`iPhoneの空き容量が足りません。あと約${Math.max(0.1, (need - free) / 1e9).toFixed(1)}GB あけてね`);
       return;
@@ -931,7 +959,8 @@ export class KarateApp {
     this.videoRecorder = recorder;
 
     const view = renderTrainingScreen(this.root, this.characterState.selectedId,
-                                      effectiveDecor(loadPlan(this.base()), this.base()));
+                                      effectiveDecor(loadPlan(this.base()), this.base()),
+                                      !!this.deps.bgm, IS_PIANO);
     try {
       view.videoEl.srcObject = stream;
     } catch {
@@ -997,9 +1026,25 @@ export class KarateApp {
 
     // 🪝 read-aloud hook: the words appear one by one (zoom-out + beep) before
     // anything else, so the saved video opens with the kid reading them.
+    // 「じどうでえらぶ」 ignores the typed words and draws a different preset
+    // question every time, so the videos don't all open the same way.
     const hook = getHook(this.mem());
-    const hookGrid = hook.on ? parseDrillTexts(hook.text) : [];
-    if (hookGrid.length > 0) await this.playTextHook(view, hookGrid);
+    let hookGrid: string[][] = [];
+    if (hook.on) {
+      if (hook.auto) {
+        const preset = nextPresetIndex(getHookPick(this.mem()).preset);
+        setHookPick({ preset }, this.mem());
+        hookGrid = parseDrillTexts(presetText(preset));
+      } else {
+        hookGrid = parseDrillTexts(hook.text);
+      }
+    }
+    if (hookGrid.length > 0) {
+      // ...and a different colour every time, so neither do the thumbnails.
+      const palette = nextHookPalette(getHookPick(this.mem()).palette);
+      setHookPick({ palette }, this.mem());
+      await this.playTextHook(view, hookGrid, palette);
+    }
 
     // Ready → 3 → 2 → 1 → Go!! intro. Ready is spoken; 3 / 2 / 1 go 「ぷっ」 and
     // Go!! a long 「ぷーん」, logged so the saved video has them too.
@@ -1070,7 +1115,8 @@ export class KarateApp {
       onSessionEnd: () => { void this.finishSession(true); },
     };
 
-    const scheduler = new SessionScheduler(this.menu, handlers);
+    // Piano: a drill has no clock; it ends when the child taps 次へ.
+    const scheduler = new SessionScheduler(this.menu, handlers, { untimed: IS_PIANO });
 
     // ⏸ stops the drill timer and the music; the camera keeps recording.
     const setPaused = (paused: boolean) => {
@@ -1097,7 +1143,8 @@ export class KarateApp {
       this.detachVisibility = () => document.removeEventListener("visibilitychange", onVisibility);
     }
     recorder.onInterrupted?.(() => { void this.finishSession(false, true); });
-    view.onSkip(() => scheduler.skip());
+    // Piano's 次へ finishes the drill (it counts); karate's ⏭ skips it.
+    view.onSkip(() => (IS_PIANO ? scheduler.next() : scheduler.skip()));
     // 終了 partway: the video is still saved, but nothing counts toward progress.
     view.onStop(() => { void this.finishSession(false); });
     view.onToggleBgm(() => {
@@ -1147,6 +1194,9 @@ export class KarateApp {
     this.recTimerHandle = setInterval(() => {
       this.recElapsedMs += 1000;
       view.setRecElapsed(`REC ${formatMMSS(Math.floor(this.recElapsedMs / 1000))}`);
+      // Nothing ends an untimed piano practice by itself, so it stops at the
+      // recording limit, keeping every drill the child already finished.
+      if (IS_PIANO && this.recElapsedMs >= MAX_RECORD_SECONDS * 1000) void this.finishSession(true);
     }, 1000);
   }
 
@@ -1201,11 +1251,13 @@ export class KarateApp {
       // practice, and whether this row earns one more (lit once it's done).
       const linked = this.linkedPreset();
       const before = linked ? loadMenuBelt(linked.id, this.mem()) : null;
-      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds, kind }, i) => (
-        before && kind !== "rest" && name.trim()
+      // seconds 0 = no 「60秒」 on the burned panel (the piano app has no times).
+      const menu: OverlayMenuItem[] = this.menu.map(({ name, seconds: secs, kind }, i) => {
+        const seconds = IS_PIANO ? 0 : secs;
+        return before && kind !== "rest" && name.trim()
           ? { name, seconds, kind, level: levelOf(before, name), gained: completed && this.finishedRows.has(i) }
-          : { name, seconds, kind }
-      ));
+          : { name, seconds, kind };
+      });
       // 🔥 A practice that ran to the end with a finished drill counts for today.
       const streak = completed && this.finishedDrills.length > 0
         ? recordPracticeDay(this.mem())
@@ -1232,10 +1284,16 @@ export class KarateApp {
       }
 
       const labels = {
+        // 📅 いつの練習か. Videos pile up in the camera roll and a year later
+        // nobody can tell one from another, so the date is burned in — top
+        // right, opposite the streak.
+        dateLabel: videoDateLabel(new Date()),
         ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
         ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
         // The saved menu's name heads the video's 特訓一覧 panel.
-        ...(linked?.name.trim() ? { menuName: linked.name.trim() } : {}),
+        // Without a name the native side falls back to 特訓一覧, so the piano
+        // app always sends its own heading.
+        ...(linked?.name.trim() ? { menuName: linked.name.trim() } : IS_PIANO ? { menuName: COPY.listTitle } : {}),
         // Free always carries a decoration; 「なし」 needs a paid plan.
         decor: effectiveDecor(loadPlan(this.base()), this.base()),
       };

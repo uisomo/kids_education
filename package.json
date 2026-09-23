@@ -11,6 +11,11 @@
     "build:karate:test": "vite build --config karate-trainer/vite.config.ts --mode test",
     "cap:sync": "npm run build:karate && cap sync ios",
     "cap:sync:test": "npm run build:karate:test && cap sync ios",
+    "dev:piano": "vite --config karate-trainer/vite.config.ts --mode piano",
+    "build:piano": "vite build --config karate-trainer/vite.config.ts --mode piano",
+    "build:piano:test": "vite build --config karate-trainer/vite.config.ts --mode piano-test",
+    "cap:sync:piano": "npm run build:piano && cap sync ios",
+    "cap:sync:piano:test": "npm run build:piano:test && cap sync ios",
     "cap:open": "cap open ios",
     "ios": "npm run build:karate && cap sync ios && cap open ios"
   },

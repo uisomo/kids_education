@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import Capacitor
 import Foundation
+import StoreKit
 import UIKit
 
 /// Capacitor bridge for the native trainer recorder.
@@ -24,6 +25,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopRecording", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancelRecording", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "freeDiskSpace", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playMusic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMusicPaused", returnType: CAPPluginReturnPromise),
@@ -222,6 +224,27 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// ★ Apple's rating sheet: five stars and a tap, no writing. The system
+    /// decides whether it really appears (never to someone who already rated
+    /// this version, at most three times a year), so JS only asks — see
+    /// review-store.ts for when.
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let scenes = UIApplication.shared.connectedScenes
+            guard let scene = (scenes.first { $0.activationState == .foregroundActive }
+                               ?? scenes.first) as? UIWindowScene else {
+                call.reject("no window scene")
+                return
+            }
+            if #available(iOS 16.0, *) {
+                AppStore.requestReview(in: scene)
+            } else {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve()
+        }
+    }
+
     /// Bytes iOS would free up for something the user asked for ("important
     /// usage"), so the app can refuse a practice whose video won't fit.
     @objc func freeDiskSpace(_ call: CAPPluginCall) {
@@ -344,6 +367,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var events: [OverlayCompositor.Event]
         var totalDurationMs: Double
         var streakLabel: String?
+        var dateLabel: String?
         var beltLabel: String?
         var menuName: String?
         var decor: OverlayCompositor.Decor
@@ -389,6 +413,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             events: events,
             totalDurationMs: (options["totalDurationMs"] as? NSNumber)?.doubleValue ?? 0,
             streakLabel: options["streakLabel"] as? String,
+            dateLabel: options["dateLabel"] as? String,
             beltLabel: options["beltLabel"] as? String,
             menuName: options["menuName"] as? String,
             // 家族タブで選んだ かざり. An unknown or missing value means none.
@@ -590,7 +615,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     try await OverlayCompositor.burn(
                         sourceURL: raw, outputURL: out, events: events, totalDurationMs: totalMs,
                         menu: parsed.menu, sounds: mixedSounds, voice: voiceTrack,
-                        streakLabel: parsed.streakLabel, beltLabel: parsed.beltLabel,
+                        streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
+                        beltLabel: parsed.beltLabel,
                         menuName: parsed.menuName, decor: parsed.decor,
                         onProgress: reportProgress
                     )

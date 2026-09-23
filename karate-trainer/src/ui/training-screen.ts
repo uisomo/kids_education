@@ -2,6 +2,7 @@ import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
 import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
 import type { Decor } from "../decor-store";
+import { hookPalette, hookFill, HOOK_COLOR_MODE } from "../hook-style";
 
 // The かざり the saved video will carry, shown live at the same place so a
 // parent can see what it covers before the child is hidden behind it.
@@ -17,7 +18,8 @@ export interface TrainingView {
   setTime(secondsLeft: number): void;
   // 🪝 read-aloud hook (before Ready → Go!!): build the (hidden) word grid and
   // show the 読み上げよう hint; null → hook over (grid removed, timer shown).
-  setTexts(grid: string[][] | null): void;
+  // `palette` picks the HOOK_PALETTES entry the words are painted in.
+  setTexts(grid: string[][] | null, palette?: number): void;
   // Reveal word #i (reading order) with the zoom-out animation.
   revealText(index: number): void;
   // Returns the cheer clip that started playing, or null.
@@ -36,7 +38,11 @@ export interface TrainingView {
 export function renderTrainingScreen(
   root: HTMLElement,
   characterId: CharacterId = "alan",
-  decor: Decor = "none"
+  decor: Decor = "none",
+  showBgm = true,
+  // The piano app: no countdown on screen, and ⏭ スキップ becomes 次へ ▶ —
+  // the child moves on when the piece is done (おわり ✓ on the last one).
+  untimed = false,
 ): TrainingView {
   root.textContent = "";
   root.className = "screen training";
@@ -73,6 +79,8 @@ export function renderTrainingScreen(
   bgmBtn.className = "bgm-toggle-btn";
   bgmBtn.textContent = BGM_ON_LABEL;
   bgmBtn.setAttribute("aria-label", "練習BGM on/off");
+  // No BGM player (the piano app): the button would switch nothing.
+  bgmBtn.hidden = !showBgm;
 
   topBar.append(recEl, bgmBtn, progEl);
 
@@ -112,6 +120,7 @@ export function renderTrainingScreen(
   timerEl.dataset.timer = "";
   timerEl.className = "timer";
   timerEl.textContent = "0";
+  timerEl.hidden = untimed;
 
   // The character pops up at a fixed spot at the right of the drill row. It
   // is not laid out with the name: a long 種目 pushed it off the screen, and
@@ -172,7 +181,10 @@ export function renderTrainingScreen(
   const skipBtn = document.createElement("button");
   skipBtn.dataset.skip = "";
   skipBtn.className = "ctrl-btn skip-btn";
-  skipBtn.textContent = "⏭ スキップ";
+  const NEXT_LABEL = "次へ ▶";
+  const LAST_LABEL = "おわり ✓";
+  skipBtn.textContent = untimed ? NEXT_LABEL : "⏭ スキップ";
+  if (untimed) skipBtn.classList.add("next-btn");
 
   const stopBtn = document.createElement("button");
   stopBtn.dataset.stop = "";
@@ -249,12 +261,12 @@ export function renderTrainingScreen(
     setTime(secondsLeft: number) {
       timerEl.textContent = String(secondsLeft);
     },
-    setTexts(grid: string[][] | null) {
+    setTexts(grid: string[][] | null, palette = 0) {
       textGrid.textContent = "";
       const on = grid !== null && grid.some((line) => line.length > 0);
       readHint.hidden = !on;
       textGrid.hidden = !on;
-      timerEl.hidden = on;   // no countdown while the hook plays
+      timerEl.hidden = on || untimed;   // no countdown while the hook plays
       // iOS WebKit sometimes keeps painting the composited hook layer after
       // `hidden` alone, leaving the words stuck over the practice. Taking the
       // nodes out of the document entirely drops that layer for good; they go
@@ -270,13 +282,31 @@ export function renderTrainingScreen(
         return;
       }
       if (!textGrid.isConnected) centerContent.append(readHint, textGrid);
-      grid!.forEach((words) => {
+      // Each practice gets its own colours (hook-style.ts) so two videos in a
+      // row don't make the same thumbnail. The burned video paints the same
+      // palette from the overlay log.
+      const colors = hookPalette(palette);
+      textGrid.style.setProperty("--hook-drop", colors.drop);
+      grid!.forEach((words, row) => {
         const line = document.createElement("div");
         line.className = "text-grid-line";
         words.forEach((w) => {
           const pill = document.createElement("span");
           pill.className = "text-grid-word";
-          pill.textContent = w;
+          if (HOOK_COLOR_MODE === "char") {
+            // One span per character, so the colour can change inside a line.
+            // The pill stays the reveal unit (revealText indexes pills).
+            Array.from(w).forEach((ch, i) => {
+              const glyph = document.createElement("span");
+              glyph.className = "text-grid-char";
+              glyph.textContent = ch;
+              glyph.style.color = hookFill(colors, "char", row, i);
+              pill.append(glyph);
+            });
+          } else {
+            pill.textContent = w;
+            pill.style.color = hookFill(colors, "line", row, 0);
+          }
           line.append(pill);
         });
         textGrid.append(line);
@@ -318,6 +348,7 @@ export function renderTrainingScreen(
     setNext(text: string | null) {
       nextName.textContent = text ?? "";
       nextEl.hidden = !text;
+      if (untimed) skipBtn.textContent = text ? NEXT_LABEL : LAST_LABEL;
     },
     setCaption(text: string) {
       // No 「工夫:」 prefix on screen: the pill is narrow beside Next and the

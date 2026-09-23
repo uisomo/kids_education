@@ -9,6 +9,7 @@
 //   offering      the current offering holds a package for each product
 
 import type { Plan } from "./plan-store";
+import { IS_PIANO } from "./flavor";
 
 export type PaidPlan = Exclude<Plan, "free">;
 export type Period = "monthly" | "yearly";
@@ -19,7 +20,8 @@ export const PRODUCT_IDS: ProductId[] = ["premium_monthly", "premium_yearly", "f
 // Apple's standard EULA is accepted as the Terms of Use link. The privacy
 // policy has to be hosted somewhere public before release.
 export const TERMS_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
-export const PRIVACY_URL = "https://karate-trainer.pages.dev/privacy";
+// Each app has its own privacy page (karate-trainer/piano-site/ for the piano app).
+export const PRIVACY_URL = IS_PIANO ? "https://alan-piano.pages.dev/privacy" : "https://karate-trainer.pages.dev/privacy";
 export const MANAGE_URL = "https://apps.apple.com/account/subscriptions";
 
 // Store product ids that stand for ours: the RevenueCat Test Store products
@@ -31,15 +33,19 @@ const STORE_ALIASES: Record<string, ProductId> = {
   yearly_2: "family_yearly",
 };
 
+// The piano app sells the same four products under piano_-prefixed store ids
+// (App Store Connect product ids must be unique across the developer account).
 export function toProductId(storeId: string): ProductId | null {
-  return (PRODUCT_IDS as string[]).includes(storeId) ? storeId as ProductId : STORE_ALIASES[storeId] ?? null;
+  const id = storeId.replace(/^piano_/, "");
+  return (PRODUCT_IDS as string[]).includes(id) ? id as ProductId : STORE_ALIASES[id] ?? null;
 }
 
 export function productId(plan: PaidPlan, period: Period): ProductId {
   return `${plan}_${period}`;
 }
 
-export function planOfProduct(id: string): Plan {
+export function planOfProduct(rawId: string): Plan {
+  const id = rawId.replace(/^piano_/, "");
   if (id.startsWith("family_")) return "family";
   if (id.startsWith("premium_")) return "premium";
   return "free";

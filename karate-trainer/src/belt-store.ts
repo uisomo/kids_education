@@ -3,6 +3,7 @@
 // for the first time — progress lives in menu-belt-store.
 
 import { loadCharacterState } from "./character-store";
+import { IS_PIANO } from "./flavor";
 
 export interface BeltDef {
   name: string;   // 白帯, クリスタルの帯, …
@@ -13,7 +14,7 @@ export interface BeltDef {
   rpg: boolean;   // RPG belts get the gold frame and shimmer
 }
 
-export const BELTS: BeltDef[] = [
+const KARATE_BELTS: BeltDef[] = [
   { name: "白帯", mark: "⚪", icon: "", fill: "#f5f5f4", ink: "#a8a29e", rpg: false },
   { name: "黄帯", mark: "🟡", icon: "", fill: "#facc15", ink: "#a16207", rpg: false },
   { name: "オレンジ帯", mark: "🟠", icon: "", fill: "#fb923c", ink: "#c2410c", rpg: false },
@@ -29,6 +30,15 @@ export const BELTS: BeltDef[] = [
   { name: "ドラゴンの帯", mark: "🐉", icon: "🐉", fill: "linear-gradient(90deg, #064e3b, #10b981, #fbbf24, #10b981, #064e3b)", ink: "#022c22", rpg: true },
   { name: "でんせつの帯", mark: "🌟", icon: "🌟", fill: "linear-gradient(90deg, #f43f5e, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7)", ink: "#ffffff", rpg: true },
 ];
+
+// The piano app keeps the same ladder and colours, as music notes: しろの音符, …
+const PIANO_COLOURS = ["しろ", "きいろ", "オレンジ", "みどり", "あお", "むらさき", "ちゃいろ", "くろ"];
+export const BELTS: BeltDef[] = IS_PIANO
+  ? KARATE_BELTS.map((b, i) => ({
+      ...b,
+      name: i < PIANO_COLOURS.length ? `${PIANO_COLOURS[i]}の音符` : b.name.replace("の帯", "の音符"),
+    }))
+  : KARATE_BELTS;
 
 export const BARS_PER_BELT = 10;
 
