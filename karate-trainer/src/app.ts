@@ -42,6 +42,8 @@ import {
 import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEvent } from "./overlay-event-log";
 import { parseDrillTexts, textCount, revealedGrid } from "./drill-texts";
 import { getHook, setHook, getHookPick, setHookPick } from "./hook-store";
+import { shouldOfferGuide, markGuideDone, markGuideSkipped, resetGuide } from "./guide-store";
+import { renderGuideOffer, renderGuideFinish, attachGuideSpot, clearGuideSpot, guideMenu } from "./ui/guide";
 import { presetText, nextPresetIndex } from "./hook-presets";
 import { nextHookPalette, HOOK_COLOR_MODE } from "./hook-style";
 
@@ -230,6 +232,11 @@ export class KarateApp {
   private overlayLog: OverlayEventLog | null = null;
   private diagnostics: DiagnosticsLog | null = null;
   private activeTab: NavTab = "train";
+  // 初回ガイド「10びょう いっしょに録る」: off → さそう前／おわり, start → 稽古
+  // 開始 を光らせている, save → 動画を保存 を光らせるところまで来た。
+  private guideStep: "off" | "start" | "save" = "off";
+  // さそいカードは1回の起動で一度だけ（画面を描き直すたびに出ないように）。
+  private guideOffered = false;
   // Object URL made for the done screen's <video>, revoked when leaving it.
   private doneVideoUrl: string | null = null;
   // Removes the session's visibilitychange listener.
@@ -470,6 +477,8 @@ export class KarateApp {
       onStart: () => {
         // Unlock BGM synchronously inside the tap gesture (autoplay policy).
         this.deps.bgm?.unlock();
+        // ガイド中なら、次に光らせるのは おわった画面の「動画を保存」。
+        if (this.guideStep === "start") { clearGuideSpot(this.root); this.guideStep = "save"; }
         void this.beginTraining();
       },
       onOpenVoice: () => this.showVoice(),
@@ -605,6 +614,47 @@ export class KarateApp {
     }
 
     this.mountTabNav("train");
+    this.paintSetupGuide(message !== undefined);
+  }
+
+  // 初回ガイド: 開始を光らせているところなら 👆 を出し直し（画面は描き直される
+  // たびに新しいボタンになる）、まだ一度もさそっていなければカードを出す。
+  // エラーメッセージが出ているときは、そちらを読んでほしいのでさそわない。
+  private paintSetupGuide(hasMessage: boolean): void {
+    if (this.guideStep === "start") {
+      attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-start]"),
+                      `${COPY.practice} 開始 ▶ をおしてね`,
+                      // BGM / 🪝 の列ごと上に出す（ボタンの真上だとその列を隠す）。
+                      this.root.querySelector<HTMLElement>("[data-start-row]"));
+      return;
+    }
+    if (this.guideStep !== "off" || hasMessage || this.guideOffered) return;
+    if (!shouldOfferGuide(this.base())) return;
+    this.guideOffered = true;
+    renderGuideOffer(this.root, {
+      onStart: () => this.startGuide(),
+      onLater: () => markGuideSkipped(this.base()),
+    });
+  }
+
+  // 「やってみる」: 10秒のおためしを1つ用意し、🪝 を「じどう」にして（何も
+  // 入力させない）、稽古 開始 を光らせる。おためしのメニューは保存しない。
+  private startGuide(): void {
+    this.guideStep = "start";
+    this.menu = guideMenu();
+    setHook({ ...getHook(this.mem()), on: true, auto: true }, this.mem());
+    this.showSetup();
+  }
+
+  // ガイドおわり。done=false（保存まで行かずに抜けた）なら、また今度さそう。
+  private endGuide(done: boolean): void {
+    if (this.guideStep === "off") return;
+    this.guideStep = "off";
+    if (done) markGuideDone(this.base());
+    else markGuideSkipped(this.base());
+    clearGuideSpot(this.root);
+    // おためしを捨てて、その人のメニューに戻す。
+    this.menu = loadMenu(this.mem());
   }
 
   // Append the bottom tab bar after a tab screen has rendered (the screen's
@@ -627,9 +677,18 @@ export class KarateApp {
     this.root.append(nav);
   }
 
+  // Which menu the 積み重ね tab is looking at. Only for looking: it never
+  // changes the menu the practice uses. Null → the member's picked one.
+  private strengthMenuId: string | null = null;
+
   private showStrength(): void {
+    const menus = this.usablePresets();
+    const picked = menus.some((m) => m.id === this.strengthMenuId) ? this.strengthMenuId : null;
     renderStrengthScreen(this.root, {
-      storage: this.mem(), menus: this.usablePresets(), selectedId: this.linkedPreset()?.id,
+      storage: this.mem(), menus, selectedId: picked ?? this.linkedPreset()?.id,
+      // Re-render through the app, not inside the screen: the screen clears the
+      // root, so its own re-render dropped the bottom tab bar.
+      onSelectMenu: (id) => { this.strengthMenuId = id; this.showStrength(); },
     });
     this.mountTabNav("strength");
   }
@@ -762,6 +821,12 @@ export class KarateApp {
         this.showFamily();
       },
       onAskReview: this.deps.requestReview ? () => this.deps.requestReview!() : undefined,
+      onRestartGuide: () => {
+        resetGuide(this.base());
+        this.guideOffered = false;
+        this.guideStep = "off";
+        this.showFamily();
+      },
     };
   }
 
@@ -1013,6 +1078,12 @@ export class KarateApp {
       this.diagnostics.watchVideoElement(view.videoEl);
     }
 
+    // ピアノのガイド: 種目が時間で終わらないので、「つぎへ ▶」を光らせる。
+    // 空手はこのあと 10びょうで勝手に終わるので、何も出さない。
+    if (this.guideStep === "save" && IS_PIANO) {
+      attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-skip]"), "ひけたら つぎへ ▶");
+    }
+
     this.recElapsedMs = 0;
     this.cueCount = 0;
     this.finishedDrills = [];
@@ -1172,10 +1243,17 @@ export class KarateApp {
   private scheduler: SessionScheduler | null = null;
 
   private showCameraError(): void {
+    // 撮影が始まらなかったので、ガイドは「開始をおす」ところまで巻きもどす。
+    if (this.guideStep === "save") this.guideStep = "start";
     this.showSetup(
       "カメラかマイクを開始できませんでした。設定でカメラとマイクを許可してください",
       this.deps.openSettings ? { label: "設定をひらく", run: () => this.deps.openSettings!() } : undefined,
     );
+  }
+
+  // 保存できた → 「これだけ！」。おぼえることは3つだけ、を最後にもう一度見せる。
+  private showGuideFinish(): void {
+    renderGuideFinish(this.root, () => { /* 閉じるだけ */ });
   }
 
   private leaveDoneScreen(): void {
@@ -1373,20 +1451,29 @@ export class KarateApp {
         // goes straight to the share sheet.
         shareAllowed: getShareAllowed(this.mem()),
         onSend: (burnedBlob) => {
+          const guiding = this.guideStep === "save";
+          if (guiding) this.endGuide(true);
           void Promise.resolve(this.deps.shareRecording(burnedBlob ?? blobForShare, shareExt(), shareFileUri()))
-            .catch((e) => console.error("shareRecording failed", e));
+            .catch((e) => console.error("shareRecording failed", e))
+            .finally(() => { if (guiding) this.showGuideFinish(); });
         },
         onShare: (burnedBlob) => {
           const gate = this.deps.askParentalGate ?? askParentalGate;
+          // 保存まで来たらガイドはおしまい（この先はおうちの人の確認だけ）。
+          const guiding = this.guideStep === "save";
+          if (guiding) this.endGuide(true);
           void gate(this.root).then((ok) => {
             if (!ok) return;
-            return this.deps.shareRecording(burnedBlob ?? blobForShare, shareExt(), shareFileUri());
+            const shared = this.deps.shareRecording(burnedBlob ?? blobForShare, shareExt(), shareFileUri());
+            return Promise.resolve(shared).finally(() => { if (guiding) this.showGuideFinish(); });
           }).catch((e) => {
             console.error("shareRecording failed", e);
           });
         },
         confirm: this.deps.confirm,
         onAgain: () => {
+          // 保存せずに もう一度: ガイドは終わらせず、また今度さそう。
+          this.endGuide(false);
           this.leaveDoneScreen();
           this.sessionEnding = false;
           this.videoRecorder = null;
@@ -1394,6 +1481,11 @@ export class KarateApp {
           this.showSetup();
         },
       });
+      // 初回ガイドの最後: 「⬇ 動画を保存」を光らせる。
+      if (this.guideStep === "save") {
+        attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-download]"),
+                        "⬇ 動画を保存 をおしてね");
+      }
     } catch (e) {
       // Without this, a thrown/rejected step above (e.g. recorder.stop()
       // rejecting on an already-inactive MediaRecorder) left finishSession()

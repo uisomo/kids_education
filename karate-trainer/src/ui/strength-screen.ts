@@ -20,6 +20,11 @@ export interface StrengthDeps {
   menus?: StrengthMenu[];
   // The member's picked menu, shown first. Falls back to the first menu.
   selectedId?: string | null;
+  // Another menu picked from the dropdown. Without it the screen re-renders
+  // itself, and that wipes whatever the caller appended after it — which is how
+  // picking a menu made the bottom tab bar disappear. The app passes it and
+  // re-renders the whole tab (nav included) instead.
+  onSelectMenu?(id: string): void;
 }
 
 // Red → purple, 10 steps. Shared with the belt card's meter.
@@ -75,7 +80,10 @@ export function renderStrengthScreen(root: HTMLElement, deps: StrengthDeps = {})
       if (m.id === current.id) opt.selected = true;
       select.append(opt);
     });
-    select.addEventListener("change", () => renderStrengthScreen(root, { ...deps, selectedId: select.value }));
+    select.addEventListener("change", () => {
+      if (deps.onSelectMenu) deps.onSelectMenu(select.value);
+      else renderStrengthScreen(root, { ...deps, selectedId: select.value });
+    });
     root.append(select);
   }
 

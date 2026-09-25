@@ -75,6 +75,8 @@ export interface TestToolsView {
   // ★ Show Apple's rating sheet now — the real app only asks by itself from
   // the second day on, which is hard to sit and wait for.
   onAskReview?(): void;
+  // 初回ガイド「10びょう いっしょに録る」をもう一度（ふつうは一度きり）。
+  onRestartGuide?(): void;
 }
 
 export interface BillingView {
@@ -397,6 +399,19 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
     note.textContent = "出ないこともあります（iOSが決めます）";
     reviewRow.append(reviewBtn, note);
     box.append(reviewRow);
+  }
+
+  // 🎬 初回ガイドをやり直す（入れたばかりの人に出る「10びょうで やってみる？」）。
+  if (tools.onRestartGuide) {
+    const guideRow = document.createElement("div");
+    guideRow.className = "family-test-row";
+    const guideBtn = testButton("🎬 初回ガイドをやり直す", () => tools.onRestartGuide!());
+    guideBtn.dataset.testRestartGuide = "";
+    const note = document.createElement("span");
+    note.className = "family-plan-note";
+    note.textContent = "特訓タブに戻ると出ます";
+    guideRow.append(guideBtn, note);
+    box.append(guideRow);
   }
 
   // 種目のレベル, per menu
@@ -903,3 +918,4 @@ function buildClassSection(deps: FamilyDeps): Node[] {
   classList.append(row);
   return [classTitle, classList];
 }
+

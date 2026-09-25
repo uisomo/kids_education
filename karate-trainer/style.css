@@ -3815,3 +3815,139 @@ input[data-gate-input]:disabled,
   border-radius: 14px;
   background: #000;
 }
+
+/* --- 初回ガイド「10びょう いっしょに録る」 -------------------------------
+   さそいカード／おしまいカードは kufu-card と同じ見た目（黄色のふち）に合わせ、
+   光らせるボタンは輪が広がるだけで、位置もサイズも動かさない（動くと押し
+   にくい）。👆 のふきだしはボタンの真上に置くが、まだレイアウトが無いときは
+   画面の下のほうに出る。 */
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 240;   /* おたより(200)より上: 最初の一回はこれを見てほしい */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(10, 8, 20, 0.72);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: kufu-fade 140ms ease;
+}
+
+.guide-card {
+  width: min(22rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.2rem;
+  background: var(--toy-card-bg, #2d264a);
+  border: 3px solid #ffd166;
+  border-radius: 22px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  animation: kufu-pop 160ms cubic-bezier(0.2, 1.3, 0.5, 1);
+}
+
+.guide-card-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #ffd166;
+  text-align: center;
+}
+
+.guide-card-text {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--ink, #fff);
+}
+
+.guide-card-steps {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--ink, #fff);
+}
+
+.guide-card-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.guide-card-go {
+  flex: 1;
+  min-height: 50px;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(180deg, #ff6b81 0%, #ff4757 100%);
+  box-shadow: 0 5px 0 #c62b38;
+}
+
+.guide-card-later {
+  min-height: 50px;
+  padding: 0.7rem 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+}
+
+/* いま押すボタン: 黄色い輪が外へ広がる。box-shadow だけなので、まわりの
+   ならびは 1px も動かない。 */
+.is-guide-spot {
+  position: relative;
+  z-index: 1;
+  animation: guide-ring 1.4s ease-out infinite;
+}
+
+@keyframes guide-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.85); }
+  70%  { box-shadow: 0 0 0 14px rgba(255, 209, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0); }
+}
+
+.guide-tip {
+  position: fixed;
+  left: 50%;
+  bottom: 6.5rem;   /* レイアウトが取れなかったとき用のいち */
+  transform: translateX(-50%);
+  z-index: 230;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 0.9rem;
+  border: 2px solid #ffd166;
+  border-radius: 999px;
+  background: rgba(45, 38, 74, 0.96);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  color: #ffd166;
+  font-size: 0.95rem;
+  font-weight: 900;
+  white-space: nowrap;
+  pointer-events: none;   /* ふきだしがボタンの前に立たないように */
+}
+
+.guide-tip[style*="top"] { bottom: auto; }
+
+.guide-tip-hand {
+  font-size: 1.2rem;
+  animation: guide-hand 1s ease-in-out infinite;
+}
+
+@keyframes guide-hand {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(4px); }
+}
+
