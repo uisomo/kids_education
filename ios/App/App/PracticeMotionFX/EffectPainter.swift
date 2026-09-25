@@ -21,7 +21,7 @@ public enum EffectPainter {
         context.clip(to: CGRect(x: 0,y: 0,width: viewport.width,height: viewport.height))
         context.clip(to: CGRect(x: video.x,y: video.y,width: video.width,height: video.height))
         context.setLineCap(.round); context.setLineJoin(.round)
-        for primitive in scene.primitives.prefix(16) {
+        for primitive in scene.primitives.prefix(24) {
             guard !primitive.points.isEmpty, primitive.points.allSatisfy(\.isFinite),
                   primitive.color.alpha > 0 else { continue }
             let c = primitive.color
@@ -87,6 +87,91 @@ public enum EffectPainter {
                 context.setBlendMode(.plusLighter)
                 context.drawRadialGradient(gradient,startCenter: CGPoint(x: p.x,y: p.y),startRadius: 0,
                                            endCenter: CGPoint(x: p.x,y: p.y),endRadius: r,options: [])
+                context.restoreGState()
+            case .ribbon:
+                // 帯。**先に向かって細くなる。** 同じ太さのまま伸びる線は、炎にも
+                // ドラゴンの尾にも見えない（安っぽさの正体はだいたいこれ）。
+                // 中心線を左右にふくらませた多角形を塗り、上に細い白い芯を引く。
+                guard primitive.points.count >= 2 else { continue }
+                let w0 = CGFloat(max(0.8,min(maxLineWidth,primitive.lineWidth)*short))
+                let w1 = w0*CGFloat(fxClamp(primitive.taper,0,1))
+                let mapped = primitive.points.map { q -> CGPoint in
+                    let m = mapper.map(q); return CGPoint(x: m.x,y: m.y)
+                }
+                var left: [CGPoint] = [], right: [CGPoint] = []
+                for (index,p) in mapped.enumerated() {
+                    let u = Double(index)/Double(max(1,mapped.count-1))
+                    let half = (w0+(w1-w0)*CGFloat(u))/2
+                    // 向きは前後の点から。端は隣の1点だけを見る。
+                    let a = mapped[max(0,index-1)], b = mapped[min(mapped.count-1,index+1)]
+                    let dx = b.x-a.x, dy = b.y-a.y
+                    let len = max(1e-6,(dx*dx+dy*dy).squareRoot())
+                    let nx = -dy/len*half, ny = dx/len*half
+                    left.append(CGPoint(x: p.x+nx,y: p.y+ny))
+                    right.append(CGPoint(x: p.x-nx,y: p.y-ny))
+                    _ = u
+                }
+                context.saveGState()
+                context.setBlendMode(.plusLighter)
+                context.beginPath()
+                context.move(to: left[0])
+                for p in left.dropFirst() { context.addLine(to: p) }
+                for p in right.reversed() { context.addLine(to: p) }
+                context.closePath()
+                context.setFillColor(CGColor(red: CGFloat(fxClamp(c.red)),green: CGFloat(fxClamp(c.green)),
+                                             blue: CGFloat(fxClamp(c.blue)),alpha: alpha*0.50))
+                context.fillPath()
+                // 白く焼けた芯。細いほうの端では消す（先っぽまで白いと硬く見える）。
+                context.setLineWidth(max(0.7,w0*0.30))
+                context.setStrokeColor(CGColor(red: 1,green: 1,blue: 1,alpha: alpha*0.85))
+                context.beginPath()
+                let coreCount = max(2,Int(Double(mapped.count)*0.62))
+                context.move(to: mapped[0])
+                for p in mapped.prefix(coreCount).dropFirst() { context.addLine(to: p) }
+                context.strokePath()
+                context.restoreGState()
+            case .spray:
+                // 粉のように散らす小さな印（吹雪・火の粉・花びら・きらめき）。
+                // **1つの primitive に点をたくさん入れる。** 1粒ずつ primitive に
+                // すると、雪を降らせるだけで上限に当たってしまう。
+                // どんな印かは glyphID（dot / dash / star / petal）。
+                let size = min(maxRadius,primitive.radius)*short
+                guard size > 0.4 else { continue }
+                context.saveGState()
+                context.setBlendMode(.plusLighter)
+                context.setFillColor(colour); context.setStrokeColor(colour)
+                let mark = primitive.glyphID ?? "dot"
+                let angle = primitive.angle
+                for (index,point) in primitive.points.prefix(32).enumerated() {
+                    let p = mapper.map(point)
+                    // 粒ごとに大きさを変える。ぜんぶ同じだと機械が並べたように見える。
+                    let r = size*(0.55+0.45*Double((index&*37)%11)/10)
+                    switch mark {
+                    case "dash":
+                        context.setLineWidth(max(0.8,r*0.55))
+                        context.beginPath()
+                        context.move(to: CGPoint(x: p.x-cos(angle)*r*1.8,y: p.y-sin(angle)*r*1.8))
+                        context.addLine(to: CGPoint(x: p.x+cos(angle)*r*1.8,y: p.y+sin(angle)*r*1.8))
+                        context.strokePath()
+                    case "star":
+                        // 十字の光条＋まん中の点。小さくても「きらっ」と読める。
+                        context.setLineWidth(max(0.8,r*0.34))
+                        context.beginPath()
+                        context.move(to: CGPoint(x: p.x-r*2,y: p.y)); context.addLine(to: CGPoint(x: p.x+r*2,y: p.y))
+                        context.move(to: CGPoint(x: p.x,y: p.y-r*2)); context.addLine(to: CGPoint(x: p.x,y: p.y+r*2))
+                        context.strokePath()
+                        context.fillEllipse(in: CGRect(x: p.x-r*0.6,y: p.y-r*0.6,width: r*1.2,height: r*1.2))
+                    case "petal":
+                        // 粒ごとに向きを変えた楕円。舞っているように見せる。
+                        let a = angle+Double((index&*53)%17)/17*2*Double.pi
+                        context.saveGState()
+                        context.translateBy(x: p.x,y: p.y); context.rotate(by: CGFloat(a))
+                        context.fillEllipse(in: CGRect(x: -r*0.55,y: -r*1.3,width: r*1.1,height: r*2.6))
+                        context.restoreGState()
+                    default:
+                        context.fillEllipse(in: CGRect(x: p.x-r,y: p.y-r,width: r*2,height: r*2))
+                    }
+                }
                 context.restoreGState()
             }
         }

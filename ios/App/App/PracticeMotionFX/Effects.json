@@ -39,31 +39,14 @@
       "id": "flame",
       "name": "🔥 ほのお",
       "mode": "karate",
-      "style": "spiral",
+      "style": "flame",
       "color": {
         "red": 1.0,
         "green": 0.45,
         "blue": 0.08,
         "alpha": 1
       },
-      "opacity": 0.92,
-      "radius": 0.034,
-      "trailSeconds": 0.12,
-      "burstSeconds": 0.4,
-      "maxAnchors": 2
-    },
-    {
-      "id": "wind",
-      "name": "🌀 かぜ",
-      "mode": "karate",
-      "style": "spiral",
-      "color": {
-        "red": 0.3,
-        "green": 0.95,
-        "blue": 0.92,
-        "alpha": 1
-      },
-      "opacity": 0.92,
+      "opacity": 0.95,
       "radius": 0.034,
       "trailSeconds": 0.12,
       "burstSeconds": 0.4,
@@ -73,11 +56,62 @@
       "id": "ice",
       "name": "❄️ こおり",
       "mode": "karate",
-      "style": "lightning",
+      "style": "ice",
       "color": {
         "red": 0.62,
-        "green": 0.9,
+        "green": 0.92,
         "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.95,
+      "radius": 0.034,
+      "trailSeconds": 0.08,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "wind",
+      "name": "🌪 かぜ",
+      "mode": "karate",
+      "style": "wind",
+      "color": {
+        "red": 0.3,
+        "green": 0.95,
+        "blue": 0.6,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "water",
+      "name": "💧 みず",
+      "mode": "karate",
+      "style": "water",
+      "color": {
+        "red": 0.35,
+        "green": 0.82,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.16,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "sparkle",
+      "name": "✨ きらめき",
+      "mode": "karate",
+      "style": "sparkle",
+      "color": {
+        "red": 1.0,
+        "green": 0.94,
+        "blue": 0.35,
         "alpha": 1
       },
       "opacity": 0.95,
@@ -87,10 +121,27 @@
       "maxAnchors": 2
     },
     {
-      "id": "heart",
-      "name": "💗 ハート",
+      "id": "petal",
+      "name": "🌸 はなびら",
       "mode": "karate",
-      "style": "spiral",
+      "style": "petal",
+      "color": {
+        "red": 1.0,
+        "green": 0.62,
+        "blue": 0.8,
+        "alpha": 1
+      },
+      "opacity": 0.92,
+      "radius": 0.034,
+      "trailSeconds": 0.12,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "ribbonPink",
+      "name": "🎀 リボン",
+      "mode": "karate",
+      "style": "ribbon",
       "color": {
         "red": 1.0,
         "green": 0.36,
@@ -104,19 +155,87 @@
       "maxAnchors": 2
     },
     {
-      "id": "kiRed",
-      "name": "🔴 あかい オーラ",
+      "id": "auraGreen",
+      "name": "🟢 みどりの オーラ",
       "mode": "karate",
       "style": "aura",
       "color": {
-        "red": 1.0,
-        "green": 0.22,
-        "blue": 0.14,
+        "red": 0.66,
+        "green": 1.0,
+        "blue": 0.25,
         "alpha": 1
       },
       "opacity": 0.88,
       "radius": 0.034,
       "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "blizzard",
+      "name": "🌨 ふぶき",
+      "mode": "karate",
+      "style": "blizzard",
+      "color": {
+        "red": 0.92,
+        "green": 0.97,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.9,
+      "radius": 0.034,
+      "trailSeconds": 0.16,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "dragon",
+      "name": "🐉 ドラゴン",
+      "mode": "karate",
+      "style": "dragon",
+      "color": {
+        "red": 0.3,
+        "green": 0.95,
+        "blue": 0.6,
+        "alpha": 1
+      },
+      "opacity": 0.92,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "shadow",
+      "name": "🌑 かげ",
+      "mode": "karate",
+      "style": "shadow",
+      "color": {
+        "red": 0.7,
+        "green": 0.4,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.85,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "rainbow",
+      "name": "🌈 にじ",
+      "mode": "karate",
+      "style": "rainbow",
+      "color": {
+        "red": 0.92,
+        "green": 0.97,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.9,
+      "radius": 0.034,
+      "trailSeconds": 0.12,
       "burstSeconds": 0.4,
       "maxAnchors": 2
     },
@@ -138,36 +257,70 @@
       "maxAnchors": 2
     },
     {
-      "id": "dragon",
-      "name": "🐉 ドラゴン",
+      "id": "flameBlue",
+      "name": "💙 あおい ほのお",
       "mode": "karate",
-      "style": "spiral",
+      "style": "flame",
       "color": {
-        "red": 0.32,
-        "green": 0.92,
-        "blue": 0.6,
+        "red": 0.35,
+        "green": 0.82,
+        "blue": 1.0,
         "alpha": 1
       },
-      "opacity": 0.92,
+      "opacity": 0.95,
       "radius": 0.034,
       "trailSeconds": 0.12,
       "burstSeconds": 0.4,
       "maxAnchors": 2
     },
     {
-      "id": "starGold",
-      "name": "⭐️ きらめき",
+      "id": "flameEmber",
+      "name": "🌋 まぐま",
       "mode": "karate",
-      "style": "lightning",
+      "style": "flame",
       "color": {
         "red": 1.0,
-        "green": 0.94,
-        "blue": 0.35,
+        "green": 0.3,
+        "blue": 0.05,
         "alpha": 1
       },
       "opacity": 0.95,
       "radius": 0.034,
-      "trailSeconds": 0.1,
+      "trailSeconds": 0.12,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "iceWhite",
+      "name": "🧊 ダイヤの こおり",
+      "mode": "karate",
+      "style": "ice",
+      "color": {
+        "red": 0.8,
+        "green": 0.86,
+        "blue": 0.95,
+        "alpha": 1
+      },
+      "opacity": 0.95,
+      "radius": 0.034,
+      "trailSeconds": 0.08,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "kiRed",
+      "name": "🔴 あかい オーラ",
+      "mode": "karate",
+      "style": "aura",
+      "color": {
+        "red": 1.0,
+        "green": 0.22,
+        "blue": 0.14,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
       "burstSeconds": 0.4,
       "maxAnchors": 2
     },
@@ -189,14 +342,65 @@
       "maxAnchors": 2
     },
     {
-      "id": "pnSpark",
-      "name": "✨ きらり",
-      "mode": "piano",
-      "style": "aura",
+      "id": "dragonRed",
+      "name": "🔥 ひの ドラゴン",
+      "mode": "karate",
+      "style": "dragon",
       "color": {
         "red": 1.0,
-        "green": 0.95,
-        "blue": 0.66,
+        "green": 0.22,
+        "blue": 0.14,
+        "alpha": 1
+      },
+      "opacity": 0.92,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "sparkleGold",
+      "name": "🌟 きんの きらめき",
+      "mode": "karate",
+      "style": "sparkle",
+      "color": {
+        "red": 1.0,
+        "green": 0.84,
+        "blue": 0.1,
+        "alpha": 1
+      },
+      "opacity": 0.95,
+      "radius": 0.034,
+      "trailSeconds": 0.1,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "waterTeal",
+      "name": "🌊 おおなみ",
+      "mode": "karate",
+      "style": "water",
+      "color": {
+        "red": 0.1,
+        "green": 0.85,
+        "blue": 0.75,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.16,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "windGold",
+      "name": "💨 かみかぜ",
+      "mode": "karate",
+      "style": "wind",
+      "color": {
+        "red": 1.0,
+        "green": 0.84,
+        "blue": 0.1,
         "alpha": 1
       },
       "opacity": 0.88,
@@ -206,14 +410,82 @@
       "maxAnchors": 2
     },
     {
-      "id": "pnNote",
-      "name": "🎵 おんぷ",
-      "mode": "piano",
-      "style": "spiral",
+      "id": "shadowMag",
+      "name": "🟣 やみ",
+      "mode": "karate",
+      "style": "shadow",
       "color": {
-        "red": 0.35,
-        "green": 0.82,
+        "red": 1.0,
+        "green": 0.25,
+        "blue": 0.85,
+        "alpha": 1
+      },
+      "opacity": 0.85,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "boltIndigo",
+      "name": "🌩 かみなりの王",
+      "mode": "karate",
+      "style": "lightning",
+      "color": {
+        "red": 0.42,
+        "green": 0.38,
         "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.95,
+      "radius": 0.034,
+      "trailSeconds": 0.1,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnSpark",
+      "name": "✨ きらり",
+      "mode": "piano",
+      "style": "sparkle",
+      "color": {
+        "red": 1.0,
+        "green": 0.95,
+        "blue": 0.7,
+        "alpha": 1
+      },
+      "opacity": 0.95,
+      "radius": 0.034,
+      "trailSeconds": 0.1,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnAura",
+      "name": "🤍 やさしい ひかり",
+      "mode": "piano",
+      "style": "aura",
+      "color": {
+        "red": 0.92,
+        "green": 0.97,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnPetal",
+      "name": "🌸 はなびら",
+      "mode": "piano",
+      "style": "petal",
+      "color": {
+        "red": 1.0,
+        "green": 0.62,
+        "blue": 0.8,
         "alpha": 1
       },
       "opacity": 0.92,
@@ -223,10 +495,27 @@
       "maxAnchors": 2
     },
     {
-      "id": "pnHeart",
-      "name": "💗 ハート",
+      "id": "pnWater",
+      "name": "💧 しずく",
       "mode": "piano",
-      "style": "spiral",
+      "style": "water",
+      "color": {
+        "red": 0.35,
+        "green": 0.82,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.16,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnRibbon",
+      "name": "🎀 リボン",
+      "mode": "piano",
+      "style": "ribbon",
       "color": {
         "red": 1.0,
         "green": 0.36,
@@ -240,31 +529,82 @@
       "maxAnchors": 2
     },
     {
-      "id": "pnMoon",
-      "name": "🌙 つき",
+      "id": "pnSnow",
+      "name": "❄️ ゆき",
       "mode": "piano",
-      "style": "spiral",
+      "style": "ice",
       "color": {
-        "red": 1.0,
-        "green": 0.88,
-        "blue": 0.54,
+        "red": 0.62,
+        "green": 0.92,
+        "blue": 1.0,
         "alpha": 1
       },
-      "opacity": 0.92,
+      "opacity": 0.95,
+      "radius": 0.034,
+      "trailSeconds": 0.08,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnWind",
+      "name": "🌪 そよかぜ",
+      "mode": "piano",
+      "style": "wind",
+      "color": {
+        "red": 0.3,
+        "green": 0.95,
+        "blue": 0.6,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnRainbow",
+      "name": "🌈 にじ",
+      "mode": "piano",
+      "style": "rainbow",
+      "color": {
+        "red": 0.92,
+        "green": 0.97,
+        "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.9,
       "radius": 0.034,
       "trailSeconds": 0.12,
       "burstSeconds": 0.4,
       "maxAnchors": 2
     },
     {
-      "id": "pnSnow",
-      "name": "❄️ ゆき",
+      "id": "pnBlizzard",
+      "name": "🌨 ふぶき",
       "mode": "piano",
-      "style": "lightning",
+      "style": "blizzard",
       "color": {
-        "red": 0.62,
-        "green": 0.9,
+        "red": 0.92,
+        "green": 0.97,
         "blue": 1.0,
+        "alpha": 1
+      },
+      "opacity": 0.9,
+      "radius": 0.034,
+      "trailSeconds": 0.16,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnSparkGold",
+      "name": "🌟 きんの きらめき",
+      "mode": "piano",
+      "style": "sparkle",
+      "color": {
+        "red": 1.0,
+        "green": 0.84,
+        "blue": 0.1,
         "alpha": 1
       },
       "opacity": 0.95,
@@ -274,25 +614,8 @@
       "maxAnchors": 2
     },
     {
-      "id": "pnFlower",
-      "name": "🌸 おはな",
-      "mode": "piano",
-      "style": "spiral",
-      "color": {
-        "red": 1.0,
-        "green": 0.56,
-        "blue": 0.78,
-        "alpha": 1
-      },
-      "opacity": 0.92,
-      "radius": 0.034,
-      "trailSeconds": 0.12,
-      "burstSeconds": 0.4,
-      "maxAnchors": 2
-    },
-    {
-      "id": "pnStar",
-      "name": "⭐️ ほし",
+      "id": "pnBolt",
+      "name": "⚡️ いなずま",
       "mode": "piano",
       "style": "lightning",
       "color": {
@@ -308,36 +631,53 @@
       "maxAnchors": 2
     },
     {
-      "id": "pnKiBlue",
-      "name": "🔵 あおい オーラ",
+      "id": "pnDragon",
+      "name": "🐉 ドラゴン",
       "mode": "piano",
-      "style": "aura",
+      "style": "dragon",
       "color": {
-        "red": 0.2,
-        "green": 0.55,
+        "red": 0.7,
+        "green": 0.4,
         "blue": 1.0,
         "alpha": 1
       },
-      "opacity": 0.88,
+      "opacity": 0.92,
       "radius": 0.034,
       "trailSeconds": 0.14,
       "burstSeconds": 0.4,
       "maxAnchors": 2
     },
     {
-      "id": "pnGem",
-      "name": "💎 ダイヤ",
+      "id": "pnFlame",
+      "name": "🔥 ほのお",
       "mode": "piano",
-      "style": "spiral",
+      "style": "flame",
       "color": {
-        "red": 0.3,
-        "green": 0.95,
-        "blue": 0.92,
+        "red": 1.0,
+        "green": 0.45,
+        "blue": 0.08,
         "alpha": 1
       },
-      "opacity": 0.92,
+      "opacity": 0.95,
       "radius": 0.034,
       "trailSeconds": 0.12,
+      "burstSeconds": 0.4,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pnAuraGold",
+      "name": "🟡 きんの ひかり",
+      "mode": "piano",
+      "style": "aura",
+      "color": {
+        "red": 1.0,
+        "green": 0.84,
+        "blue": 0.1,
+        "alpha": 1
+      },
+      "opacity": 0.88,
+      "radius": 0.034,
+      "trailSeconds": 0.14,
       "burstSeconds": 0.4,
       "maxAnchors": 2
     }

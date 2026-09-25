@@ -47,7 +47,8 @@ public struct EffectCatalog: Codable, Sendable {
             guard (0...1).contains(p.opacity), (0.005...0.045).contains(p.radius),
                   (0...0.20).contains(p.trailSeconds), (0.08...0.40).contains(p.burstSeconds),
                   (1...2).contains(p.maxAnchors), [p.color.red,p.color.green,p.color.blue,p.color.alpha].allSatisfy({ (0...1).contains($0) }),
-                  ["lightning","spiral","aura"].contains(p.style) else {
+                  ["lightning","flame","ice","blizzard","water","wind","sparkle","petal",
+                   "shadow","dragon","rainbow","aura","ribbon"].contains(p.style) else {
                 throw FXError.invalidData("Unsafe effect size, opacity, color, style or particle budget: \(p.id)")
             }
         }
