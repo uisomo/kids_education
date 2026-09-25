@@ -54,7 +54,10 @@ export interface SaveStatus {
 }
 
 export interface KarateRecorderPluginLike {
-  startPreview(): Promise<void>;
+  // `liveEffects` is the ✨キラキラ preset shown ON SCREEN during practice
+  // (empty = off, which is also the default). It never reaches the saved
+  // video — see motion-effects.ts. Optional so test fakes still type.
+  startPreview(opts?: { liveEffects?: string; mode?: string }): Promise<void>;
   stopPreview(): Promise<void>;
   startRecording(): Promise<void>;
   stopRecording(opts: {
@@ -97,6 +100,11 @@ export interface KarateRecorderPluginLike {
     eventName: "exportFinished",
     listener: (data: NativeSaveResult) => void,
   ): Promise<PluginListenerHandle>;
+  // ✨キラキラ being made: { phase: "analyzing" | "exporting", progress: 0…1 }.
+  addListener?(
+    eventName: "motionEffectsProgress",
+    listener: (data: { phase?: string; progress?: number }) => void,
+  ): Promise<PluginListenerHandle>;
   getSaveStatus?(): Promise<SaveStatus>;
   // Writes a finished video into the phone's own 写真 library (no share sheet).
   saveToPhotos?(opts: { uri: string }): Promise<void>;
@@ -104,6 +112,19 @@ export interface KarateRecorderPluginLike {
   biometryKind?(): Promise<{ kind?: string }>;
   authenticateParent?(opts: { reason?: string }): Promise<{ ok?: boolean }>;
   markVideoSeen?(opts: { jobId: string }): Promise<void>;
+  // ✨キラキラ (see motion-effects.ts). Optional throughout: older native
+  // builds and the web/test fakes simply don't have them, and the done screen
+  // then shows no かざり row at all.
+  motionEffectsInfo?(opts: { mode: string }): Promise<{
+    available?: boolean;
+    presets?: { id: string; name: string }[];
+  }>;
+  // Reads a finished video and writes a NEW one with the effects on it; the
+  // source is never modified. Progress arrives as "motionEffectsProgress".
+  applyMotionEffects?(opts: {
+    uri: string; mode: string; preset: string; intensity: number;
+  }): Promise<{ uri: string }>;
+  cancelMotionEffects?(): Promise<void>;
   // Native playback (AudioController): one engine for music and character
   // voices, so neither interrupts the other and the volume really applies.
   playMusic(opts: { src: string; volume: number }): Promise<void>;
@@ -344,6 +365,7 @@ export class NativeVideoRecorder {
   private listener: Promise<PluginListenerHandle | undefined> | null = null;
   private jobId: string | null = null;
   private saving: Promise<NativeSaveResult | null> | null = null;
+  private liveEffects: { liveEffects: string; mode: string } | undefined;
 
   constructor(deps: NativeRecorderDeps = {}) {
     this.deps = deps;
@@ -381,9 +403,15 @@ export class NativeVideoRecorder {
   // there is no MediaStream to hand back. An empty stream keeps the caller's
   // `videoEl.srcObject = stream` harmless — the <video> stays transparent and
   // the camera shows through from the native layer underneath.
+  // 稽古中に画面へ出すキラキラ（家族タブの設定）。startCamera の前に呼ぶ。
+  // 空文字/未設定なら、ネイティブ側は解析用のカメラ出力すら足さない。
+  setLiveEffects(presetId: string, mode: string): void {
+    this.liveEffects = { liveEffects: presetId, mode };
+  }
+
   async startCamera(): Promise<MediaStream> {
     const plugin = this.getPlugin();
-    await plugin.startPreview();
+    await plugin.startPreview(this.liveEffects);
     // Makes the web layer transparent so the native preview behind it shows
     // through — see the html.native-camera rules in style.css.
     this.setPreviewClass(true);

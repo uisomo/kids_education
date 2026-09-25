@@ -472,3 +472,55 @@ it("a paid household can pick 「なし」", () => {
   none.click();
   expect(onSelectDecor).toHaveBeenCalledWith("none");
 });
+
+// --- けいこ中のキラキラ (live, on-screen only) ---
+// 稽古中に画面へ出すかざり。えらべるものが無い iPhone（iOS 16 以下・ウェブ）では
+// 節ごと出さないし、上のジャンプ行にも並べない — 押しても何も起きないチップは
+// 出さないため。
+const LIVE_PRESETS = [
+  { id: "quietLightning", name: "⚡️ いなずま" },
+  { id: "mintHalo", name: "🟢 わっか" },
+];
+
+it("omits けいこ中のキラキラ entirely when the phone offers none", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ liveEffect: "", liveEffectPresets: [], onSelectLiveEffect: vi.fn() }));
+  expect(root.querySelector("[data-live-effect-options]")).toBeNull();
+  expect(root.querySelector('[data-family-jump-to="live"]')).toBeNull();
+});
+
+it("offers 「なし」 plus each かざり, with the stored one marked", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({
+    liveEffect: "mintHalo", liveEffectPresets: LIVE_PRESETS, onSelectLiveEffect: vi.fn(),
+  }));
+  const options = [...root.querySelectorAll<HTMLElement>("[data-live-effect]")];
+  expect(options.map((o) => o.dataset.liveEffect)).toEqual(["", "quietLightning", "mintHalo"]);
+  expect(root.querySelector(".decor-option.on[data-live-effect]")!.getAttribute("data-live-effect"))
+    .toBe("mintHalo");
+  // 長いページなので、上のチップから飛べること。
+  expect(root.querySelector('[data-family-jump-to="live"]')).not.toBeNull();
+});
+
+it("picking one fires onSelectLiveEffect, and 「なし」 turns it off", () => {
+  const root = document.createElement("div");
+  const onSelectLiveEffect = vi.fn();
+  renderFamilyScreen(root, deps({
+    liveEffect: "", liveEffectPresets: LIVE_PRESETS, onSelectLiveEffect,
+  }));
+  root.querySelector<HTMLButtonElement>('[data-live-effect="quietLightning"]')!.click();
+  expect(onSelectLiveEffect).toHaveBeenCalledWith("quietLightning");
+  root.querySelector<HTMLButtonElement>('[data-live-effect=""]')!.click();
+  expect(onSelectLiveEffect).toHaveBeenLastCalledWith("");
+});
+
+it("says the live かざり does not reach the saved video", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({
+    liveEffect: "", liveEffectPresets: LIVE_PRESETS, onSelectLiveEffect: vi.fn(),
+  }));
+  const note = [...root.querySelectorAll(".family-plan-note")]
+    .map((n) => n.textContent ?? "")
+    .find((t) => t.includes("キラキラ") || t.includes("かざりが出ます"));
+  expect(note).toContain("ほぞんする どうが には入りません");
+});

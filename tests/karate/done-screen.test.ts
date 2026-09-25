@@ -327,3 +327,121 @@ it("💡 keeps the video playing and opens the card as a sheet under it", () => 
   expect(root.classList.contains("is-writing")).toBe(false);
   root.remove();
 });
+
+// --- ✨キラキラ (motion effects) ---
+// 録画そのものには手を入れず、仕上がった動画から *別ファイル* を作る機能。
+// だいじなのは「もとの動画にいつでも戻れる」「保存・送信は いま見えている
+// ほうを使う」の 2 つ。
+function fxDeps(overrides: Record<string, unknown> = {}) {
+  return {
+    videoUrl: "blob:raw", ext: "mp4",
+    stats: { time: "3:00", drills: 5, cues: 14 },
+    onShare: vi.fn(), onAgain: vi.fn(),
+    ...overrides,
+  } as any;
+}
+
+it("offers no かざり row when the phone cannot make them", () => {
+  const root = document.createElement("div");
+  renderDoneScreen(root, fxDeps());
+  expect(root.querySelector("[data-motion-fx]")).toBeNull();
+});
+
+it("waits for the finished video before offering かざり", async () => {
+  const root = document.createElement("div");
+  let finish!: (r: { playbackUrl: string; fileUri: string } | null) => void;
+  renderDoneScreen(root, fxDeps({
+    finishing: {
+      done: new Promise<{ playbackUrl: string; fileUri: string } | null>((r) => { finish = r; }),
+      onProgress: () => { /* not used here */ },
+    },
+    motionFx: {
+      presets: [{ id: "quietLightning", name: "⚡️ いなずま" }],
+      apply: vi.fn(), cancel: vi.fn(), onCurrent: vi.fn(),
+    },
+  }));
+
+  const row = root.querySelector<HTMLElement>("[data-motion-fx]")!;
+  expect(row.hidden).toBe(true);
+
+  finish({ playbackUrl: "blob:final", fileUri: "file:///final.mp4" });
+  await Promise.resolve(); await Promise.resolve();
+  expect(row.hidden).toBe(false);
+});
+
+it("swaps in the かざり video, reports it for saving, and goes back on 「なし」", async () => {
+  const root = document.createElement("div");
+  const onCurrent = vi.fn();
+  const apply = vi.fn().mockResolvedValue({ playbackUrl: "blob:fx", fileUri: "file:///fx.mp4" });
+  renderDoneScreen(root, fxDeps({
+    motionFx: {
+      presets: [{ id: "quietLightning", name: "⚡️ いなずま" }],
+      apply, cancel: vi.fn(), onCurrent,
+    },
+  }));
+
+  const video = root.querySelector("video")!;
+  root.querySelector<HTMLButtonElement>('[data-fx-preset="quietLightning"]')!.click();
+  await vi.waitFor(() => expect(video.getAttribute("src")).toBe("blob:fx"));
+  expect(apply).toHaveBeenCalledOnce();
+  // 保存・送信は キラキラ のほうを使う。
+  expect(onCurrent).toHaveBeenLastCalledWith("file:///fx.mp4");
+
+  root.querySelector<HTMLButtonElement>('[data-fx-preset=""]')!.click();
+  expect(video.getAttribute("src")).toBe("blob:raw");
+  // null = もとの動画。
+  expect(onCurrent).toHaveBeenLastCalledWith(null);
+
+  // 一度作ったものに戻るのは待ち時間なし: 作り直さない。
+  root.querySelector<HTMLButtonElement>('[data-fx-preset="quietLightning"]')!.click();
+  expect(video.getAttribute("src")).toBe("blob:fx");
+  expect(apply).toHaveBeenCalledOnce();
+});
+
+it("keeps the original video when making かざり fails", async () => {
+  const root = document.createElement("div");
+  const onCurrent = vi.fn();
+  renderDoneScreen(root, fxDeps({
+    motionFx: {
+      presets: [{ id: "mintHalo", name: "🟢 わっか" }],
+      apply: vi.fn().mockRejectedValue(new Error("disk full")),
+      cancel: vi.fn(), onCurrent,
+    },
+  }));
+
+  const button = root.querySelector<HTMLButtonElement>('[data-fx-preset="mintHalo"]')!;
+  button.click();
+  await vi.waitFor(() => expect(button.disabled).toBe(false));
+  expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:raw");
+  expect(onCurrent).not.toHaveBeenCalled();
+});
+
+it("shows progress and a 「やめる」 button while かざり is being made", async () => {
+  const root = document.createElement("div");
+  let report!: (phase: string, fraction: number) => void;
+  const cancel = vi.fn();
+  renderDoneScreen(root, fxDeps({
+    motionFx: {
+      presets: [{ id: "quietLightning", name: "⚡️ いなずま" }],
+      apply: (_id: string, onProgress: (phase: string, fraction: number) => void) => {
+        report = onProgress;
+        return new Promise(() => { /* never settles: stays mid-flight */ });
+      },
+      cancel, onCurrent: vi.fn(),
+    },
+  }));
+
+  const stop = root.querySelector<HTMLButtonElement>("[data-fx-stop]")!;
+  expect(stop.hidden).toBe(true);
+  root.querySelector<HTMLButtonElement>('[data-fx-preset="quietLightning"]')!.click();
+  await Promise.resolve();
+
+  expect(stop.hidden).toBe(false);
+  report("analyzing", 0.4);
+  expect(root.querySelector("[data-fx-status]")!.textContent).toContain("40%");
+  report("exporting", 0.9);
+  expect(root.querySelector("[data-fx-status]")!.textContent).toContain("90%");
+
+  stop.click();
+  expect(cancel).toHaveBeenCalledOnce();
+});

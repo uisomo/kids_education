@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "presets": [
+    {
+      "id": "quietLightning",
+      "name": "Quiet Lightning",
+      "mode": "karate",
+      "style": "lightning",
+      "color": {
+        "red": 0.34,
+        "green": 0.69,
+        "blue": 0.94,
+        "alpha": 1
+      },
+      "opacity": 0.55,
+      "radius": 0.022,
+      "trailSeconds": 0.1,
+      "burstSeconds": 0.22,
+      "maxAnchors": 2
+    },
+    {
+      "id": "mintHalo",
+      "name": "Mint Halo",
+      "mode": "karate",
+      "style": "halo",
+      "color": {
+        "red": 0.32,
+        "green": 0.8,
+        "blue": 0.67,
+        "alpha": 1
+      },
+      "opacity": 0.46,
+      "radius": 0.024,
+      "trailSeconds": 0.05,
+      "burstSeconds": 0.24,
+      "maxAnchors": 2
+    },
+    {
+      "id": "ribbonTrail",
+      "name": "Violet Ribbon",
+      "mode": "karate",
+      "style": "ribbon",
+      "color": {
+        "red": 0.65,
+        "green": 0.54,
+        "blue": 0.92,
+        "alpha": 1
+      },
+      "opacity": 0.48,
+      "radius": 0.019,
+      "trailSeconds": 0.16,
+      "burstSeconds": 0.2,
+      "maxAnchors": 2
+    },
+    {
+      "id": "softKick",
+      "name": "Soft Kick Arc",
+      "mode": "karate",
+      "style": "arc",
+      "color": {
+        "red": 0.95,
+        "green": 0.64,
+        "blue": 0.32,
+        "alpha": 1
+      },
+      "opacity": 0.5,
+      "radius": 0.025,
+      "trailSeconds": 0.1,
+      "burstSeconds": 0.24,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pianoPearl",
+      "name": "Piano Pearls",
+      "mode": "piano",
+      "style": "pearl",
+      "color": {
+        "red": 0.78,
+        "green": 0.6,
+        "blue": 0.87,
+        "alpha": 1
+      },
+      "opacity": 0.42,
+      "radius": 0.016,
+      "trailSeconds": 0.07,
+      "burstSeconds": 0.32,
+      "maxAnchors": 2
+    },
+    {
+      "id": "pianoNotes",
+      "name": "Tiny Notes",
+      "mode": "piano",
+      "style": "notes",
+      "color": {
+        "red": 0.39,
+        "green": 0.73,
+        "blue": 0.8,
+        "alpha": 1
+      },
+      "opacity": 0.45,
+      "radius": 0.018,
+      "trailSeconds": 0.08,
+      "burstSeconds": 0.36,
+      "maxAnchors": 2
+    }
+  ],
+  "glyphs": [
+    {
+      "id": "bolt",
+      "closed": false,
+      "paths": [
+        [
+          {
+            "x": -0.05,
+            "y": -0.5
+          },
+          {
+            "x": -0.36,
+            "y": 0.03
+          },
+          {
+            "x": 0.02,
+            "y": -0.03
+          },
+          {
+            "x": -0.05,
+            "y": 0.5
+          },
+          {
+            "x": 0.36,
+            "y": -0.1
+          },
+          {
+            "x": 0.05,
+            "y": -0.03
+          }
+        ]
+      ]
+    },
+    {
+      "id": "spark",
+      "closed": true,
+      "paths": [
+        [
+          {
+            "x": 0,
+            "y": -0.5
+          },
+          {
+            "x": 0.12,
+            "y": -0.12
+          },
+          {
+            "x": 0.5,
+            "y": 0
+          },
+          {
+            "x": 0.12,
+            "y": 0.12
+          },
+          {
+            "x": 0,
+            "y": 0.5
+          },
+          {
+            "x": -0.12,
+            "y": 0.12
+          },
+          {
+            "x": -0.5,
+            "y": 0
+          },
+          {
+            "x": -0.12,
+            "y": -0.12
+          }
+        ]
+      ]
+    },
+    {
+      "id": "note",
+      "closed": false,
+      "paths": [
+        [
+          {
+            "x": 0.12,
+            "y": 0.2
+          },
+          {
+            "x": 0.12,
+            "y": -0.48
+          },
+          {
+            "x": 0.4,
+            "y": -0.34
+          },
+          {
+            "x": 0.35,
+            "y": -0.15
+          }
+        ],
+        [
+          {
+            "x": 0.12,
+            "y": 0.2
+          },
+          {
+            "x": 0.04,
+            "y": 0.1
+          },
+          {
+            "x": -0.15,
+            "y": 0.14
+          },
+          {
+            "x": -0.3,
+            "y": 0.31
+          },
+          {
+            "x": -0.24,
+            "y": 0.43
+          },
+          {
+            "x": -0.06,
+            "y": 0.42
+          },
+          {
+            "x": 0.1,
+            "y": 0.29
+          },
+          {
+            "x": 0.12,
+            "y": 0.2
+          }
+        ]
+      ]
+    }
+  ]
+}

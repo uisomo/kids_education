@@ -69,6 +69,20 @@ export interface DoneDeps {
     // The finished video made it onto the screen.
     onShown?(): void;
   };
+  // ✨キラキラ: 仕上がった動画に、動きに合わせたかざり（細い輪郭だけ）を乗せた
+  // *別の* 動画を作る。元の動画は消えないので「なし」でいつでも戻れる。
+  // native（iOS 17 以上）でだけ渡ってくる。無ければ行ごと出ない。
+  motionFx?: {
+    presets: { id: string; name: string }[];
+    // 作りおわった動画。途中でやめられたときは reject する。
+    apply(
+      presetId: string,
+      onProgress: (phase: string, fraction: number) => void,
+    ): Promise<{ playbackUrl: string; fileUri: string }>;
+    cancel(): void;
+    // いま画面に出ている動画。null は もとの動画。保存・送信はこれを使う。
+    onCurrent(fileUri: string | null): void;
+  };
   // Temporary on-device diagnostics (track mute/ended events, tab visibility
   // changes, rAF stalls) for tracking down the iPhone Safari video-freeze
   // bug. Shown collapsed since it's only useful for debugging. Omitted
@@ -135,6 +149,21 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   video.controls = true;
 
   let shareBlob: Blob | undefined;
+
+  // もとの（かざり無しの）動画。保存が終わると仕上がったほうに差し替わる。
+  let originalSrc = deps.videoUrl;
+
+  // 動画を差し替えても、子どもが見ていたところと再生中かどうかは保つ。
+  function showVideoSource(src: string): void {
+    if (video.getAttribute("src") === src) return;
+    const at = video.currentTime;
+    const wasPlaying = !video.paused && !video.ended;
+    video.addEventListener("loadedmetadata", () => {
+      try { video.currentTime = Math.min(at, video.duration || at); } catch { /* not seekable yet */ }
+      if (wasPlaying) void Promise.resolve(video.play()).catch(() => { /* needs a tap */ });
+    }, { once: true });
+    video.setAttribute("src", src);
+  }
 
   const burninStatus = document.createElement("div");
   burninStatus.dataset.burninStatus = "";
@@ -262,6 +291,119 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   split.className = kufuOn ? "done-split" : "done-split is-solo";
   split.append(video, ...(kufuOn ? [kufuSection] : []));
 
+  // ✨キラキラ: 動きに合わせたかざりを乗せた *別の* 動画を作る行。
+  //
+  // 録画そのものには手を入れない。保存のおわった動画を読んで新しいファイルを
+  // 書くので、「なし」を押せばいつでも もとの動画に戻れるし、保存・送信も
+  // いま見えているほうが使われる。
+  //
+  // 何分もかかることがあるので、押したら進み具合と「やめる」を出す。
+  let fxRow: HTMLElement | null = null;
+  let revealFx = (): void => { /* かざりが無い日は何もしない */ };
+  if (deps.motionFx?.presets.length) {
+    const fx = deps.motionFx;
+    const row = document.createElement("div");
+    row.className = "fx-row";
+    row.dataset.motionFx = "";
+    // 仕上げが終わるまで出さない: それまで完成した動画がまだ無い。
+    row.hidden = !!deps.finishing;
+
+    const label = document.createElement("span");
+    label.className = "fx-label";
+    label.textContent = "✨ キラキラ";
+
+    const choices = document.createElement("div");
+    choices.className = "fx-choices";
+
+    const status = document.createElement("div");
+    status.className = "fx-status";
+    status.dataset.fxStatus = "";
+
+    const stop = document.createElement("button");
+    stop.className = "fx-stop";
+    stop.dataset.fxStop = "";
+    stop.textContent = "やめる";
+    stop.hidden = true;
+
+    // "" は もとの動画。
+    let chosen = "";
+    let busy = false;
+    const buttons = new Map<string, HTMLButtonElement>();
+    // 作りおわった動画は覚えておく: 一度つけたかざりに戻すのは待ち時間なし。
+    const made = new Map<string, { playbackUrl: string; fileUri: string }>();
+
+    const paint = () => {
+      buttons.forEach((button, id) => {
+        button.classList.toggle("is-on", id === chosen);
+        button.disabled = busy;
+      });
+      stop.hidden = !busy;
+      status.hidden = !busy;
+    };
+
+    const pick = async (id: string): Promise<void> => {
+      if (busy || id === chosen) return;
+      const ready = id === "" ? { playbackUrl: originalSrc, fileUri: "" } : made.get(id);
+      if (ready) {
+        chosen = id;
+        paint();
+        showVideoSource(ready.playbackUrl);
+        fx.onCurrent(ready.fileUri || null);
+        return;
+      }
+      busy = true;
+      status.textContent = "うごきを見ているよ… 0%";
+      stop.disabled = false;
+      paint();
+      try {
+        const result = await fx.apply(id, (phase, fraction) => {
+          const pct = Math.floor(fraction * 100);
+          status.textContent = phase === "exporting"
+            ? `キラキラを つけているよ… ${pct}%`
+            : `うごきを 見ているよ… ${pct}%`;
+        });
+        made.set(id, result);
+        chosen = id;
+        showVideoSource(result.playbackUrl);
+        fx.onCurrent(result.fileUri);
+        showDoneToast(root, "✨ キラキラが ついたよ！");
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (/cancel/i.test(message)) {
+          showDoneToast(root, "キラキラは やめたよ");
+        } else {
+          console.error("motion effects failed", e);
+          showDoneToast(root, "⚠️ キラキラは つけられなかった。もとの動画はそのままだよ", 4000);
+        }
+      } finally {
+        busy = false;
+        paint();
+      }
+    };
+
+    const addChoice = (id: string, text: string) => {
+      const button = document.createElement("button");
+      button.className = "fx-choice";
+      button.dataset.fxPreset = id;
+      button.textContent = text;
+      button.addEventListener("click", () => { void pick(id); });
+      buttons.set(id, button);
+      choices.append(button);
+    };
+    addChoice("", "なし");
+    fx.presets.forEach((preset) => addChoice(preset.id, preset.name));
+
+    stop.addEventListener("click", () => {
+      stop.disabled = true;
+      fx.cancel();
+    });
+
+    paint();
+    row.append(label, choices, status, stop);
+    fxRow = row;
+    revealFx = () => { row.hidden = false; };
+  }
+
   // Save / Share Button with Parental Gate
   const dl = document.createElement("button");
   dl.dataset.download = ""; dl.className = "btn-dl";
@@ -342,13 +484,10 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     void deps.finishing.done.then((result) => {
       finished();
       if (!result) return;
-      const at = video.currentTime;
-      const wasPlaying = !video.paused && !video.ended;
-      video.addEventListener("loadedmetadata", () => {
-        try { video.currentTime = Math.min(at, video.duration || at); } catch { /* not seekable yet */ }
-        if (wasPlaying) void Promise.resolve(video.play()).catch(() => { /* needs a tap */ });
-      }, { once: true });
-      video.setAttribute("src", result.playbackUrl);
+      // 仕上がったほうが「もとの動画」になる: ✨キラキラ の「なし」はここへ戻る。
+      originalSrc = result.playbackUrl;
+      showVideoSource(result.playbackUrl);
+      revealFx();
       showDoneToast(root, "✅ 動画ができたよ！");
       if (video.isConnected) deps.finishing?.onShown?.();
     }).catch(finished);
@@ -357,7 +496,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   // Nothing to save or send until the finished video exists.
   if (deps.finishing) setSaveEnabled(false);
 
-  root.append(header, split, sheetSlot, actions, sendNode);
+  root.append(header, split, ...(fxRow ? [fxRow] : []), sheetSlot, actions, sendNode);
   if (showBurninStatus) root.insertBefore(burninStatus, actions);
   if (kufuOn) requestAnimationFrame(paintMore);
 

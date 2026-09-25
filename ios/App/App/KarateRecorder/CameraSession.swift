@@ -31,6 +31,22 @@ final class CameraSession: NSObject {
 
     private let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
+    /// ✨キラキラ（稽古中・画面だけ）。nil のときは解析用の出力を足さないので、
+    /// カメラにも録画にも、この機能ぶんの負荷は一切かからない。
+    /// startPreview の前に入れること（セッションを組むときに見る）。
+    ///
+    /// 書くのは main、読むのは解析キュー（コマが届くところ）なので鍵をかける。
+    /// 中身の `submit` は nonisolated で、main を待たずに戻る。
+    private let liveLock = NSLock()
+    private var storedLiveEffects: LiveMotionOverlay?
+    var liveEffects: LiveMotionOverlay? {
+        get { liveLock.lock(); defer { liveLock.unlock() }; return storedLiveEffects }
+        set { liveLock.lock(); storedLiveEffects = newValue; liveLock.unlock() }
+    }
+    /// 解析専用の出力。`alwaysDiscardsLateVideoFrames` をここに付けるのは安全で、
+    /// 録画は movieOutput が別に書いているので、取りこぼしても録画には響かない。
+    private let analysisOutput = AVCaptureVideoDataOutput()
+    private let analysisQueue = DispatchQueue(label: "karate.recorder.analysis", qos: .userInitiated)
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var previewView: UIView?
     /// All session mutation happens here; AVCaptureSession calls block.
@@ -87,6 +103,7 @@ final class CameraSession: NSObject {
             webView.scrollView.backgroundColor = .clear
             try await startRunning()
             observeSessionEvents()
+            liveEffects?.start()
             return
         }
         previewView?.removeFromSuperview()
@@ -107,6 +124,14 @@ final class CameraSession: NSObject {
             connection.isVideoMirrored = true
         }
         container.layer.addSublayer(layer)
+
+        // ✨キラキラ（稽古中）: プレビューの上、web 画面の下。タップは通す。
+        if let live = liveEffects {
+            live.view.frame = container.bounds
+            live.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            container.addSubview(live.view)
+            live.start()
+        }
 
         previewLayer = layer
         previewView = container
@@ -162,13 +187,24 @@ final class CameraSession: NSObject {
         ) { [weak self] note in
             let code = (note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber)?.intValue ?? -1
             print("⚡️  [KarateRecorder] capture interrupted, reason \(code)")
+            // 止まったカメラの古いポーズが画面に残らないように。録画そのものは
+            // ここでは何も変えない。
+            Task { @MainActor [weak self] in self?.liveEffects?.stop() }
             guard let self, self.isRecording else { return }
             self.onRecordingInterrupted?(Self.interruptionName(code))
         })
         observers.append(center.addObserver(
             forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil
-        ) { _ in
+        ) { [weak self] _ in
             print("⚡️  [KarateRecorder] capture interruption ended")
+            // 中断でキラキラを消しているので、カメラが戻ったら出し直す。
+            // これが無いと、アプリを一瞬離れただけで、その稽古のあいだ
+            // ずっと出なくなる。プレビューが畳まれていれば view が無いので、
+            // start() は次の startPreview まで何もしない。
+            Task { @MainActor [weak self] in
+                guard let self, self.previewView?.superview != nil else { return }
+                self.liveEffects?.start()
+            }
         })
     }
 
@@ -218,9 +254,10 @@ final class CameraSession: NSObject {
         ) else {
             throw CameraError.noCamera
         }
+        let wantsAnalysis = liveEffects != nil
 
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            sessionQueue.async { [session, movieOutput] in
+            sessionQueue.async { [session, movieOutput, analysisOutput, weak self] in
                 do {
                     session.beginConfiguration()
                     // We own the audio session (configureAudioSession above);
@@ -246,6 +283,37 @@ final class CameraSession: NSObject {
                     // the movie lost its first ~8 seconds of sound.
 
                     if session.canAddOutput(movieOutput) { session.addOutput(movieOutput) }
+
+                    // ✨キラキラ を出すときだけ、解析用の出力をもう一本足す。
+                    // 録画とは別の出力なので、ここが詰まっても movieOutput の
+                    // 書き込みには影響しない。
+                    if wantsAnalysis {
+                        analysisOutput.alwaysDiscardsLateVideoFrames = true
+                        if session.canAddOutput(analysisOutput) {
+                            session.addOutput(analysisOutput)
+                            if let connection = analysisOutput.connection(with: .video) {
+                                // プレビュー・録画と同じ向きと反転にそろえる。
+                                // こうしておけば Vision が見る絵＝子どもが見ている絵で、
+                                // かざり側で反転を掛け直さなくてよくなる。
+                                if connection.isVideoMirroringSupported {
+                                    connection.automaticallyAdjustsVideoMirroring = false
+                                    connection.isVideoMirrored = true
+                                }
+                                if #available(iOS 17.0, *) {
+                                    if connection.isVideoRotationAngleSupported(90) {
+                                        connection.videoRotationAngle = 90
+                                    }
+                                } else if connection.isVideoOrientationSupported {
+                                    connection.videoOrientation = .portrait
+                                }
+                            }
+                            if let self { analysisOutput.setSampleBufferDelegate(self, queue: self.analysisQueue) }
+                        } else {
+                            print("⚡️  [MotionFX] live: the camera would not take an analysis output")
+                        }
+                    } else {
+                        analysisOutput.setSampleBufferDelegate(nil, queue: nil)
+                    }
 
                     if let connection = movieOutput.connection(with: .video) {
                         // Burn the mirroring into the file too, so the saved
@@ -276,6 +344,7 @@ final class CameraSession: NSObject {
 
     @MainActor
     func stopPreview() {
+        liveEffects?.stop()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
         observers.removeAll()
         stateLock.lock()
@@ -500,5 +569,18 @@ extension CameraSession: AVCaptureFileOutputRecordingDelegate {
             print("⚡️  [KarateRecorder] recording ended unexpectedly: \(reason)")
             onRecordingInterrupted?("recordingEnded")
         }
+    }
+}
+
+// MARK: - ✨キラキラ（稽古中）のためのコマ送り
+
+extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
+    /// 解析用の出力からコマが届く。**ここは短く。** LiveMotionTracker は
+    /// 1 コマだけ受け取ってすぐ返り、あとは自分のキューで処理する。
+    /// 録画（movieOutput）はこの出力とは無関係に回り続ける。
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        guard output === analysisOutput else { return }
+        liveEffects?.submit(sampleBuffer)
     }
 }

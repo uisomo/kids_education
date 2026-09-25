@@ -62,9 +62,17 @@ export function videoDateLabel(now: Date): string {
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
 import { COPY, IS_PIANO } from "./flavor";
+import {
+  applyMotionEffects, cachedMotionPresets, cancelMotionEffects, motionEffectPresets,
+  motionPlaybackUrl, motionPresetsAsked, MOTION_MODE,
+} from "./motion-effects";
+import { loadLiveEffect, setLiveEffect } from "./live-effects-store";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
+  // Native only: the ✨キラキラ preset to draw ON SCREEN during practice
+  // ("" = off). It never reaches the saved video.
+  setLiveEffects?(presetId: string, mode: string): void;
   // Native (AVFoundation) starts capture asynchronously; the web MediaRecorder
   // path is synchronous and simply returns void.
   startRecording(streamOverride?: MediaStream): void | Promise<void>;
@@ -717,6 +725,14 @@ export class KarateApp {
   private biometryLabel: string | null = null;
 
   private showFamily(): void {
+    // けいこ中のキラキラ で選べるかざりはネイティブが持っている。まだ聞いて
+    // いなければ一度だけ聞き、返ってきたら描き直す（使えない iPhone では空の
+    // まま覚えるので、開くたびに聞きには行かない）。
+    if (!motionPresetsAsked()) {
+      void motionEffectPresets().then((list) => {
+        if (list.length && this.activeTab === "family" && this.familyUnlocked) this.showFamily();
+      });
+    }
     // Gate the 家族 tab once per session so kids can't change members/plans.
     if (!this.familyUnlocked) {
       const lock = getParentLock(this.base());
@@ -813,6 +829,11 @@ export class KarateApp {
       decor: loadDecor(base),
       canRemoveDecor: canRemoveDecor(loadPlan(base)),
       onSelectDecor: (decor: Decor) => { setDecor(decor, base); this.showFamily(); },
+      // けいこ中のキラキラ（画面だけ）。一覧はネイティブが持っているので、
+      // 家族タブを開くたびに聞きに行き、返ってきたら描き直す。
+      liveEffect: loadLiveEffect(base),
+      liveEffectPresets: cachedMotionPresets(),
+      onSelectLiveEffect: (presetId: string) => { setLiveEffect(presetId, base); this.showFamily(); },
       parentLock: {
         hasPin: getParentLock(base).pin !== null,
         owner: getParentLock(base).owner,
@@ -1056,6 +1077,9 @@ export class KarateApp {
     }
     let stream: MediaStream;
     try {
+      // 家族タブで選ばれていれば、稽古中の画面にキラキラを出す。選ばれて
+      // いなければネイティブは解析用の出力すら足さないので、負荷はゼロ。
+      recorder.setLiveEffects?.(loadLiveEffect(this.base()), MOTION_MODE);
       stream = await recorder.startCamera();
       await this.deps.wakeGuard.acquire();
     } catch {
@@ -1454,9 +1478,13 @@ export class KarateApp {
         });
 
       const blobForShare = blob;
+      // ✨キラキラ を付けた動画を見ているあいだは、保存・送信もそちらを使う。
+      // null のときは もとの（仕上がった）動画。
+      let effectsUri: string | null = null;
       // Read when tapped: on native the file only exists once the save is done.
-      const shareFileUri = () => recorder?.fileUri?.() ?? null;
-      const shareExt = () => (recorder ? recorder.fileExtension() : ext);
+      const shareFileUri = () => effectsUri ?? recorder?.fileUri?.() ?? null;
+      // ✨キラキラ の書き出しは必ず .mp4。
+      const shareExt = () => (effectsUri ? "mp4" : recorder ? recorder.fileExtension() : ext);
       // Native: the practice plays at once (no text or sound yet) so the child
       // can watch themselves while writing a 工夫; the finished video replaces
       // it when the save is done.
@@ -1468,6 +1496,10 @@ export class KarateApp {
           onShown: () => recorder.markSeen?.(),
         }
         : undefined;
+      // ✨キラキラ が使える iPhone か（iOS 17 以上・ネイティブ）。使えなければ
+      // 空配列が返り、done 画面はその行を出さない。
+      const motionPresets = recorder?.fileUri ? await motionEffectPresets() : [];
+
       renderDoneScreen(this.root, {
         videoUrl,
         ext,
@@ -1513,6 +1545,23 @@ export class KarateApp {
           return Promise.resolve(saved)
             .finally(() => { if (guiding) this.showGuideFinish(); });
         },
+        ...(motionPresets.length
+          ? {
+            motionFx: {
+              presets: motionPresets,
+              // もとになるのは「仕上がった動画」そのもの（キラキラ付きの
+              // コピーではない）。ネイティブ側はそれを読むだけで書き換えない。
+              apply: async (presetId: string, onProgress: (phase: string, fraction: number) => void) => {
+                const source = recorder?.fileUri?.();
+                if (!source) throw new Error("動画がまだできていません");
+                const uri = await applyMotionEffects({ uri: source, preset: presetId }, onProgress);
+                return { playbackUrl: motionPlaybackUrl(uri), fileUri: uri };
+              },
+              cancel: () => { void cancelMotionEffects(); },
+              onCurrent: (fileUri: string | null) => { effectsUri = fileUri; },
+            },
+          }
+          : {}),
         confirm: this.deps.confirm,
         onAgain: () => {
           // 保存せずに もう一度: ガイドは終わらせず、また今度さそう。

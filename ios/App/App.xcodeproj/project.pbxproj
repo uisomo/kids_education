@@ -24,6 +24,23 @@
 		8825437B40DB2AED4BCF5573 /* CameraSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC68D22B1E4B715A6295948F /* CameraSession.swift */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		BED791C491F404DDB2592885 /* KarateRecorderPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAFA698F6B0DF5653B44E3F8 /* KarateRecorderPlugin.swift */; };
+		0AECBCA4337B2C65C0DC1EB0 /* Catalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48581D313A1C6170D1CBC72C /* Catalog.swift */; };
+		D5FED17AEB72F19DAEE160AB /* Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8134FA99E1B34653DD0FD4D0 /* Geometry.swift */; };
+		8BD5C3A9B58A67AA3BE55E87 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D939F7CFD9231435CEAE0881 /* Models.swift */; };
+		E771F3EBD8EFB3FE5EC1686C /* MotionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DF50322FF223E687BBEB8C /* MotionEngine.swift */; };
+		4939ED208DD242D5636E970E /* Scene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CC1656A7854CC84872C4074 /* Scene.swift */; };
+		981D5BB390063740F76154F2 /* Timeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40C353F61E62775FEAFCEA7 /* Timeline.swift */; };
+		A56DF3565AB0BACFE3F39DF0 /* VisionPoseDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B454D8AB473BEEED783A2380 /* VisionPoseDetector.swift */; };
+		9F4BF5990DE39B95CEACEB02 /* VideoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48348759883CAE6062302E31 /* VideoAnalyzer.swift */; };
+		9C49FD7EC81DA9B06FA307FE /* EffectPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D6766B503423EF7CF68B4B2 /* EffectPainter.swift */; };
+		288778C51EF57D88322F4949 /* VideoEffectsExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A755D41C03AF614D94B07596 /* VideoEffectsExporter.swift */; };
+		120D2F01C59C2B3ABDCB4B4E /* MotionEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D7EA76B8D9BDE97E37ED4A3 /* MotionEffects.swift */; };
+		04285039206EF32A392E42A5 /* Effects.json in Resources */ = {isa = PBXBuildFile; fileRef = 77144B9932F2CD5EA65733BB /* Effects.json */; };
+		9C719A9FF38883736EAEE69B /* MotionEffectsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45EC7798BA7BB25BA7F46EDD /* MotionEffectsSelfTest.swift */; };
+		5ACDB52CB4E2D3B38CE138F9 /* FramePreprocessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A476424798F08696E7A5036F /* FramePreprocessor.swift */; };
+		9E38FB9655CB8D98866ED88A /* LiveMotionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E90CA206DF9C1855A8C33D1 /* LiveMotionTracker.swift */; };
+		FCC7E14A863A318F48D69651 /* OverlayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E72F3C8EB0E4F87BAF7270 /* OverlayViews.swift */; };
+		D68EA34C8B50C771316E1F99 /* LiveMotionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +63,25 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		DC68D22B1E4B715A6295948F /* CameraSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSession.swift; sourceTree = "<group>"; };
 		EAFA698F6B0DF5653B44E3F8 /* KarateRecorderPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KarateRecorderPlugin.swift; sourceTree = "<group>"; };
+		48581D313A1C6170D1CBC72C /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
+		8134FA99E1B34653DD0FD4D0 /* Geometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geometry.swift; sourceTree = "<group>"; };
+		D939F7CFD9231435CEAE0881 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		E3DF50322FF223E687BBEB8C /* MotionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionEngine.swift; sourceTree = "<group>"; };
+		3CC1656A7854CC84872C4074 /* Scene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scene.swift; sourceTree = "<group>"; };
+		C40C353F61E62775FEAFCEA7 /* Timeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Timeline.swift; sourceTree = "<group>"; };
+		B454D8AB473BEEED783A2380 /* VisionPoseDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionPoseDetector.swift; sourceTree = "<group>"; };
+		48348759883CAE6062302E31 /* VideoAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoAnalyzer.swift; sourceTree = "<group>"; };
+		3D6766B503423EF7CF68B4B2 /* EffectPainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffectPainter.swift; sourceTree = "<group>"; };
+		A755D41C03AF614D94B07596 /* VideoEffectsExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEffectsExporter.swift; sourceTree = "<group>"; };
+		2D7EA76B8D9BDE97E37ED4A3 /* MotionEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionEffects.swift; sourceTree = "<group>"; };
+		77144B9932F2CD5EA65733BB /* Effects.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Effects.json; sourceTree = "<group>"; };
+		5D02A441D50751C881D123BD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		351FFC5D191116642D37ED9B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		45EC7798BA7BB25BA7F46EDD /* MotionEffectsSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionEffectsSelfTest.swift; sourceTree = "<group>"; };
+		A476424798F08696E7A5036F /* FramePreprocessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePreprocessor.swift; sourceTree = "<group>"; };
+		5E90CA206DF9C1855A8C33D1 /* LiveMotionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMotionTracker.swift; sourceTree = "<group>"; };
+		13E72F3C8EB0E4F87BAF7270 /* OverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayViews.swift; sourceTree = "<group>"; };
+		BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMotionOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +109,32 @@
 			path = KarateRecorder;
 			sourceTree = "<group>";
 		};
+		91865E84A57E2927C2CBA75F /* PracticeMotionFX */ = {
+			isa = PBXGroup;
+			children = (
+				48581D313A1C6170D1CBC72C /* Catalog.swift */,
+				8134FA99E1B34653DD0FD4D0 /* Geometry.swift */,
+				D939F7CFD9231435CEAE0881 /* Models.swift */,
+				E3DF50322FF223E687BBEB8C /* MotionEngine.swift */,
+				3CC1656A7854CC84872C4074 /* Scene.swift */,
+				C40C353F61E62775FEAFCEA7 /* Timeline.swift */,
+				B454D8AB473BEEED783A2380 /* VisionPoseDetector.swift */,
+				48348759883CAE6062302E31 /* VideoAnalyzer.swift */,
+				3D6766B503423EF7CF68B4B2 /* EffectPainter.swift */,
+				A755D41C03AF614D94B07596 /* VideoEffectsExporter.swift */,
+				2D7EA76B8D9BDE97E37ED4A3 /* MotionEffects.swift */,
+				BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */,
+				13E72F3C8EB0E4F87BAF7270 /* OverlayViews.swift */,
+				5E90CA206DF9C1855A8C33D1 /* LiveMotionTracker.swift */,
+				A476424798F08696E7A5036F /* FramePreprocessor.swift */,
+				45EC7798BA7BB25BA7F46EDD /* MotionEffectsSelfTest.swift */,
+				77144B9932F2CD5EA65733BB /* Effects.json */,
+				5D02A441D50751C881D123BD /* README.md */,
+				351FFC5D191116642D37ED9B /* LICENSE */,
+			);
+			path = PracticeMotionFX;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
@@ -95,6 +157,7 @@
 			children = (
 				410B9B429ECFFFAEC60AE00F /* MainViewController.swift */,
 				3957B42183355344E740F6B0 /* KarateRecorder */,
+				91865E84A57E2927C2CBA75F /* PracticeMotionFX */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
@@ -183,6 +246,7 @@
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+				04285039206EF32A392E42A5 /* Effects.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +285,22 @@
 				08072516F2003B9439A7ECBF /* MainViewController.swift in Sources */,
 				8825437B40DB2AED4BCF5573 /* CameraSession.swift in Sources */,
 				BED791C491F404DDB2592885 /* KarateRecorderPlugin.swift in Sources */,
+				0AECBCA4337B2C65C0DC1EB0 /* Catalog.swift in Sources */,
+				D5FED17AEB72F19DAEE160AB /* Geometry.swift in Sources */,
+				8BD5C3A9B58A67AA3BE55E87 /* Models.swift in Sources */,
+				E771F3EBD8EFB3FE5EC1686C /* MotionEngine.swift in Sources */,
+				4939ED208DD242D5636E970E /* Scene.swift in Sources */,
+				981D5BB390063740F76154F2 /* Timeline.swift in Sources */,
+				A56DF3565AB0BACFE3F39DF0 /* VisionPoseDetector.swift in Sources */,
+				9F4BF5990DE39B95CEACEB02 /* VideoAnalyzer.swift in Sources */,
+				9C49FD7EC81DA9B06FA307FE /* EffectPainter.swift in Sources */,
+				288778C51EF57D88322F4949 /* VideoEffectsExporter.swift in Sources */,
+				120D2F01C59C2B3ABDCB4B4E /* MotionEffects.swift in Sources */,
+				D68EA34C8B50C771316E1F99 /* LiveMotionOverlay.swift in Sources */,
+				FCC7E14A863A318F48D69651 /* OverlayViews.swift in Sources */,
+				9E38FB9655CB8D98866ED88A /* LiveMotionTracker.swift in Sources */,
+				5ACDB52CB4E2D3B38CE138F9 /* FramePreprocessor.swift in Sources */,
+				9C719A9FF38883736EAEE69B /* MotionEffectsSelfTest.swift in Sources */,
 				116AA8C2F1ABCB2CFB14FEF6 /* OverlayCompositor.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,

@@ -38,6 +38,9 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "playClip", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getSaveStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "markVideoSeen", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "motionEffectsInfo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "applyMotionEffects", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancelMotionEffects", returnType: CAPPluginReturnPromise),
     ]
 
     private let camera = CameraSession()
@@ -102,13 +105,28 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // MARK: - Preview
 
+    /// `startPreview({ liveEffects, mode })` — `liveEffects` は稽古中に画面へ出す
+    /// かざりの id（家族タブで親が選ぶ）。空か未指定なら出さないし、そのときは
+    /// 解析用のカメラ出力すら足さないので負荷はゼロ。
+    ///
+    /// **画面だけ。保存される動画には入らない。** 保存動画のキラキラは稽古の
+    /// あとに applyMotionEffects で別ファイルとして作る。
     @objc func startPreview(_ call: CAPPluginCall) {
+        let livePreset = call.getString("liveEffects") ?? ""
+        let mode = PracticeMode(rawValue: call.getString("mode") ?? "karate") ?? .karate
         Task { @MainActor in
             guard let webView = self.webView else {
                 call.reject("web view unavailable")
                 return
             }
             self.removeStaleTemporaryFiles()
+            // 稽古中のキラキラが「なし」なら、解析用のカメラ出力自体を足さない。
+            // どちらだったかはログに残す: 出なかったときに「選ばれていない」のか
+            // 「選ばれたのに動いていない」のかを、あとから見分けられるように。
+            self.camera.liveEffects = livePreset.isEmpty
+                ? nil
+                : LiveMotionOverlay(mode: mode, presetID: livePreset)
+            print("⚡️  [MotionFX] live: \(livePreset.isEmpty ? "off" : livePreset) (\(mode.rawValue))")
             do {
                 try await self.camera.startPreview(under: webView)
                 // After the capture session is running, so any interruption
@@ -125,6 +143,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         Task { @MainActor in
             self.audio.stop()
             self.camera.stopPreview()
+            self.camera.liveEffects = nil
             self.restoreWebViewBackground()
             call.resolve()
         }
@@ -158,6 +177,9 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         keep.formUnion(PendingSaves.all().flatMap { [$0.rawName, $0.voiceName].compactMap { $0 } }
             .filter { $0.hasPrefix("tmp:") }.map { String($0.dropFirst(4)) })
         PendingSaves.removeOrphans(except: savingJobId)
+        // ✨キラキラ の解析結果も、元の動画が消えたら一緒に消す。
+        MotionEffects.removeOrphanedSidecars(
+            keeping: Set(keep.map { ($0 as NSString).deletingPathExtension }))
         guard let names = try? fm.contentsOfDirectory(atPath: tmp.path) else { return }
         let stale = names.filter { $0.hasPrefix("karate-") && !keep.contains($0) }.map { tmp.appendingPathComponent($0) }
         guard !stale.isEmpty else { return }
@@ -214,6 +236,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             self.audio.stopMusic()
             self.audio.stop()
             self.camera.stopPreview()
+            self.camera.liveEffects = nil
             self.restoreWebViewBackground()
             call.resolve()
         }
@@ -295,6 +318,72 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject(error?.localizedDescription ?? "saving to 写真 failed")
                 }
             }
+        }
+    }
+
+    // MARK: - ✨キラキラ（動きのエフェクト）
+
+    /// この iPhone でキラキラを付けられるか、と選べるかざりの一覧。
+    /// iOS 16 以下では available=false で、JS はボタンを出さない。
+    @objc func motionEffectsInfo(_ call: CAPPluginCall) {
+        guard MotionEffects.isSupported else {
+            call.resolve(["available": false, "presets": [] as [Any]])
+            return
+        }
+        let mode = PracticeMode(rawValue: call.getString("mode") ?? "karate") ?? .karate
+        call.resolve([
+            "available": true,
+            "presets": MotionEffects.presets(for: mode),
+        ])
+    }
+
+    /// 仕上がった動画を読んで、かざりを乗せた **別の** mp4 を作る。元の動画は
+    /// そのまま残る（JS が「もとの動画」に戻せるのはそのため）。
+    ///
+    /// 進み具合は "motionEffectsProgress" `{ phase, progress }` で流す。
+    /// phase は "analyzing"（動きを見ているところ）か "exporting"（書き出し）。
+    @objc func applyMotionEffects(_ call: CAPPluginCall) {
+        guard #available(iOS 17.0, *), MotionEffects.isSupported else {
+            call.reject(MotionEffects.EffectsError.unsupportedOS.localizedDescription, "unsupported")
+            return
+        }
+        guard let uri = call.getString("uri") else {
+            call.reject("no video to decorate")
+            return
+        }
+        let url = URL(string: uri).flatMap { $0.isFileURL ? $0 : nil } ?? URL(fileURLWithPath: uri)
+        let mode = PracticeMode(rawValue: call.getString("mode") ?? "karate") ?? .karate
+        let presetID = call.getString("preset") ?? MotionEffects.defaultPresetID[mode] ?? "quietLightning"
+        let intensity = call.getDouble("intensity") ?? 1
+
+        Task { @MainActor in
+            // 書き出しは GPU とハードウェアエンコーダを使う。家族がアプリを
+            // 離れても途中で切られないように、保存と同じ扱いにする。
+            do {
+                let output = try await self.exportRetryingInForeground("KarateRecorderMotionFX") {
+                    try await MotionEffects.apply(
+                        sourceURL: url, mode: mode, presetID: presetID, intensity: intensity,
+                        onProgress: { [weak self] phase, fraction in
+                            self?.notifyListeners("motionEffectsProgress",
+                                                  data: ["phase": phase, "progress": fraction])
+                        }
+                    )
+                }
+                call.resolve(["uri": output.absoluteString])
+            } catch is CancellationError {
+                call.reject("cancelled", "cancelled")
+            } catch {
+                print("⚡️  [MotionFX] failed: \(error.localizedDescription)")
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    /// 「やめる」。書き出し途中のファイルは消され、元の動画は触られていない。
+    @objc func cancelMotionEffects(_ call: CAPPluginCall) {
+        Task {
+            await MotionEffects.cancel()
+            call.resolve()
         }
     }
 

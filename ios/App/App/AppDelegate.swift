@@ -8,6 +8,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        #if DEBUG
+        // ✨キラキラ の確認用。MOTIONFX_SELFTEST=1 のときだけ動く。
+        MotionEffectsSelfTest.runIfRequested()
+        #endif
         return true
     }
 

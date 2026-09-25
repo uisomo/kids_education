@@ -1794,6 +1794,48 @@ button {
 .done-split .kufu-latest { font-size: 0.72rem; }
 .done-split .kufu-open { padding: 0.45rem 0.55rem; font-size: 0.8rem; }
 
+/* ✨キラキラ: 動画の下の小さな一行。もとの動画は「なし」でいつでも戻る。
+   子どもが押すものなので、指で押せる大きさ（44px 以上）を守る。 */
+.fx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  margin: 0.5rem 0 0.2rem;
+}
+.fx-row[hidden] { display: none; }
+.fx-label { font-size: 0.85rem; font-weight: 800; color: #ffd98a; }
+.fx-choices { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.fx-choice {
+  min-height: 44px;
+  padding: 0.35rem 0.7rem;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f3f4ff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.fx-choice.is-on {
+  border-color: #ffd98a;
+  background: rgba(255, 217, 138, 0.18);
+  color: #fff;
+}
+.fx-choice:disabled { opacity: 0.45; }
+.fx-status { flex: 1 1 100%; font-size: 0.8rem; color: #cfd3ff; }
+.fx-status[hidden] { display: none; }
+.fx-stop {
+  min-height: 44px;
+  padding: 0.35rem 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: transparent;
+  color: #ffd1d1;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.fx-stop[hidden] { display: none; }
+
 .done-actions { display: flex; gap: 0.6rem; }
 .done-actions .btn-dl,
 .done-actions .btn-again { flex: 1 1 0; min-width: 0; max-width: none; min-height: 50px; padding: 0.7rem 0.4rem; font-size: 1rem; }

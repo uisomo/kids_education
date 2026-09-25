@@ -57,6 +57,11 @@ export interface FamilyDeps {
   // explaining.
   decor?: Decor;
   onSelectDecor?(decor: Decor): void;
+  // けいこ中のキラキラ（画面だけ）。えらべるかざりが無い iPhone では
+  // liveEffectPresets が空で、この節ごと出ない。
+  liveEffect?: string;
+  liveEffectPresets?: { id: string; name: string }[];
+  onSelectLiveEffect?(presetId: string): void;
   canRemoveDecor?: boolean;
   // App Store subscriptions (iOS app). Present → the plan cards buy through
   // Apple instead of setting the plan, with restore / manage and the required
@@ -311,6 +316,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const kufuNodes = buildKufuSection(deps);
   const shareNodes = buildShareSection(deps);
   const decorNodes = buildDecorSection(deps);
+  const liveNodes = buildLiveEffectSection(deps);
   const testNodes = buildTestToolsSection(deps);
 
   // 1) メンバーを管理する (everyone), 2) 設定したいメンバー and, framed together,
@@ -327,11 +333,12 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   markAnchor(howtoNodes[0], "howto");
   markAnchor(lockNodes[0], "lock");
   markAnchor(decorNodes[0], "decor");
+  markAnchor(liveNodes[0], "live");
 
   // The jump bar goes first: it is pinned at the very top of the screen (CSS),
   // where its own background covers the strip behind the phone's clock.
-  root.append(buildJumpNav(root), title, listTitle, list, addRow, memberHint, memberSettings,
-              ...buildParentNote(), ...howtoNodes, ...lockNodes, ...decorNodes,
+  root.append(buildJumpNav(root, { live: liveNodes.length > 0 }), title, listTitle, list, addRow, memberHint, memberSettings,
+              ...buildParentNote(), ...howtoNodes, ...lockNodes, ...decorNodes, ...liveNodes,
               planTitle, planNote, planCards, ...billingNodes);
 }
 
@@ -344,6 +351,7 @@ const JUMP_TARGETS: { anchor: string; label: string }[] = [
   { anchor: "howto", label: "使い方" },
   { anchor: "lock", label: "ロック" },
   { anchor: "decor", label: "かざり" },
+  { anchor: "live", label: "キラキラ" },
   { anchor: "plan", label: "プラン" },
 ];
 
@@ -351,11 +359,13 @@ function markAnchor(node: Node | undefined, anchor: string): void {
   if (node instanceof HTMLElement) node.dataset.familyAnchor = anchor;
 }
 
-function buildJumpNav(root: HTMLElement): HTMLElement {
+// `present` says which optional sections were actually built, so a chip never
+// points at a section this iPhone doesn't have (tapping it would do nothing).
+function buildJumpNav(root: HTMLElement, present: { live: boolean }): HTMLElement {
   const bar = document.createElement("div");
   bar.className = "family-jump-nav";
   bar.dataset.familyJump = "";
-  for (const t of JUMP_TARGETS) {
+  for (const t of JUMP_TARGETS.filter((t) => t.anchor !== "live" || present.live)) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "family-jump-chip";
@@ -546,6 +556,59 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
       btn.append(badge);
     }
     btn.addEventListener("click", () => onSelectDecor(option));
+    list.append(btn);
+  }
+
+  return [sectionTitle, note, list];
+}
+
+/// けいこ中のキラキラ: 練習しているあいだ **画面にだけ** 出るかざり。
+///
+/// ほぞんする動画のキラキラ（done 画面でつけるもの）とは別。録画はカメラの絵を
+/// そのまま書いているので、画面に重ねたものは保存される動画には入らない。
+/// ここはその説明も一緒に出す — 親が「保存したのに付いていない」と思わないように。
+function buildLiveEffectSection(deps: FamilyDeps): Node[] {
+  const { liveEffect, liveEffectPresets, onSelectLiveEffect } = deps;
+  if (!onSelectLiveEffect || !liveEffectPresets?.length) return [];
+  const chosen = liveEffect ?? "";
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = `${COPY.practice}中のキラキラ`;
+
+  const note = document.createElement("p");
+  note.className = "family-plan-note";
+  note.textContent = `${COPY.practice}しているあいだ、うごきに合わせて画面にかざりが出ます。`
+    + "画面だけで、ほぞんする どうが には入りません（どうがには おわった画面でつけられます）。"
+    + "カメラと電池をつかうので、あつくなるときは「なし」にしてください。";
+
+  const list = document.createElement("div");
+  list.className = "decor-options";
+  list.dataset.liveEffectOptions = "";
+
+  const options = [{ id: "", name: "なし" }, ...liveEffectPresets];
+  for (const option of options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "decor-option";
+    btn.dataset.liveEffect = option.id;
+    if (option.id === chosen) btn.classList.add("on");
+
+    const name = document.createElement("span");
+    name.className = "decor-option-name";
+    name.textContent = option.name;
+    const hint = document.createElement("span");
+    hint.className = "decor-option-hint";
+    hint.textContent = option.id ? "画面だけに出る" : "画面には出さない";
+    btn.append(name, hint);
+    if (option.id === chosen) {
+      const badge = document.createElement("span");
+      badge.className = "decor-option-badge";
+      badge.dataset.liveEffectOn = "";
+      badge.textContent = "いまこれ";
+      btn.append(badge);
+    }
+    btn.addEventListener("click", () => onSelectLiveEffect(option.id));
     list.append(btn);
   }
 

@@ -30,6 +30,19 @@
 				<string>CA92.1</string>
 			</array>
 		</dict>
+		<!-- File timestamps: ✨キラキラ (PracticeMotionFX) remembers the motion
+		     analysis of a finished practice video, and uses the video file's
+		     own size and modification date to tell whether that saved analysis
+		     still belongs to it. Only files inside this app's own container are
+		     looked at; nothing is read from the family's photos or documents. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
 		<!-- Disk space: checked before a practice starts so a recording can't
 		     run out of room half way through (KarateRecorder freeDiskSpace). -->
 		<dict>
