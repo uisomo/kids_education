@@ -198,11 +198,12 @@ public enum SceneBuilder {
                 case "ice":
                     // 氷は **角ばって、まっすぐ生える**。ゆらさない（結晶は揺れない）。
                     // 腕から左右交互に、とがった結晶が伸びる。
+                    // 根元を太く、先をとがらせる。細いと氷ではなく「ひっかき傷」に見える。
                     for (index, shard) in shards(path, aspect: aspect, count: 5,
                                                  length: amp*(1.5+1.1*energy), seed: seed).enumerated() {
                         scene.primitives.append(.init(kind: .ribbon, points: shard,
                                                       color: colour.opacity(lit*(index % 2 == 0 ? 1 : 0.7)),
-                                                      lineWidth: bandWidth*(index % 2 == 0 ? 1.25 : 0.85),
+                                                      lineWidth: bandWidth*(index % 2 == 0 ? 2.3 : 1.5),
                                                       taper: 0))
                     }
                     // 骨に沿った 硬い直線。丸みを出さないため うねらせない。

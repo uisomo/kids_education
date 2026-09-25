@@ -50,10 +50,12 @@ public enum EffectPainter {
                 let width = CGFloat(max(0.65,min(maxLineWidth,primitive.lineWidth)*short))
                 context.saveGState()
                 context.setBlendMode(.plusLighter)
+                // 白い芯は **細く・弱く**。強すぎると、どの色のかざりも
+                // 「白い輪郭＋色のにじみ」になって、色が消える（実写で確認）。
                 let passes: [(CGFloat, CGFloat, Bool)] = [
-                    (3.4, 0.22, false),   // にじみ
-                    (1.7, 0.45, false),   // 色
-                    (0.55, 0.95, true),   // 芯（白）
+                    (3.4, 0.26, false),   // にじみ
+                    (1.7, 0.62, false),   // 色（ここが主役）
+                    (0.45, 0.70, true),   // 芯（白）
                 ]
                 for (scale, strength, white) in passes {
                     let a = alpha*strength
@@ -119,11 +121,12 @@ public enum EffectPainter {
                 for p in right.reversed() { context.addLine(to: p) }
                 context.closePath()
                 context.setFillColor(CGColor(red: CGFloat(fxClamp(c.red)),green: CGFloat(fxClamp(c.green)),
-                                             blue: CGFloat(fxClamp(c.blue)),alpha: alpha*0.50))
+                                             blue: CGFloat(fxClamp(c.blue)),alpha: alpha*0.80))
                 context.fillPath()
                 // 白く焼けた芯。細いほうの端では消す（先っぽまで白いと硬く見える）。
-                context.setLineWidth(max(0.7,w0*0.30))
-                context.setStrokeColor(CGColor(red: 1,green: 1,blue: 1,alpha: alpha*0.85))
+                // **細く・弱く。** 太いと帯ぜんたいが白くなって、何色か分からない。
+                context.setLineWidth(max(0.7,w0*0.22))
+                context.setStrokeColor(CGColor(red: 1,green: 1,blue: 1,alpha: alpha*0.45))
                 context.beginPath()
                 let coreCount = max(2,Int(Double(mapped.count)*0.62))
                 context.move(to: mapped[0])

@@ -43,8 +43,10 @@ Task {
         let s = timeline.scene(at: t, preset: preset, intensity: 1, reduceMotion: false)
         if !s.primitives.isEmpty {
           drawn += 1; prims += s.primitives.count; scored.append((t, s.primitives.count))
-          // 腕に巻きついた線（点が多い glow）が出ているコマ
-          if s.primitives.contains(where: { $0.kind == .glow && $0.points.count > 8 }) { limbFrames += 1 }
+          // 腕まわりのかざりが出ているコマ（こぶしの光と衝撃波は数えない）
+          if s.primitives.contains(where: {
+            ($0.kind == .glow || $0.kind == .ribbon) && $0.points.count > 4 || $0.kind == .spray
+          }) { limbFrames += 1 }
           if s.primitives.contains(where: { $0.kind == .orb }) { orbFrames += 1 }
         }
         t += 1.0/30.0
