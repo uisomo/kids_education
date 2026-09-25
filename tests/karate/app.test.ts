@@ -240,7 +240,7 @@ it("🪝 hook: words from the start-row box play once instead of Ready → Go!! 
   for (const k of Object.keys(localStorage)) if (k.endsWith("karate.hook")) localStorage.removeItem(k);
 });
 
-it("passes the recorded blob to shareRecording when save is pressed", async () => {
+it("saves the recorded blob with no parental gate when save is pressed", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -249,6 +249,7 @@ it("passes the recorded blob to shareRecording when save is pressed", async () =
   await store.init();
 
   const shareRecording = vi.fn().mockResolvedValue(undefined);
+  const saveRecording = vi.fn().mockResolvedValue(undefined);
   const recordedBlob = new Blob(["v"]);
 
   const app = new KarateApp(root, {
@@ -264,7 +265,7 @@ it("passes the recorded blob to shareRecording when save is pressed", async () =
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording,
-    askParentalGate: vi.fn().mockResolvedValue(true),   // the parent passes the gate
+    saveRecording,
     introStepMs: 0,   // skip the Ready→Go intro delay in tests
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],
   });
@@ -276,14 +277,16 @@ it("passes the recorded blob to shareRecording when save is pressed", async () =
   for (let t = 0; t < 2500; t += 250) loopCb!(250);
   await new Promise((r) => setTimeout(r, 0));
 
-  // done screen shown → press save → parental gate → share sheet
+  // done screen shown → press save → straight into 写真, no gate on the way
   const save = root.querySelector<HTMLButtonElement>("[data-download]")!;
   save.click();
   await new Promise((r) => setTimeout(r, 0));
 
-  expect(shareRecording).toHaveBeenCalledOnce();
-  expect(shareRecording.mock.calls[0][0]).toBe(recordedBlob);
-  expect(shareRecording.mock.calls[0][1]).toBe("mp4");
+  expect(document.querySelector("[data-gate-overlay]")).toBeNull();
+  expect(shareRecording).not.toHaveBeenCalled();
+  expect(saveRecording).toHaveBeenCalledOnce();
+  expect(saveRecording.mock.calls[0][0]).toBe(recordedBlob);
+  expect(saveRecording.mock.calls[0][1]).toBe("mp4");
 });
 
 it("plays BGM after the intro and stops it when the session ends", async () => {

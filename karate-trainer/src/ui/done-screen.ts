@@ -29,7 +29,9 @@ export interface DoneDeps {
   videoUrl: string;
   ext: string;
   stats: { time: string; drills: number; cues: number };
-  onShare(blob?: Blob): void;
+  // 「⬇ 動画を保存」: saves onto this phone (写真), so no parental gate. Return
+  // a promise and the screen reports 保存したよ / できなかった when it settles.
+  onShare(blob?: Blob): void | Promise<void>;
   // A parent allowed this kid to send videos out (家族 tab): show 「LINE・SNSで
   // 送る」, which calls onSend with no gate. Otherwise only a note is shown.
   shareAllowed?: boolean;
@@ -270,11 +272,23 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   dlText.textContent = "⬇ 動画を保存";
   dl.append(dlFill, dlText);
   let shareTapped = false;
-  dl.addEventListener("click", () => { shareTapped = true; deps.onShare(shareBlob); });
   const saveButtons: HTMLButtonElement[] = [dl];
   function setSaveEnabled(on: boolean) {
     saveButtons.forEach((b) => { b.disabled = !on; });
   }
+  dl.addEventListener("click", () => {
+    shareTapped = true;
+    const saving = deps.onShare(shareBlob);
+    if (!saving) return;   // caller reports by itself (share sheet / web)
+    // Saving straight to 写真 shows nothing of its own, so say so here.
+    setSaveEnabled(false);
+    void saving.then(() => showDoneToast(root, "✅ しゃしんに ほぞんしたよ！"))
+      .catch((e) => {
+        console.error("saving the video failed", e);
+        showDoneToast(root, "⚠️ ほぞんできなかった。おうちの人にそうだんしてね", 4000);
+      })
+      .finally(() => setSaveEnabled(true));
+  });
 
   const confirm = deps.confirm
     ?? ((m: string) => (typeof window !== "undefined" && typeof window.confirm === "function" ? window.confirm(m) !== false : true));
@@ -335,12 +349,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
         if (wasPlaying) void Promise.resolve(video.play()).catch(() => { /* needs a tap */ });
       }, { once: true });
       video.setAttribute("src", result.playbackUrl);
-      const toast = document.createElement("div");
-      toast.className = "done-toast";
-      toast.dataset.finishToast = "";
-      toast.textContent = "✅ 動画ができたよ！";
-      root.append(toast);
-      setTimeout(() => toast.remove(), 2500);
+      showDoneToast(root, "✅ 動画ができたよ！");
       if (video.isConnected) deps.finishing?.onShown?.();
     }).catch(finished);
   }
@@ -376,4 +385,15 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       });
     }
   }
+}
+
+// Short message over the done screen (動画ができたよ / 写真にほぞんしたよ).
+function showDoneToast(root: HTMLElement, text: string, ms = 2500): void {
+  root.querySelectorAll("[data-finish-toast]").forEach((el) => el.remove());
+  const toast = document.createElement("div");
+  toast.className = "done-toast";
+  toast.dataset.finishToast = "";
+  toast.textContent = text;
+  root.append(toast);
+  setTimeout(() => toast.remove(), ms);
 }

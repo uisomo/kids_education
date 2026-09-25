@@ -64,20 +64,52 @@ export async function shareRecording(
   if (native) {
     // ネイティブ: 一時ファイルに書き出し → OS シェアシート。
     // 保存先（写真/ファイル/AirDrop 等）はユーザーがシートで選ぶ。
-    const { Filesystem, Directory } = await import("@capacitor/filesystem");
     const { Share } = await import("@capacitor/share");
-    const fileName = `karate-training.${ext}`;
-    const data = await blobToBase64(blob);
-    const written = await Filesystem.writeFile({
-      path: fileName,
-      data,
-      directory: Directory.Cache,
-    });
-    await Share.share({ title: COPY.appName, url: written.uri });
+    await Share.share({ title: COPY.appName, url: await writeCacheFile(blob, ext) });
     return;
   }
 
   // Web: 既存の <a download>
+  downloadBlob(blob, ext);
+}
+
+// 「⬇ 動画を保存」: keeps the video on this phone — straight into the 写真
+// library on native, a plain download in the browser. It never opens the share
+// sheet, so nothing can leave the device and no parental gate is needed; that
+// gate belongs to 「LINE・SNSで送る」, which a parent turns on in the 家族 tab.
+export async function saveRecording(
+  blob: Blob,
+  ext: string,
+  fileUri?: string | null,
+  deps: PlatformDeps = {},
+): Promise<void> {
+  const isNative = deps.isNative;
+  const native = isNative ? isNative() : await detectNative();
+
+  if (native) {
+    const { saveVideoToPhotos } = await import("./native-recorder");
+    // The native recorder already wrote the finished video to disk; without
+    // that path (web recorder fallback) put the blob in the cache first, so
+    // 保存 still means 保存 rather than falling back to the share sheet.
+    const uri = fileUri || (await writeCacheFile(blob, ext));
+    if (await saveVideoToPhotos(uri, { isNative: true })) return;
+  }
+
+  downloadBlob(blob, ext);
+}
+
+// Writes the blob into the app's cache directory and returns its file:// URI.
+async function writeCacheFile(blob: Blob, ext: string): Promise<string> {
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
+  const written = await Filesystem.writeFile({
+    path: `karate-training.${ext}`,
+    data: await blobToBase64(blob),
+    directory: Directory.Cache,
+  });
+  return written.uri;
+}
+
+function downloadBlob(blob: Blob, ext: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

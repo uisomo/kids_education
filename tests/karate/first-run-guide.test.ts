@@ -45,7 +45,6 @@ async function mount(): Promise<Mounted> {
     wakeGuard: { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) },
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording: share,
-    askParentalGate: vi.fn().mockResolvedValue(true),
     introStepMs: 0,
     hookStepMs: 0,
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 2, kind: "drill" }],

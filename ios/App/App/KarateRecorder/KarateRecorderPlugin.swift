@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import Capacitor
 import Foundation
+import Photos
 import StoreKit
 import UIKit
 
@@ -27,6 +28,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "freeDiskSpace", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveToPhotos", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playMusic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMusicPaused", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopMusic", returnType: CAPPluginReturnPromise),
@@ -254,6 +256,42 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["bytes": Double(bytes)])
         } else {
             call.reject("free space unavailable")
+        }
+    }
+
+    /// 「⬇ 動画を保存」: writes the finished video straight into the phone's
+    /// own 写真 library. Nothing leaves the device, so no parental gate is
+    /// involved — the share sheet, which *can* send the video anywhere, is the
+    /// separate 「LINE・SNSで送る」 button a parent turns on in the 家族 tab.
+    ///
+    /// Rejects with code "denied" when the family refused photo access, so JS
+    /// can offer iOS Settings instead of a bare error.
+    @objc func saveToPhotos(_ call: CAPPluginCall) {
+        guard let uri = call.getString("uri") else {
+            call.reject("no video to save")
+            return
+        }
+        // fileUri comes over the bridge as file:///…, but accept a bare path.
+        let url = URL(string: uri).flatMap { $0.isFileURL ? $0 : nil } ?? URL(fileURLWithPath: uri)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            call.reject("video file missing")
+            return
+        }
+        // Add-only: the app never gets to read the family's other photos.
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                call.reject("photo library permission denied", "denied")
+                return
+            }
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetCreationRequest.forAsset().addResource(with: .video, fileURL: url, options: nil)
+            } completionHandler: { ok, error in
+                if ok {
+                    call.resolve()
+                } else {
+                    call.reject(error?.localizedDescription ?? "saving to 写真 failed")
+                }
+            }
         }
     }
 

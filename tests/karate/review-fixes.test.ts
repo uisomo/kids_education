@@ -71,7 +71,6 @@ async function makeApp(over: Partial<KarateAppDeps> = {}, recorder: Partial<Vide
     storage,
     introStepMs: 0,
     menuOverride: menu,
-    askParentalGate: vi.fn().mockResolvedValue(true),
     ...over,
   };
   const app = new KarateApp(root, deps);
@@ -108,19 +107,20 @@ it("工夫 for 種目 past the plan's cap is locked, not deleted", () => {
   expect(latestKufu("蹴り", s)).toBe("b");          // back on upgrade
 });
 
-// --- share needs the parental gate ---
-it("sharing the video asks the parental gate first", async () => {
-  const gate = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-  const { root, deps, startSession, pump } = await makeApp({ askParentalGate: gate });
+// --- 保存 stays on the phone, so it asks no gate ---
+it("saving the video goes straight to 写真 with no parental gate", async () => {
+  const saveRecording = vi.fn().mockResolvedValue(undefined);
+  const { root, deps, startSession, pump } = await makeApp({ saveRecording });
   await startSession();
   pump(2500);
   await settle();
   root.querySelector<HTMLButtonElement>("[data-download]")!.click();
   await settle();
-  expect(deps.shareRecording).not.toHaveBeenCalled();
-  root.querySelector<HTMLButtonElement>("[data-download]")!.click();
-  await settle();
-  expect(deps.shareRecording).toHaveBeenCalledOnce();
+  expect(root.querySelector("[data-gate-overlay]")).toBeNull();
+  expect(document.querySelector("[data-gate-overlay]")).toBeNull();
+  expect(saveRecording).toHaveBeenCalledOnce();
+  expect(deps.shareRecording).not.toHaveBeenCalled();   // the share sheet is 送る only
+  expect(root.querySelector("[data-finish-toast]")!.textContent).toContain("ほぞんしたよ");
 });
 
 // --- start failure / interruption ---

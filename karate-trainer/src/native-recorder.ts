@@ -98,6 +98,8 @@ export interface KarateRecorderPluginLike {
     listener: (data: NativeSaveResult) => void,
   ): Promise<PluginListenerHandle>;
   getSaveStatus?(): Promise<SaveStatus>;
+  // Writes a finished video into the phone's own 写真 library (no share sheet).
+  saveToPhotos?(opts: { uri: string }): Promise<void>;
   markVideoSeen?(opts: { jobId: string }): Promise<void>;
   // Native playback (AudioController): one engine for music and character
   // voices, so neither interrupts the other and the volume really applies.
@@ -252,6 +254,23 @@ export async function requestAppReview(
   } catch (e) {
     console.warn("requestAppReview failed", e);
   }
+}
+
+// 「⬇ 動画を保存」: puts the finished video in the phone's own 写真 library.
+// No share sheet and no parental gate — the video never leaves the device.
+// Throws on native failure (permission refused, disk full) so the caller can
+// tell the child it didn't work; a no-op off native, where platform.ts's
+// <a download> already saves the file.
+export async function saveVideoToPhotos(
+  uri: string,
+  deps: { plugin?: KarateRecorderPluginLike; isNative?: boolean } = {},
+): Promise<boolean> {
+  const isNative = deps.isNative ?? Capacitor.isNativePlatform();
+  if (!isNative) return false;
+  const plugin = deps.plugin ?? karateRecorderPlugin();
+  if (typeof plugin.saveToPhotos !== "function") return false;
+  await plugin.saveToPhotos({ uri });
+  return true;
 }
 
 export async function openAppSettings(

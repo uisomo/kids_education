@@ -32,7 +32,7 @@ import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import { loadLetters, addLetter, markLetterRead, removeLetter } from "./letter-store";
 import { getShareAllowed, setShareAllowed } from "./share-setting-store";
-import { renderParentalGate, askParentalGate } from "./parental-gate";
+import { renderParentalGate } from "./parental-gate";
 import {
   loadCharacterState,
   saveCharacterState,
@@ -168,6 +168,11 @@ export interface KarateAppDeps {
   // passing it lets the share sheet take the file directly instead of
   // re-encoding the whole video as base64 through the bridge.
   shareRecording(blob: Blob, ext: string, fileUri?: string | null): Promise<void>;
+  // 「⬇ 動画を保存」: puts the video in this phone's own 写真 library (a plain
+  // download on the web). No share sheet, so the video cannot leave the device
+  // and the save needs no parental gate. Absent → falls back to the share
+  // sheet, which does ask the gate.
+  saveRecording?(blob: Blob, ext: string, fileUri?: string | null): Promise<void>;
   // Optional background music played during the session (Go!! → session end).
   bgm?: BgmPlayer;
   // Plays a character's cheer voice (the clip's .m4a). Native routes it through
@@ -203,9 +208,6 @@ export interface KarateAppDeps {
   requestReview?(): void;
   // Hands a file to the OS share sheet (voice backup export on native).
   exportFile?(filename: string, blob: Blob): Promise<void>;
-  // Parental gate before anything leaves the app (sharing the video). Defaults
-  // to the overlay gate; tests inject a stub.
-  askParentalGate?(root: HTMLElement): Promise<boolean>;
   savedVideos?: SavedVideosLike;
   // App Store subscriptions (iOS app). When set, the plan follows what Apple
   // says was bought; without it (web, tests) the plan cards set it directly.
@@ -408,8 +410,15 @@ export class KarateApp {
           return { playbackUrl: saves.playbackUrl(r.uri) };
         })
         : null;
+      const extOf = () => (fileUri!.toLowerCase().endsWith(".mov") ? "mov" : "mp4");
       const share = () => fileUri
-        ? this.deps.shareRecording(new Blob(), fileUri.toLowerCase().endsWith(".mov") ? "mov" : "mp4", fileUri)
+        ? this.deps.shareRecording(new Blob(), extOf(), fileUri)
+        : Promise.resolve();
+      // 保存 stays on the phone (写真), so no gate — see the done screen.
+      const save = () => fileUri
+        ? Promise.resolve(this.deps.saveRecording
+          ? this.deps.saveRecording(new Blob(), extOf(), fileUri)
+          : this.deps.shareRecording(new Blob(), extOf(), fileUri))
         : Promise.resolve();
       const host = this.root.ownerDocument.body;
       opened = true;
@@ -419,11 +428,7 @@ export class KarateApp {
           ? { progress: resumed.progress, onProgress: (fn) => { progressFns.push(fn); }, done }
           : undefined,
         shareAllowed: getShareAllowed(this.mem()),
-        onSave: () => {
-          const gate = this.deps.askParentalGate ?? askParentalGate;
-          void gate(host).then((ok) => (ok ? share() : undefined))
-            .catch((e) => console.error("shareRecording failed", e));
-        },
+        onSave: () => save(),   // the card reports success/failure itself
         onSend: () => { void share().catch((e) => console.error("shareRecording failed", e)); },
         onShown: () => { void saves.markSeen(jobId); },
         onClose: () => {
@@ -1445,8 +1450,6 @@ export class KarateApp {
         canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.kufuCaps()),
         onAddKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuCaps()); },
         onRemoveKufu: (name, index) => removeKufuAt(name, index, this.mem()),
-        // The share sheet can send the video (the child's face) anywhere, so a
-        // parent has to pass the gate first.
         // A parent allowed this kid on the 家族 tab (itself gated), so sending
         // goes straight to the share sheet.
         shareAllowed: getShareAllowed(this.mem()),
@@ -1457,18 +1460,19 @@ export class KarateApp {
             .catch((e) => console.error("shareRecording failed", e))
             .finally(() => { if (guiding) this.showGuideFinish(); });
         },
+        // 「⬇ 動画を保存」は この電話の 写真 に入れるだけで、アプリの外には
+        // 出ない。だから保護者ゲートは無し（外に出す「LINE・SNSで送る」だけが
+        // 家族タブのスイッチでまもられている）。
         onShare: (burnedBlob) => {
-          const gate = this.deps.askParentalGate ?? askParentalGate;
-          // 保存まで来たらガイドはおしまい（この先はおうちの人の確認だけ）。
+          // 保存まで来たらガイドはおしまい。
           const guiding = this.guideStep === "save";
           if (guiding) this.endGuide(true);
-          void gate(this.root).then((ok) => {
-            if (!ok) return;
-            const shared = this.deps.shareRecording(burnedBlob ?? blobForShare, shareExt(), shareFileUri());
-            return Promise.resolve(shared).finally(() => { if (guiding) this.showGuideFinish(); });
-          }).catch((e) => {
-            console.error("shareRecording failed", e);
-          });
+          const blobToSave = burnedBlob ?? blobForShare;
+          const saved = this.deps.saveRecording
+            ? this.deps.saveRecording(blobToSave, shareExt(), shareFileUri())
+            : this.deps.shareRecording(blobToSave, shareExt(), shareFileUri());
+          return Promise.resolve(saved)
+            .finally(() => { if (guiding) this.showGuideFinish(); });
         },
         confirm: this.deps.confirm,
         onAgain: () => {

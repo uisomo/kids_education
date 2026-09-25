@@ -48,9 +48,12 @@ DATA & KIDS CATEGORY (Guideline 1.3)
    https://www.revenuecat.com/privacy. No other sharing; no data is sold.
 4. Other data collection: None. Camera and microphone are used only to record the
    child's own practice; recordings stay on the device and are never uploaded.
-   A video leaves the device only if a parent shares it via the iOS share sheet
-   after passing the parental gate. Names, menus, notes and progress are stored
-   only on the device. No accounts, no sign-in, no tracking
+   The save button writes the video into the device's own Photos library
+   (add-only access) and opens nothing else, so it needs no parental gate. A
+   video can leave the device only through the iOS share sheet, reachable only
+   from the separate send button, which is off until a parent turns it on
+   behind the parental gate on the 家族 tab. Names, menus, notes and progress
+   are stored only on the device. No accounts, no sign-in, no tracking
    (NSPrivacyTracking = false), no IDFA.
 Privacy policy: https://alan-piano.pages.dev/privacy
 

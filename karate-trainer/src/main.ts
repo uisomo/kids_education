@@ -3,7 +3,7 @@ import { VideoRecorder } from "./recorder";
 import { VoiceRecorder } from "./voice-recorder";
 import { BrowserAudioSink } from "./audio-sink";
 import { VoiceStore, idbKv } from "./voice-store";
-import { makeWakeGuard, shareRecording } from "./platform";
+import { makeWakeGuard, shareRecording, saveRecording } from "./platform";
 import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
 import { NativeVideoRecorder, nativeSaveTracker, openAppSettings, requestAppReview } from "./native-recorder";
@@ -178,6 +178,7 @@ const app = new KarateApp(root, {
   wakeGuard: makeWakeGuard({ isNative: () => isNative }),
   rafLoop: tickLoop,
   shareRecording,
+  saveRecording,
   // The piano app never plays BGM: the piano itself is the music. With no
   // player the BGM buttons are not shown either.
   bgm: IS_PIANO ? undefined : isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),

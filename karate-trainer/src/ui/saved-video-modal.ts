@@ -16,7 +16,9 @@ export interface SavedVideoModalDeps {
   };
   // A parent allowed this kid to send videos (家族 tab).
   shareAllowed: boolean;
-  onSave(): void;
+  // 「⬇ 動画を保存」: saves onto this phone (写真), so no parental gate. Return
+  // a promise and the card reports 保存したよ / できなかった when it settles.
+  onSave(): void | Promise<void>;
   onSend(): void;
   // The finished video was on screen.
   onShown(): void;
@@ -56,7 +58,17 @@ export function openSavedVideoModal(host: HTMLElement, deps: SavedVideoModalDeps
   save.className = "btn-dl";
   save.dataset.savedVideoSave = "";
   save.textContent = "⬇ 動画を保存";
-  save.addEventListener("click", () => deps.onSave());
+  save.addEventListener("click", () => {
+    const saving = deps.onSave();
+    if (!saving) return;
+    save.disabled = true;
+    void saving.then(() => { status.textContent = "✅ しゃしんに ほぞんしたよ！"; })
+      .catch((e) => {
+        console.error("saving the video failed", e);
+        status.textContent = "⚠️ ほぞんできなかった。おうちの人にそうだんしてね";
+      })
+      .finally(() => { save.disabled = false; });
+  });
   actions.append(save);
 
   if (deps.shareAllowed) {

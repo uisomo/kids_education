@@ -66,7 +66,6 @@ async function makeApp(over: Partial<KarateAppDeps> = {}, recorder: Partial<Vide
     introStepMs: 0,
     hookStepMs: 0,
     menuOverride: menu,
-    askParentalGate: vi.fn().mockResolvedValue(true),
     ...over,
   };
   const app = new KarateApp(root, deps);
