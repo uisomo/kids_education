@@ -79,7 +79,7 @@ public final class MotionEngine {
             let energy = fxClamp((speed-(joint.isHandSlot ? 0.06 : 0.15))/(joint.isHandSlot ? 1.4 : 3.8))
             let radialSpeed = (relative.length(aspect: aspect)-state.relative.length(aspect: aspect))/dt/scale
             if speed < 0.65 || (!joint.isHandSlot && radialSpeed < -0.3) { state.armed = true }
-            let cooldown = joint.isHandSlot ? 0.60 : 0.32
+            let cooldown = joint.isHandSlot ? 0.60 : 0.25
             let cooled = state.lastBurst.map { pose.time-$0 >= cooldown } ?? true
             var shouldBurst = false
             if joint.isHandSlot {
@@ -87,7 +87,12 @@ public final class MotionEngine {
             } else if let a = point(root)?.point, let b = point(middle)?.point {
                 let chain = a.distance(to: b, aspect: aspect)+b.distance(to: sample.point, aspect: aspect)
                 let extensionRatio = a.distance(to: sample.point, aspect: aspect)/max(chain, 0.0001)
-                shouldBurst = speed > (joint.isFoot ? 2.0 : 2.2) && radialSpeed > 0.6 && extensionRatio > 0.72
+                // Measured on real practice footage: the upstream 2.2 / 0.6 / 0.72 gate never fired
+                // once in 32s of punching, because a punch toward the lens is foreshortened in 2D.
+                shouldBurst = speed > (joint.isFoot ? 1.1 : 1.2) && radialSpeed > 0.2 && extensionRatio > 0.35
+            } else {
+                // Elbow or shoulder missing: speed alone, so a straight punch still sparks.
+                shouldBurst = speed > 1.3 && energy > 0.25
             }
             if shouldBurst && cooled && (joint.isHandSlot || state.armed) {
                 state.lastBurst = pose.time; state.armed = false

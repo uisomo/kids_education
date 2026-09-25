@@ -46,12 +46,24 @@ enum MotionEffectsSelfTest {
         let mode = PracticeMode.karate
         print("🧪 [MotionFX] source: \(source.lastPathComponent)")
 
+        // 前に走らせたときの出来上がりが残っていると、`MotionEffects.apply` は
+        // それをそのまま返してしまう（名前で当たりを取っているため）。
+        // 自己テストが古い mp4 を「できました」と報告しないように、先に消す。
+        let tmp = FileManager.default.temporaryDirectory
+        let base = source.deletingPathExtension().lastPathComponent
+        if let leftovers = try? FileManager.default.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) {
+            for file in leftovers where file.lastPathComponent.hasPrefix("\(base)-fx-") {
+                try? FileManager.default.removeItem(at: file)
+                print("🧪 [MotionFX] removed a previous run's \(file.lastPathComponent)")
+            }
+        }
+
         // 1. 本物どおり（Vision あり）
         let started = Date()
         do {
             let output = try await MotionEffects.apply(
                 sourceURL: source, mode: mode,
-                presetID: MotionEffects.defaultPresetID[mode] ?? "quietLightning",
+                presetID: MotionEffects.defaultPresetID[mode] ?? "kiBlue",
                 intensity: 1,
                 onProgress: { phase, fraction in
                     if Int(fraction * 100) % 25 == 0 { print("🧪 [MotionFX] \(phase) \(Int(fraction*100))%") }
@@ -74,11 +86,11 @@ enum MotionEffectsSelfTest {
                 .appendingPathComponent("motionfx-selftest-synthetic.mp4")
             try? FileManager.default.removeItem(at: destination)
             let output = try await VideoEffectsExporter.export(
-                sourceURL: source, timeline: timeline, presetID: "quietLightning",
+                sourceURL: source, timeline: timeline, presetID: "kiBlue",
                 destinationURL: destination
             )
             let sample = timeline.scene(at: min(1, timeline.duration / 2),
-                                        preset: try EffectCatalog.bundled().preset("quietLightning")!)
+                                        preset: try EffectCatalog.bundled().preset("kiBlue")!)
             print("🧪 [MotionFX] synthetic scene has \(sample.primitives.count) primitive(s) mid-clip")
             await describe(output, label: "synthetic", source: source, since: started)
         } catch {

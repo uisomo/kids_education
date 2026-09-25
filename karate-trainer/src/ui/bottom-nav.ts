@@ -1,10 +1,10 @@
-// Bottom tab bar: 特訓 / 積み重ね / 家族. Rendered as a standalone element that the
+// Bottom tab bar: 特訓 / キラキラ / 積み重ね / 家族. Rendered as a standalone element that the
 // app appends after a tab screen so it survives the screen's root.textContent
 // reset. Hidden during training / loading / intro / done (full-screen capture).
 
 import { COPY } from "../flavor";
 
-export type NavTab = "train" | "strength" | "family";
+export type NavTab = "train" | "sparkle" | "strength" | "family";
 
 export interface BottomNavDeps {
   active: NavTab;
@@ -17,6 +17,7 @@ const STRENGTH_ICON_SRC = "/images/nav-strength.png";
 
 const TABS: { id: NavTab; label: string; icon: string; iconSrc?: string }[] = [
   { id: "train", label: "特訓", icon: COPY.drillIcon },
+  { id: "sparkle", label: "キラキラ", icon: "✨" },
   { id: "strength", label: "積み重ね", icon: "🪜", iconSrc: STRENGTH_ICON_SRC },
   { id: "family", label: "家族", icon: "👨‍👩‍👧" },
 ];

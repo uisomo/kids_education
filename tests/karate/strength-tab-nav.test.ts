@@ -55,7 +55,7 @@ it("keeps the bottom tabs when another menu is picked on 積み重ね", async ()
   expect(after.selectedOptions[0].textContent).toBe("型");
   const nav = root.querySelector("[data-bottom-nav]");
   expect(nav).not.toBeNull();
-  expect(nav!.querySelectorAll("[data-navtab]")).toHaveLength(3);
+  expect(nav!.querySelectorAll("[data-navtab]")).toHaveLength(4);
   expect(nav!.querySelector(".bottom-nav-btn.active")!.getAttribute("data-navtab")).toBe("strength");
   expect(root.classList.contains("has-bottom-nav")).toBe(true);
 

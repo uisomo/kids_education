@@ -46,6 +46,9 @@ export interface DoneDeps {
   // was skipped, or no drill was practiced); promotedTo names the new belt when
   // the 10th bar landed.
   beltResult?: DoneBeltResult;
+  // ✨キラキラ: この稽古で 新しく1つ開いたときだけ入る。集めたものは
+  // キラキラタブで見られるので、ここは「開いたよ」と言うだけ。
+  sparkleAward?: { name: string };
   // 工夫: drills practiced this session (deduped, rest excluded). Each row opens
   // the same 💡 card as the setup screen (list + 「けす」 + add one more).
   kufuDrills?: DoneKufuDrill[];
@@ -139,6 +142,14 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
               ? `🎉 ${promotedTo}に昇級！`
               : `${COPY.belt}のバー ${bars}/10`;
     headText.append(beltLine);
+  }
+
+  if (deps.sparkleAward) {
+    const line = document.createElement("p");
+    line.className = "done-sparkle-award";
+    line.dataset.sparkleAward = "";
+    line.textContent = `✨ あたらしい キラキラ！ ${deps.sparkleAward.name}`;
+    headText.append(line);
   }
   header.append(trophyImg, headText, stars);
 

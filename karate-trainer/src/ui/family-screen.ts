@@ -100,6 +100,11 @@ export interface TestToolsView {
   onAskReview?(): void;
   // 初回ガイド「10びょう いっしょに録る」をもう一度（ふつうは一度きり）。
   onRestartGuide?(): void;
+  // ✨キラキラ を ぜんぶ開ける／最初の分だけに戻す。本物のアプリでは
+  // 5分の稽古を何回もやらないと確かめられないので。
+  sparkles?: { owned: number; total: number };
+  onUnlockAllSparkles?(): void;
+  onResetSparkles?(): void;
 }
 
 export interface BillingView {
@@ -444,6 +449,22 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
     note.textContent = "特訓タブに戻ると出ます";
     guideRow.append(guideBtn, note);
     box.append(guideRow);
+  }
+
+  // ✨ キラキラ を まとめて開ける／戻す
+  if (tools.sparkles && tools.onUnlockAllSparkles && tools.onResetSparkles) {
+    const label = document.createElement("div");
+    label.className = "family-plan-note";
+    label.dataset.testSparkleCount = "";
+    label.textContent = `✨ いま ${tools.sparkles.owned}/${tools.sparkles.total} こ`;
+    const row = document.createElement("div");
+    row.className = "family-test-row";
+    const all = testButton("✨ ぜんぶ開ける", () => tools.onUnlockAllSparkles!());
+    all.dataset.testUnlockSparkles = "";
+    const reset = testButton("↩︎ 最初にもどす", () => tools.onResetSparkles!());
+    reset.dataset.testResetSparkles = "";
+    row.append(all, reset);
+    box.append(label, row);
   }
 
   // 種目のレベル, per menu

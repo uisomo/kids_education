@@ -2393,6 +2393,7 @@ input[data-label] {
 /* Reserve space so screen content isn't hidden behind the fixed nav. */
 .screen.has-bottom-nav,
 .screen.setup.has-bottom-nav,
+.screen.sparkle.has-bottom-nav,
 .screen.strength.has-bottom-nav,
 .screen.family.has-bottom-nav {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
@@ -4109,4 +4110,103 @@ input[data-gate-input]:disabled,
 
 .family-lock-bio input:disabled + span {
   opacity: 0.55;
+}
+
+
+/* ─── ✨キラキラ タブ ──────────────────────────────────────────────────────
+   集めたキラキラと集めた帯。まだ持っていないものも並べる（何が待っているか
+   見えないと集める気持ちにならない）が、中身は影だけにして名前は出さない。 */
+.screen.sparkle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.sparkle-count {
+  text-align: center;
+  font-weight: 800;
+  color: var(--ink-dim, #b0a8c8);
+  font-size: 0.95rem;
+}
+.sparkle-hint {
+  white-space: pre-line;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--ink-dim, #b0a8c8);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.75rem;
+}
+.sparkle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+.sparkle-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.7rem 0.35rem 0.55rem;
+  border: 2px solid transparent;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+/* 選ばれている＝稽古中の画面に出るもの。金のふちは帯カードと同じ合図。 */
+.sparkle-cell.selected {
+  border-color: rgba(255, 209, 102, 0.9);
+  background: rgba(255, 209, 102, 0.14);
+}
+.sparkle-cell.locked { background: rgba(255, 255, 255, 0.03); }
+.sparkle-art { width: 3.1rem; height: 3.1rem; display: block; }
+.sparkle-name {
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.sparkle-cell.locked .sparkle-name { color: var(--ink-dim, #b0a8c8); }
+.sparkle-tier {
+  font-size: 0.62rem;
+  line-height: 1.2;
+  color: var(--ink-dim, #b0a8c8);
+  opacity: 0.85;
+}
+.sparkle-section {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  text-align: center;
+}
+.belt-shelf {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+.belt-shelf-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0.3rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+/* まだ持っていない帯は、形だけ見えて色が抜けている。 */
+.belt-shelf-cell.locked { background: rgba(255, 255, 255, 0.03); }
+.belt-shelf-cell.locked .obi { filter: grayscale(1) brightness(0.45); opacity: 0.5; }
+.belt-shelf-name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+.belt-shelf-cell.locked .belt-shelf-name { color: var(--ink-dim, #b0a8c8); }
+
+/* done 画面: この稽古で開いた1つ。 */
+.done-sparkle-award {
+  margin: 0.25rem 0 0;
+  font-weight: 800;
+  color: #ffd166;
 }

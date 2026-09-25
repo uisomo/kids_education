@@ -353,7 +353,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let url = URL(string: uri).flatMap { $0.isFileURL ? $0 : nil } ?? URL(fileURLWithPath: uri)
         let mode = PracticeMode(rawValue: call.getString("mode") ?? "karate") ?? .karate
-        let presetID = call.getString("preset") ?? MotionEffects.defaultPresetID[mode] ?? "quietLightning"
+        let presetID = call.getString("preset") ?? MotionEffects.defaultPresetID[mode] ?? "kiBlue"
         let intensity = call.getDouble("intensity") ?? 1
 
         Task { @MainActor in

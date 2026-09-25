@@ -24,33 +24,21 @@ enum MotionEffects {
         return false
     }
 
-    /// 「ふつうは これ」。家族には名前しか見せないので、日本語名はここで持つ。
+    /// 「ふつうは これ」＝ カタログの最初の1つ（tools/kirakira-glyphs/gen.py の
+    /// 表の並び順）。どれを持っているか（アンロック）は JS 側が決めるので、
+    /// ここは この iPhone で描けるもの全部をそのまま返す。
     static let defaultPresetID: [PracticeMode: String] = [
-        .karate: "quietLightning",
-        .piano: "pianoPearl",
+        .karate: "kiBlue",
+        .piano: "pnSpark",
     ]
 
-    /// カタログの英語名は画面に出さない。子どもが読める短い日本語にする。
-    private static let japaneseNames: [String: String] = [
-        "quietLightning": "⚡️ いなずま",
-        "mintHalo": "🟢 わっか",
-        "ribbonTrail": "💜 リボン",
-        "softKick": "🧡 けりのこ",
-        "pianoPearl": "🤍 しんじゅ",
-        "pianoNotes": "🎵 おんぷ",
-    ]
-
-    /// その練習（空手 / ピアノ）で選べるかざり。既定が先頭。
+    /// その練習（空手 / ピアノ）で描けるかざり。名前は カタログ（Effects.json）が
+    /// 持っている日本語をそのまま使う — 2か所に書くと、必ず片方がずれる。
     static func presets(for mode: PracticeMode) -> [[String: Any]] {
         guard let catalog = try? EffectCatalog.bundled() else { return [] }
-        let wanted = defaultPresetID[mode]
         return catalog.presets
             .filter { $0.mode == mode }
-            .sorted { a, b in
-                if (a.id == wanted) != (b.id == wanted) { return a.id == wanted }
-                return false
-            }
-            .map { ["id": $0.id, "name": japaneseNames[$0.id] ?? $0.name] }
+            .map { ["id": $0.id, "name": $0.name] }
     }
 
     // MARK: - エラー
