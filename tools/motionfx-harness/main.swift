@@ -20,8 +20,22 @@ Task {
     var bursts = Set<Double>()
     for f in frames { for a in f.anchors { if let b = a.lastBurst { bursts.insert((b*100).rounded()/100) } } }
     print("  distinct bursts: \(bursts.count)")
+    print("  骨（腕/脚）が取れたコマ: \(frames.filter { !$0.limbs.isEmpty }.count)")
+    // FXDUMP=<秒> で、その前後 0.4 秒の骨とアンカーの座標を出す。
+    // 「なぜ そこに かざりが出るのか」は、目で見ても分からない。
+    if let at = ProcessInfo.processInfo.environment["FXDUMP"].flatMap(Double.init) {
+      for f in frames where abs(f.time-at) < 0.4 {
+        let limbs = f.limbs.map { String(format: "%@ root(%.2f,%.2f) mid(%.2f,%.2f) tip(%.2f,%.2f) e=%.2f",
+          $0.joint.rawValue, $0.root.x, $0.root.y, $0.mid.x, $0.mid.y, $0.tip.x, $0.tip.y, $0.energy) }
+        let anchors = f.anchors.map { String(format: "%@(%.2f,%.2f) e=%.2f c=%.2f",
+          $0.joint.rawValue, $0.point.x, $0.point.y, $0.energy, $0.confidence) }
+        print(String(format: "  t=%.2f gen=%d", f.time, f.generation))
+        for l in limbs { print("     limb \(l)") }
+        for a in anchors { print("     anch \(a)") }
+      }
+    }
     for preset in presets {
-      var drawn = 0, total = 0, prims = 0, glyphFrames = 0, ringFrames = 0
+      var drawn = 0, total = 0, prims = 0, limbFrames = 0, orbFrames = 0
       var scored: [(Double, Int)] = []
       var t = 0.0
       while t <= timeline.duration {
@@ -29,20 +43,27 @@ Task {
         let s = timeline.scene(at: t, preset: preset, intensity: 1, reduceMotion: false)
         if !s.primitives.isEmpty {
           drawn += 1; prims += s.primitives.count; scored.append((t, s.primitives.count))
-          if s.primitives.contains(where: { $0.kind == .glyph }) { glyphFrames += 1 }
-          if s.primitives.contains(where: { $0.kind == .ring || $0.kind == .orb }) { ringFrames += 1 }
+          // 腕に巻きついた線（点が多い glow）が出ているコマ
+          if s.primitives.contains(where: { $0.kind == .glow && $0.points.count > 8 }) { limbFrames += 1 }
+          if s.primitives.contains(where: { $0.kind == .orb }) { orbFrames += 1 }
         }
         t += 1.0/30.0
       }
       print("\n\(preset.id) (\(preset.name)) style=\(preset.style)")
       print("  drawn on \(drawn)/\(total) output frames (\(Int(Double(drawn)/Double(total)*100))%), \(prims) primitives")
-      print("  輪/たまが見えるコマ \(ringFrames)  印が見えるコマ \(glyphFrames) = \(String(format: "%.1f", Double(glyphFrames)/30.0)) 秒ぶん")
+      print("  こぶしが光るコマ \(orbFrames)  **腕にまとわりつくコマ \(limbFrames)** = \(String(format: "%.1f", Double(limbFrames)/30.0)) 秒ぶん")
       var picks: [Double] = []
       if let b = bursts.sorted().dropFirst(2).first { picks.append(b + 0.10) }
       scored.sort { $0.1 > $1.1 }
       for s in scored where picks.allSatisfy({ abs($0 - s.0) > 1.5 }) { picks.append(s.0); if picks.count == 4 { break } }
       renderProof(video: url, timeline: timeline, preset: preset, catalog: catalog,
                   times: picks.sorted(), outDir: URL(fileURLWithPath: "proof"), tag: preset.id + tag)
+      // FXCLIP=<開始秒> で、動く絵（GIF）も出す。回るものは静止画では確かめられない。
+      if let from = ProcessInfo.processInfo.environment["FXCLIP"].flatMap(Double.init) {
+        renderClip(video: url, timeline: timeline, preset: preset, catalog: catalog,
+                   start: from, seconds: 3, fps: 15,
+                   outDir: URL(fileURLWithPath: "proof"), tag: preset.id + tag)
+      }
     }
   } catch { print("FAILED: \(error)") }
   sem.signal()

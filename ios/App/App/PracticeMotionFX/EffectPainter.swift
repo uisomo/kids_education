@@ -4,9 +4,9 @@ import UIKit
 import CoreImage
 
 public enum EffectPainter {
-    /// 安全の上限。ここを超える大きさ・濃さは、カタログに何が書いてあっても出さない。
+    /// 安全の上限。ここを超える大きさ・太さは、カタログに何が書いてあっても出さない。
     /// 画面の 1/8 より大きい印は、子どもの姿より かざりのほうが目立ってしまう。
-    private static let maxRadius = 0.12, maxLineWidth = 0.02, maxAlpha = 1.0
+    private static let maxRadius = 0.12, maxLineWidth = 0.03, maxAlpha = 1.0
 
     /// CGContext must have a top-left origin (UIKit already does).
     public static func draw(_ scene: EffectScene, in context: CGContext, viewport: CGSize,
@@ -21,7 +21,7 @@ public enum EffectPainter {
         context.clip(to: CGRect(x: 0,y: 0,width: viewport.width,height: viewport.height))
         context.clip(to: CGRect(x: video.x,y: video.y,width: video.width,height: video.height))
         context.setLineCap(.round); context.setLineJoin(.round)
-        for primitive in scene.primitives.prefix(8) {
+        for primitive in scene.primitives.prefix(16) {
             guard !primitive.points.isEmpty, primitive.points.allSatisfy(\.isFinite),
                   primitive.color.alpha > 0 else { continue }
             let c = primitive.color
@@ -42,10 +42,39 @@ public enum EffectPainter {
                     else { context.addLine(to: CGPoint(x: p.x,y: p.y)) }
                 }
                 context.strokePath()
+            case .glow:
+                // ネオン管。**同じ線を3回、太さと濃さを変えて重ねる。**
+                // 外側のにじみ → 色 → 白く焼けた芯。1本の細い線を引くのとは
+                // 別物に見える（エネルギーに見えるかどうかは ほぼこれで決まる）。
+                // 重ね方は plusLighter（光を足す）。重なったところが明るくなる。
+                let width = CGFloat(max(0.65,min(maxLineWidth,primitive.lineWidth)*short))
+                context.saveGState()
+                context.setBlendMode(.plusLighter)
+                let passes: [(CGFloat, CGFloat, Bool)] = [
+                    (3.4, 0.22, false),   // にじみ
+                    (1.7, 0.45, false),   // 色
+                    (0.55, 0.95, true),   // 芯（白）
+                ]
+                for (scale, strength, white) in passes {
+                    let a = alpha*strength
+                    guard a > 0.004 else { continue }
+                    context.setLineWidth(max(0.6,width*scale))
+                    context.setStrokeColor(white
+                        ? CGColor(red: 1,green: 1,blue: 1,alpha: a)
+                        : CGColor(red: CGFloat(fxClamp(c.red)),green: CGFloat(fxClamp(c.green)),
+                                  blue: CGFloat(fxClamp(c.blue)),alpha: a))
+                    context.beginPath()
+                    for (index,point) in primitive.points.enumerated() {
+                        let p = mapper.map(point)
+                        if index == 0 { context.move(to: CGPoint(x: p.x,y: p.y)) }
+                        else { context.addLine(to: CGPoint(x: p.x,y: p.y)) }
+                    }
+                    context.strokePath()
+                }
+                context.restoreGState()
             case .orb:
                 // 気のたま: こぶし（手首・足首）そのものを光らせる。まん中が白く、
-                // ふちに向かって色になって消える。細い輪とちがって、遠目でも
-                // 「手が光っている」と一目で分かる。
+                // ふちに向かって色になって消える。
                 let p = mapper.map(primitive.points[0]); let r = min(maxRadius,primitive.radius)*short
                 guard r > 0.5 else { continue }
                 let core = CGColor(red: 1,green: 1,blue: 1,alpha: alpha)
@@ -55,40 +84,10 @@ public enum EffectPainter {
                       let gradient = CGGradient(colorsSpace: space,colors: [core,colour,edge] as CFArray,
                                                 locations: [0,0.42,1]) else { continue }
                 context.saveGState()
+                context.setBlendMode(.plusLighter)
                 context.drawRadialGradient(gradient,startCenter: CGPoint(x: p.x,y: p.y),startRadius: 0,
                                            endCenter: CGPoint(x: p.x,y: p.y),endRadius: r,options: [])
                 context.restoreGState()
-            case .glyph:
-                guard let id = primitive.glyphID, let glyph = catalog.glyph(id) else { continue }
-                let center = mapper.map(primitive.points[0]); let size = min(maxRadius,primitive.radius)*short
-                let angle = primitive.angle; let cs = cos(angle), sn = sin(angle)
-                func addPath() {
-                    context.beginPath()
-                    for path in glyph.paths {
-                        for (index,point) in path.enumerated() {
-                            let x = (point.x*cs-point.y*sn)*size*(mirrored ? -1 : 1)
-                            let y = (point.x*sn+point.y*cs)*size
-                            let p = CGPoint(x: center.x+x,y: center.y+y)
-                            if index == 0 { context.move(to: p) } else { context.addLine(to: p) }
-                        }
-                        if glyph.closed { context.closePath() }
-                    }
-                }
-                // 白いふちを先に敷いてから塗る。道着でも壁でも畳でも、同じように
-                // 形が抜けて見える（線だけだと背景に溶けて、何の絵か分からない）。
-                addPath()
-                context.setStrokeColor(CGColor(red: 1,green: 1,blue: 1,alpha: alpha*0.95))
-                context.setLineWidth(size*(glyph.isFilled ? 0.23 : 0.34))
-                context.strokePath()
-                addPath()
-                if glyph.isFilled {
-                    context.setFillColor(colour)
-                    context.fillPath()
-                } else {
-                    context.setStrokeColor(colour)
-                    context.setLineWidth(size*0.15)
-                    context.strokePath()
-                }
             }
         }
     }
@@ -101,7 +100,7 @@ final class OverlayRasterizer: @unchecked Sendable {
     private var dimensions = CGSize.zero
     private let catalog: EffectCatalog
     init(catalog: EffectCatalog) { self.catalog = catalog }
-    /// 塗りの印は輪郭がはっきりしているので、768 で描いて 1920 に伸ばすと
+    /// 光る線は輪郭がはっきりしているので、768 で描いて 1920 に伸ばすと
     /// ふちがぼやける。1280 で描く（絵のあるコマだけ・1枚を使い回し）。
     func image(for scene: EffectScene, maximumEdge: Int = 1280) throws -> CIImage? {
         guard !scene.primitives.isEmpty, scene.sourceSize.isValid else { return nil }

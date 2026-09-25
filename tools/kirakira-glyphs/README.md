@@ -1,6 +1,7 @@
 # ✨キラキラ の元になる表
 
-名前・色・形・どうやったら手に入るか（tier）を **ここ一つ** が持っている。
+名前・色・描きかた（style）・どうやったら手に入るか（tier）を
+**ここ一つ** が持っている。
 
 ```bash
 python3 tools/kirakira-glyphs/gen.py
@@ -15,18 +16,20 @@ python3 tools/kirakira-glyphs/gen.py
 
 **どちらも手で書き換えないこと。** 同じものを2か所で書くと、必ず片方がずれる。
 
-- `gen.py` … 表（id・名前・mode・style・glyph・色・tier）と、style ごとの数値
-- `shapes.py` … 形そのもの。`-0.5〜0.5` の箱、Y は下向き（Swift と同じ座標）
+`gen.py` が表（id・名前・mode・style・色・tier）と、style ごとの数値を持つ。
+**形（貼る絵）はもう無い** — かざりは腕の骨に沿って描くので、絵が要らない。
+タブのアイコンも style から描いている（`src/ui/sparkle-screen.ts`）。
 
-## 形を足すとき
+## 1つ足すとき
 
-1. `shapes.py` に点を置いて `GLYPHS` に足す
-2. `gen.py` の `CATALOG` に 1行足す
-3. `python3 tools/kirakira-glyphs/gen.py`
-4. **絵を見る。** `./tools/motionfx-harness/build.sh <練習動画> <新しいid>`
+1. `gen.py` の `CATALOG` に 1行足す（style は lightning / spiral / aura）
+2. `python3 tools/kirakira-glyphs/gen.py`
+3. **動く絵を見る。**
+   `FXCLIP=12 ./tools/motionfx-harness/build.sh <練習動画> <新しいid>`
 
-4 を飛ばさないこと。線だけの ⚡️ が「ただの落書き」に見えていたのに、
-実機に入れるまで誰も気づかなかった（`karate-trainer/MOTION_EFFECTS.md`）。
+3 を飛ばさないこと。**回るものは静止画では確かめられない。** 細い輪郭の ⚡️ が
+「ただの落書き」に見えていたのに、実機に入れるまで気づかなかった
+（`karate-trainer/MOTION_EFFECTS.md` の「その3」「その4」）。
 
-箱（±0.5）からはみ出す点があると `Catalog.validate` が弾いてアプリが
-かざりを1つも出さなくなる。`snow` のように枝が飛び出す形は縮めてから返す。
+新しい描きかたを足したいときは `Scene.swift` の `switch style` と
+`Catalog.validate` の許す名前、両方に足す。

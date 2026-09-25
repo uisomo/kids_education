@@ -30,13 +30,42 @@ public struct AnchorFrame: Codable, Sendable, Equatable {
         self.energy = energy; self.confidence = confidence; self.lastBurst = lastBurst
     }
 }
+/// 腕（肩→肘→手首）または脚（尻→膝→足首）の骨。**かざりを腕に巻きつける**ために
+/// 要る: 手首の点だけでは「どっち向きの腕か」が分からないので、稲妻も炎も
+/// 宙に浮くしかなかった。エンジンは肩と肘をもともと見ている（伸びぐあいの判定に
+/// 使っている）ので、ここで外に出すだけ。
+public struct FXLimb: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable { case arm, leg }
+    public var kind: Kind
+    /// 先のほうの関節（手首・足首）。同じコマの anchor と結びつける鍵。
+    public var joint: FXJoint
+    public var root: FXPoint     // 肩 / 尻
+    public var mid: FXPoint      // 肘 / 膝
+    public var tip: FXPoint      // 手首 / 足首
+    public var energy: Double
+    public init(kind: Kind, joint: FXJoint, root: FXPoint, mid: FXPoint, tip: FXPoint, energy: Double) {
+        self.kind = kind; self.joint = joint; self.root = root; self.mid = mid; self.tip = tip
+        self.energy = energy
+    }
+}
 public struct EffectFrame: Codable, Sendable, Equatable {
     public var time: Double; public var generation: Int; public var sourceSize: FXSize
     public var anchors: [AnchorFrame]; public var headExclusion: FXRect?
+    /// 省略可（古い解析結果には入っていない）。無ければ腕に巻きつくかざりは出ない。
+    public var limbs: [FXLimb]
     public init(time: Double, generation: Int = 0, sourceSize: FXSize,
-                anchors: [AnchorFrame] = [], headExclusion: FXRect? = nil) {
+                anchors: [AnchorFrame] = [], headExclusion: FXRect? = nil, limbs: [FXLimb] = []) {
         self.time = time; self.generation = generation; self.sourceSize = sourceSize
-        self.anchors = anchors; self.headExclusion = headExclusion
+        self.anchors = anchors; self.headExclusion = headExclusion; self.limbs = limbs
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        time = try c.decode(Double.self, forKey: .time)
+        generation = try c.decodeIfPresent(Int.self, forKey: .generation) ?? 0
+        sourceSize = try c.decode(FXSize.self, forKey: .sourceSize)
+        anchors = try c.decodeIfPresent([AnchorFrame].self, forKey: .anchors) ?? []
+        headExclusion = try c.decodeIfPresent(FXRect.self, forKey: .headExclusion)
+        limbs = try c.decodeIfPresent([FXLimb].self, forKey: .limbs) ?? []
     }
 }
 public struct TrackingConfiguration: Codable, Sendable {

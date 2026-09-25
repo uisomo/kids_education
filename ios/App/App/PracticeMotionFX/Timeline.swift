@@ -1,7 +1,7 @@
 import Foundation
 
 public struct EffectTimeline: Codable, Sendable {
-    public var schemaVersion: Int = 1
+    public var schemaVersion: Int = 2
     public let sourceID: String
     public let mode: PracticeMode
     public let duration: Double
@@ -11,7 +11,9 @@ public struct EffectTimeline: Codable, Sendable {
         try validate()
     }
     public func validate() throws {
-        guard schemaVersion == 1, duration.isFinite, duration > 0, duration <= 3600,
+        // 2 = 腕／脚の骨（limbs）が入っている。1 の解析結果は読まずに取り直す
+        // （骨が無いと、腕に巻きつくかざりが黙って出なくなる）。
+        guard schemaVersion == 2, duration.isFinite, duration > 0, duration <= 3600,
               !sourceID.isEmpty, frames.count <= 108_001 else { throw FXError.invalidData("Invalid timeline metadata or size.") }
         var last = -Double.infinity
         for f in frames {
@@ -23,6 +25,11 @@ public struct EffectTimeline: Codable, Sendable {
                       a.lastBurst.map({ $0.isFinite && $0 >= 0 && $0 <= f.time+0.001 }) ?? true else {
                     throw FXError.invalidData("Invalid anchor values.")
                 }
+            }
+            guard f.limbs.count <= 4 else { throw FXError.invalidData("Too many limbs in a frame.") }
+            for l in f.limbs {
+                guard l.root.inUnitSquare, l.mid.inUnitSquare, l.tip.inUnitSquare,
+                      (0...1).contains(l.energy) else { throw FXError.invalidData("Invalid limb values.") }
             }
             last = f.time
         }
@@ -56,6 +63,17 @@ public struct EffectTimeline: Codable, Sendable {
             let next = frames[i+1], gap = next.time-current.time
             if gap > 0, gap <= 0.20, next.generation == current.generation {
                 let mix = fxClamp((time-current.time)/gap)
+                // 骨も補間する。ここを飛ばすと、稲妻だけ解析の 15fps でカクつく。
+                current.limbs = current.limbs.map { l in
+                    guard let b = next.limbs.first(where: { $0.joint == l.joint }),
+                          l.tip.distance(to: b.tip, aspect: size.aspect) < 0.20 else { return l }
+                    var x = l
+                    x.root = l.root.mixed(with: b.root, amount: mix)
+                    x.mid = l.mid.mixed(with: b.mid, amount: mix)
+                    x.tip = l.tip.mixed(with: b.tip, amount: mix)
+                    x.energy = l.energy+(b.energy-l.energy)*mix
+                    return x
+                }
                 current.anchors = current.anchors.map { a in
                     guard let b = next.anchors.first(where: { $0.joint == a.joint }),
                           a.point.distance(to: b.point, aspect: size.aspect) < 0.20 else { return a }

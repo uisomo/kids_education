@@ -8,6 +8,17 @@ public final class MotionEngine {
         var raw: FXPoint; var smoothed: FXPoint; var relative: FXPoint; var time: Double
         var velocity: FXPoint = .zero; var lastBurst: Double?; var armed = true
     }
+    /// 支えの無い点（肩・肘／尻・膝 が取れていない関節）に求める信頼度。
+    ///
+    /// 実写で測って足した: 画面の外にある足首を Vision が **推測して**、焼き込んだ
+    /// アランの絵の上に置いていた（`rightAnkle(0.74,0.92) 信頼度0.50
+    /// エネルギー1.00` — 動いているのではなく、毎コマ飛び回っていただけ）。
+    /// そこに衝撃波が出て、キツネが技を決めているように見えた。
+    ///
+    /// となりの関節が裏づけている点は今までどおり通す（カメラに向かって
+    /// まっすぐ突くと肘や肩が消えるので、そこを厳しくすると突きが死ぬ）。
+    private static let unsupportedConfidence = 0.62
+
     private var states: [FXJoint: State] = [:]
     private var previousTime: Double?; private var generation: Int?
     public init(configuration: TrackingConfiguration) { self.configuration = configuration.normalized }
@@ -56,6 +67,12 @@ public final class MotionEngine {
             case .rightAnkle: root = .rightHip; middle = .rightKnee
             default: root = joint; middle = joint
             }
+            // 裏づけの無い点は、それだけでは信じない（上の unsupportedConfidence）。
+            if !joint.isHandSlot, point(root) == nil || point(middle) == nil,
+               sample.confidence < Self.unsupportedConfidence {
+                states.removeValue(forKey: joint)
+                continue
+            }
             let base = joint.isHandSlot ? FXPoint.zero : (point(root)?.point ?? sample.point)
             let relative = sample.point-base
             guard var state = states[joint] else {
@@ -99,6 +116,12 @@ public final class MotionEngine {
             }
             output.anchors.append(.init(joint: joint, point: smooth, velocity: state.velocity,
                                         energy: energy, confidence: sample.confidence, lastBurst: state.lastBurst))
+            // 腕／脚の骨。肩と肘が取れたコマだけ。かざりを腕に巻きつけるのに使う。
+            if !joint.isHandSlot, let r = point(root)?.point, let m = point(middle)?.point,
+               r.inUnitSquare, m.inUnitSquare {
+                output.limbs.append(.init(kind: joint.isFoot ? .leg : .arm, joint: joint,
+                                          root: r, mid: m, tip: smooth, energy: energy))
+            }
             state.raw = sample.point; state.smoothed = smooth; state.relative = relative; state.time = pose.time
             states[joint] = state
         }

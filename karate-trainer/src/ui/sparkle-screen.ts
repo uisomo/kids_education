@@ -31,37 +31,36 @@ const TIER_LABEL: Record<SparkleTier, string> = {
   long: `休憩なし ${LONG_SECONDS / 60}ふん`,
 };
 
-// カタログの形を、そのまま画面の絵にする（ネイティブが動画に描くのと同じ形）。
-// orb と halo には形が無いので、まるく光らせる。
+// タブに出すアイコン。**そのキラキラが動画でやることを、そのまま小さく描く。**
+// 稲妻ならギザギザが巻きつき、渦ならぐるぐる、オーラならまるく光る。
+// 関係のない絵（ハートやお花）を出すと、開けてみるまで何がもらえるのか
+// 分からない。色と style がそのまま「どれか」の目じるしになる。
+//
+// 太さと濃さを変えて3回重ねるのも動画と同じ理由（1本の線だと ただの落書き）。
 function sparkleArt(s: SparkleDef, owned: boolean): SVGSVGElement {
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", "-0.62 -0.62 1.24 1.24");
   svg.setAttribute("class", "sparkle-art");
   svg.setAttribute("aria-hidden", "true");
-  const ink = owned ? s.color : "rgba(255,255,255,0.18)";
 
-  if (!s.shape && !owned) {
-    // まだ持っていない たま／わっか。ぼやけた光のままだと、ほとんど何も
-    // 見えない。輪郭のある まるにして「たま が入る場所」と分かるようにする。
-    const circle = document.createElementNS(NS, "circle");
-    circle.setAttribute("r", "0.42");
-    circle.setAttribute("fill", "rgba(255,255,255,0.05)");
-    circle.setAttribute("stroke", ink);
-    circle.setAttribute("stroke-width", s.style === "halo" ? "0.10" : "0.16");
-    svg.append(circle);
-    return svg;
-  }
-
-  if (!s.shape) {
-    // 気のたま／わっか。まん中が白い まるい光。
-    const id = `g-${s.id}`;
+  if (s.style === "aura") {
+    if (!owned) {
+      const circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("r", "0.40");
+      circle.setAttribute("fill", "rgba(255,255,255,0.05)");
+      circle.setAttribute("stroke", "rgba(255,255,255,0.18)");
+      circle.setAttribute("stroke-width", "0.16");
+      svg.append(circle);
+      return svg;
+    }
+    const id = `aura-${s.id}`;
     const defs = document.createElementNS(NS, "defs");
     const grad = document.createElementNS(NS, "radialGradient");
     grad.setAttribute("id", id);
-    const stops: [string, string, string][] = [
-      ["0", "#ffffff", "1"], ["0.42", s.color, "1"], ["1", s.color, "0"]];
-    for (const [offset, color, opacity] of stops) {
+    for (const [offset, color, opacity] of [
+      ["0", "#ffffff", "1"], ["0.42", s.color, "1"], ["1", s.color, "0"],
+    ] as [string, string, string][]) {
       const stop = document.createElementNS(NS, "stop");
       stop.setAttribute("offset", offset);
       stop.setAttribute("stop-color", color);
@@ -70,38 +69,63 @@ function sparkleArt(s: SparkleDef, owned: boolean): SVGSVGElement {
     }
     defs.append(grad);
     const circle = document.createElementNS(NS, "circle");
-    circle.setAttribute("r", s.style === "halo" ? "0.40" : "0.52");
-    if (s.style === "halo") {
-      circle.setAttribute("fill", "none");
-      circle.setAttribute("stroke", ink);
-      circle.setAttribute("stroke-width", "0.11");
-    } else {
-      circle.setAttribute("fill", `url(#${id})`);
-    }
+    circle.setAttribute("r", "0.52");
+    circle.setAttribute("fill", `url(#${id})`);
     svg.append(defs, circle);
     return svg;
   }
 
-  // 白いふちを先に敷くのは、動画のときと同じ理由（背景に溶けないように）。
-  for (const pass of ["rim", "body"] as const) {
+  // 縦の骨に巻きついた線（Swift の SceneBuilder.wrap と同じ考えかた）。
+  // 両端は骨に戻す（sin(πu)）ので、宙に浮いた線に見えない。
+  // 稲妻は **角ばって** いないと、渦と見分けがつかない（小さいアイコンでは
+  // 少しのギザギザは消えてしまう）。点を減らして、大きく折る。
+  const lightning = s.style === "lightning";
+  const d = lightning
+    ? wrapPath({ samples: 8, turns: 1.15, amplitude: 0.26, jitter: 0.46, seed: hashId(s.id) })
+    : wrapPath({ samples: 34, turns: 2.7, amplitude: 0.34, jitter: 0, seed: 0 });
+  const passes: [number, number, string][] = owned
+    ? [[0.34, 0.22, s.color], [0.17, 0.55, s.color], [0.06, 0.95, "#ffffff"]]
+    : [[0.17, 1, "rgba(255,255,255,0.18)"]];
+  for (const [width, opacity, color] of passes) {
     const path = document.createElementNS(NS, "path");
-    path.setAttribute("d", s.shape.d);
-    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("d", d);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", color);
+    path.setAttribute("stroke-width", String(width));
+    path.setAttribute("stroke-opacity", String(opacity));
     path.setAttribute("stroke-linecap", "round");
-    if (pass === "rim") {
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", owned ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.10)");
-      path.setAttribute("stroke-width", s.shape.fill ? "0.22" : "0.30");
-    } else if (s.shape.fill) {
-      path.setAttribute("fill", ink);
-    } else {
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", ink);
-      path.setAttribute("stroke-width", "0.13");
-    }
+    path.setAttribute("stroke-linejoin", "round");
     svg.append(path);
   }
   return svg;
+}
+
+/// 上から下へ進みながら左右に振れる線。SVG のパスにして返す。
+function wrapPath(o: { samples: number; turns: number; amplitude: number; jitter: number; seed: number }): string {
+  const parts: string[] = [];
+  const samples = o.samples;
+  for (let i = 0; i <= samples; i++) {
+    const u = i / samples;
+    const y = -0.5 + u;
+    const envelope = Math.sin(Math.PI * u);
+    let x = o.amplitude * Math.sin(u * o.turns * 2 * Math.PI) * envelope;
+    if (o.jitter > 0) x += o.jitter * (noise(o.seed, i) - 0.5) * envelope;
+    parts.push(`${i === 0 ? "M" : "L"} ${x.toFixed(4)} ${y.toFixed(4)}`);
+  }
+  return parts.join(" ");
+}
+
+/// 決まった答えを返す雑音。描き直すたびに稲妻の形が変わらないように。
+function noise(a: number, b: number): number {
+  let h = Math.imul(a ^ 0x5bf03635, 73856093) ^ Math.imul(b, 19349663);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function hashId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h, 31) + id.charCodeAt(i);
+  return h >>> 0;
 }
 
 export function renderSparkleScreen(root: HTMLElement, deps: SparkleScreenDeps = {}): void {

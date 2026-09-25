@@ -14,7 +14,8 @@ public struct EffectPreset: Codable, Sendable, Identifiable {
     public let style: String; public let color: FXColor
     public let opacity: Double; public let radius: Double
     public let trailSeconds: Double; public let burstSeconds: Double; public let maxAnchors: Int
-    /// style == "sticker" のとき、どの形を出すか（glyphs の id）。
+    /// 使っていない（かざりは形を貼るのをやめて、骨に沿って描くようにした）。
+    /// 古い Effects.json を読んでも落ちないように残してある。
     public let glyph: String?
 }
 public struct VectorGlyph: Codable, Sendable {
@@ -46,15 +47,8 @@ public struct EffectCatalog: Codable, Sendable {
             guard (0...1).contains(p.opacity), (0.005...0.045).contains(p.radius),
                   (0...0.20).contains(p.trailSeconds), (0.08...0.40).contains(p.burstSeconds),
                   (1...2).contains(p.maxAnchors), [p.color.red,p.color.green,p.color.blue,p.color.alpha].allSatisfy({ (0...1).contains($0) }),
-                  ["orb","sticker","halo"].contains(p.style) else {
+                  ["lightning","spiral","aura"].contains(p.style) else {
                 throw FXError.invalidData("Unsafe effect size, opacity, color, style or particle budget: \(p.id)")
-            }
-            // sticker は形が要る。名前を打ちまちがえたら、黙って何も出ないのではなく
-            // ここで落ちてほしい（出ないバグは実機でしか気づけない）。
-            if p.style == "sticker" {
-                guard let id = p.glyph, glyph(id) != nil else {
-                    throw FXError.invalidData("Sticker preset without a glyph: \(p.id)")
-                }
             }
         }
         for g in glyphs {
