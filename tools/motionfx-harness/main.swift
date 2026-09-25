@@ -35,25 +35,30 @@ Task {
       }
     }
     for preset in presets {
-      var drawn = 0, total = 0, prims = 0, limbFrames = 0, orbFrames = 0
+      var drawn = 0, total = 0, prims = 0, limbFrames = 0, orbFrames = 0, airFrames = 0
       var scored: [(Double, Int)] = []
       var t = 0.0
       while t <= timeline.duration {
         total += 1
         let s = timeline.scene(at: t, preset: preset, intensity: 1, reduceMotion: false)
-        if !s.primitives.isEmpty {
-          drawn += 1; prims += s.primitives.count; scored.append((t, s.primitives.count))
+        // 背景（その場所の空気）は先頭に並んでいる。**数えものからは外す** —
+        // 空気はほぼ全コマに出るので、混ぜると「かざりが出ているか」が見えなくなる。
+        if s.ambientCount > 0 { airFrames += 1 }
+        let fx = Array(s.primitives.dropFirst(s.ambientCount))
+        if !fx.isEmpty {
+          drawn += 1; prims += fx.count; scored.append((t, fx.count))
           // 腕まわりのかざりが出ているコマ（こぶしの光と衝撃波は数えない）
-          if s.primitives.contains(where: {
+          if fx.contains(where: {
             ($0.kind == .glow || $0.kind == .ribbon) && $0.points.count > 4 || $0.kind == .spray
           }) { limbFrames += 1 }
-          if s.primitives.contains(where: { $0.kind == .orb }) { orbFrames += 1 }
+          if fx.contains(where: { $0.kind == .orb }) { orbFrames += 1 }
         }
         t += 1.0/30.0
       }
       print("\n\(preset.id) (\(preset.name)) style=\(preset.style)")
       print("  drawn on \(drawn)/\(total) output frames (\(Int(Double(drawn)/Double(total)*100))%), \(prims) primitives")
       print("  こぶしが光るコマ \(orbFrames)  **腕にまとわりつくコマ \(limbFrames)** = \(String(format: "%.1f", Double(limbFrames)/30.0)) 秒ぶん")
+      print("  背景（その場所の空気）が出ているコマ \(airFrames)/\(total) (\(Int(Double(airFrames)/Double(total)*100))%)")
       var picks: [Double] = []
       if let b = bursts.sorted().dropFirst(2).first { picks.append(b + 0.10) }
       scored.sort { $0.1 > $1.1 }

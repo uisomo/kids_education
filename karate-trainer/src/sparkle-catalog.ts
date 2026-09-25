@@ -10,6 +10,9 @@ export type SparkleTier = "start" | "short" | "long";
 /// どう **動く** か。どれも腕（肩→肘→手首）に沿って描く。色を変えただけの
 /// 同じ線は、ぜんぶ同じものに見えてしまうので、動きそのものを変えてある。
 /// 中身は ios/.../Scene.swift の `switch style`。
+///
+/// style は **背景（その場所の空気）** も決める（`ambient()`）。炎なら床が
+/// 赤く照り、吹雪なら雪が部屋を横切り、かげなら ふちが暗くなる。
 export type SparkleStyle =
   | "lightning"   // ギザギザがまとわりつき、枝分かれし、パチパチ引き直す
   | "flame"       // 炎の舌が画面の上へ立ちのぼる＋火の粉

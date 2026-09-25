@@ -7,6 +7,12 @@ public enum EffectPainter {
     /// 安全の上限。ここを超える大きさ・太さは、カタログに何が書いてあっても出さない。
     /// 画面の 1/8 より大きい印は、子どもの姿より かざりのほうが目立ってしまう。
     private static let maxRadius = 0.12, maxLineWidth = 0.03, maxAlpha = 1.0
+    /// 背景（その場所の空気）の上限。**ここは別枠**: 空気は画面ぜんたいに
+    /// かかるので大きさは要るが、濃さは かざりよりずっと低く抑える。
+    /// 0.32 を超えると「動画に色フィルタを掛けただけ」に見えて、子どもの顔の
+    /// 色まで変わる。`halo` の 1.6 は、9:16 の四隅まで届かせるのに要る
+    /// （まん中から角までが短辺の約 1.02 倍）。
+    private static let maxAirAlpha = 0.32, maxAirRadius = 1.6
 
     /// CGContext must have a top-left origin (UIKit already does).
     public static func draw(_ scene: EffectScene, in context: CGContext, viewport: CGSize,
@@ -21,7 +27,8 @@ public enum EffectPainter {
         context.clip(to: CGRect(x: 0,y: 0,width: viewport.width,height: viewport.height))
         context.clip(to: CGRect(x: video.x,y: video.y,width: video.width,height: video.height))
         context.setLineCap(.round); context.setLineJoin(.round)
-        for primitive in scene.primitives.prefix(24) {
+        // 24 は かざりの上限。空気（先頭の数本）はその外側なので、少し広く取る。
+        for primitive in scene.primitives.prefix(32) {
             guard !primitive.points.isEmpty, primitive.points.allSatisfy(\.isFinite),
                   primitive.color.alpha > 0 else { continue }
             let c = primitive.color
@@ -133,6 +140,46 @@ public enum EffectPainter {
                 for p in mapped.prefix(coreCount).dropFirst() { context.addLine(to: p) }
                 context.strokePath()
                 context.restoreGState()
+            case .veil:
+                // その場所の明かり。画面の **ふちから内側へ** 薄れる帯で、
+                // まん中（＝子どもの顔がある辺り）には届かない。
+                // 終わりの点から先は塗らない ＝ そこから向こうは元の絵のまま。
+                guard primitive.points.count >= 2 else { continue }
+                let from = mapper.map(primitive.points[0]), to = mapper.map(primitive.points[1])
+                let airAlpha = CGFloat(min(maxAirAlpha,fxClamp(c.alpha)))
+                guard airAlpha > 0.004 else { continue }
+                let red = CGFloat(fxClamp(c.red)), green = CGFloat(fxClamp(c.green)), blue = CGFloat(fxClamp(c.blue))
+                guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                      let gradient = CGGradient(colorsSpace: space,colors: [
+                        CGColor(red: red,green: green,blue: blue,alpha: airAlpha),
+                        CGColor(red: red,green: green,blue: blue,alpha: 0),
+                      ] as CFArray,locations: [0,1]) else { continue }
+                context.saveGState()
+                // かげ（暗くなる空気）だけ .normal。光を足すやり方では暗さは出せない。
+                context.setBlendMode(primitive.blend == .over ? .normal : .plusLighter)
+                context.drawLinearGradient(gradient,start: CGPoint(x: from.x,y: from.y),
+                                           end: CGPoint(x: to.x,y: to.y),options: [.drawsBeforeStartLocation])
+                context.restoreGState()
+            case .halo:
+                // ふちだけが色づく（または暗くなる）輪。まん中は素通し。
+                let centre = mapper.map(primitive.points[0])
+                let reach = min(maxAirRadius,primitive.radius)*short
+                let airAlpha = CGFloat(min(maxAirAlpha,fxClamp(c.alpha)))
+                guard reach > 1, airAlpha > 0.004 else { continue }
+                let red = CGFloat(fxClamp(c.red)), green = CGFloat(fxClamp(c.green)), blue = CGFloat(fxClamp(c.blue))
+                guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                      let gradient = CGGradient(colorsSpace: space,colors: [
+                        CGColor(red: red,green: green,blue: blue,alpha: 0),
+                        CGColor(red: red,green: green,blue: blue,alpha: airAlpha*0.22),
+                        CGColor(red: red,green: green,blue: blue,alpha: airAlpha),
+                      ] as CFArray,locations: [0,0.62,1]) else { continue }
+                context.saveGState()
+                context.setBlendMode(primitive.blend == .over ? .normal : .plusLighter)
+                // 角は端の半径より遠いので、その先も塗る（塗らないと四隅だけ抜ける）。
+                context.drawRadialGradient(gradient,startCenter: CGPoint(x: centre.x,y: centre.y),startRadius: 0,
+                                           endCenter: CGPoint(x: centre.x,y: centre.y),endRadius: reach,
+                                           options: [.drawsAfterEndLocation])
+                context.restoreGState()
             case .spray:
                 // 粉のように散らす小さな印（吹雪・火の粉・花びら・きらめき）。
                 // **1つの primitive に点をたくさん入れる。** 1粒ずつ primitive に
@@ -141,7 +188,9 @@ public enum EffectPainter {
                 let size = min(maxRadius,primitive.radius)*short
                 guard size > 0.4 else { continue }
                 context.saveGState()
-                context.setBlendMode(.plusLighter)
+                // 空気の中のもの（雪・花びら）は `over`。**白い壁に白い光を足しても
+                // 雪は見えない。** 光そのもの（火の粉・星）は今までどおり足す。
+                context.setBlendMode(primitive.blend == .over ? .normal : .plusLighter)
                 context.setFillColor(colour); context.setStrokeColor(colour)
                 let mark = primitive.glyphID ?? "dot"
                 let angle = primitive.angle

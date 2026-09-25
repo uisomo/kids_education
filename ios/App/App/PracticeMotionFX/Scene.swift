@@ -3,7 +3,15 @@ import Foundation
 public struct FXPrimitive: Codable, Sendable, Equatable {
     /// `glow` は「ネオン管」。painter が同じ線を3回（にじみ・色・白い芯）重ねる。
     /// エネルギーに見えるかどうかは ほぼこれで決まる。
-    public enum Kind: String, Codable, Sendable { case ring, stroke, glow, orb, spray, ribbon }
+    ///
+    /// `veil` と `halo` は **背景（その場所の空気）専用**。画面のふちから内側へ
+    /// 薄れる色の帯と、ふちだけが色づく（または暗くなる）輪。まん中は素通しで、
+    /// 子どもの上には ほとんど乗らない。
+    public enum Kind: String, Codable, Sendable { case ring, stroke, glow, orb, spray, ribbon, veil, halo }
+    /// 重ねかた。`add` は光を足す（`plusLighter`）、`over` はそのまま上に置く。
+    /// **「かげ」の空気（部屋が暗くなる）は光を足すやり方では描けない** ので、
+    /// そこだけ `over`。いまのところ `veil` / `halo` しか見ていない。
+    public enum Blend: String, Codable, Sendable { case add, over }
     public var kind: Kind; public var points: [FXPoint]; public var color: FXColor
     /// Radius/size/lineWidth are fractions of the displayed VIDEO's shorter edge.
     public var radius: Double; public var lineWidth: Double
@@ -12,12 +20,13 @@ public struct FXPrimitive: Codable, Sendable, Equatable {
     /// **これが「安っぽい／かっこいい」を分ける。** 同じ太さのまま伸びる線は
     /// 炎にもドラゴンの尾にも見えない。
     public var taper: Double
+    public var blend: Blend
     public init(kind: Kind, points: [FXPoint], color: FXColor, radius: Double = 0,
                 lineWidth: Double = 0.002, glyphID: String? = nil, angle: Double = 0,
-                taper: Double = 1) {
+                taper: Double = 1, blend: Blend = .add) {
         self.kind = kind; self.points = points; self.color = color; self.radius = radius
         self.lineWidth = lineWidth; self.glyphID = glyphID; self.angle = angle
-        self.taper = taper
+        self.taper = taper; self.blend = blend
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -29,13 +38,18 @@ public struct FXPrimitive: Codable, Sendable, Equatable {
         glyphID = try c.decodeIfPresent(String.self, forKey: .glyphID)
         angle = try c.decodeIfPresent(Double.self, forKey: .angle) ?? 0
         taper = try c.decodeIfPresent(Double.self, forKey: .taper) ?? 1
+        blend = try c.decodeIfPresent(Blend.self, forKey: .blend) ?? .add
     }
 }
 public struct EffectScene: Codable, Sendable, Equatable {
     public var sourceSize: FXSize
     public var primitives: [FXPrimitive]
-    public init(sourceSize: FXSize, primitives: [FXPrimitive] = []) {
-        self.sourceSize = sourceSize; self.primitives = primitives
+    /// `primitives` の **先頭から何本が背景（その場所の空気）か**。空気は
+    /// いちばん後ろに描くので必ず先頭に並ぶ。数えものをするとき（ハーネス）に
+    /// 「腕のかざりが出ているコマ」と混ざらないよう、境目を持たせてある。
+    public var ambientCount: Int
+    public init(sourceSize: FXSize, primitives: [FXPrimitive] = [], ambientCount: Int = 0) {
+        self.sourceSize = sourceSize; self.primitives = primitives; self.ambientCount = ambientCount
     }
 }
 
@@ -86,6 +100,9 @@ public enum SceneBuilder {
     static let flamePerSecond = 11.0
     /// 帯が1秒に何回まわるか。
     static let spinPerSecond = 1.15
+    /// 背景（その場所の空気）の濃さ。**ここを上げすぎると ただの色フィルタ**に
+    /// なって、子どもより空気のほうが目立つ。painter 側でも 0.32 で止めている。
+    static let airLevel = 0.62
 
     public static func make(frame: EffectFrame, at time: Double, history: [EffectFrame] = [],
                             preset: EffectPreset, intensity: Double = 1,
@@ -113,6 +130,43 @@ public enum SceneBuilder {
             guard let head = frame.headExclusion else { return false }
             return head.contains(p, padding: max(pad*shortToX, pad*shortToY))
         }
+
+        // ── 背景（その場所の空気）──────────────────────────────────────────
+        // 腕のかざりは **腕が見つかったコマにしか出ない**（実写で 26%）。残りは
+        // 元のままの動画が流れるので、「どこで稽古しているのか」が変わらない。
+        // 炎を選んでも、部屋は部屋のままだった。
+        //
+        // そこで、かざりとは別に **画面ぜんたいの空気** を置く。炎なら床が赤く
+        // 照り、吹雪なら部屋を雪が横切り、かげなら ふちが暗くなる。決まりは3つ:
+        //
+        // 1. **まん中には何も置かない。** 主役は子ども。ふちから内側へ薄れる帯
+        //    （`veil`）と、ふちだけの輪（`halo`）しか使わない。
+        // 2. **人が写っているあいだだけ。** 直近のコマで体が取れているかどうかで
+        //    出し入れする。誰も居ないところに空気だけ残すと、色フィルタに見える。
+        // 3. **動くと濃くなるが、止まっても 0 にはしない。** 0 にすると、追跡が
+        //    当たり外れするたびに部屋ぜんたいが点滅する。
+        //
+        // 直近 0.5秒ぶんを まとめて見るのがだいじ。1コマの当たり外れで空気が
+        // 点滅すると、とても見ていられない（追跡は半分も当たらない）。
+        let window = history.isEmpty ? [frame] : Array(history.suffix(7))
+        var tracked = 0, stirSum = 0.0
+        for f in window {
+            if !f.anchors.isEmpty || !f.limbs.isEmpty { tracked += 1 }
+            stirSum += max(f.anchors.map(\.energy).max() ?? 0, f.limbs.map(\.energy).max() ?? 0)
+        }
+        // 7コマのうち 3コマ 取れていれば「居る」。半分しか当たらない追跡でも、
+        // これなら空気が息を切らさない。
+        let presence = fxClamp(Double(tracked)/3)
+        let stir = fxClamp(stirSum/Double(max(1, window.count)))
+        // 技が決まった瞬間だけ、部屋ごと反応する（雷なら光り、炎なら燃え上がる）。
+        var flare = 0.0
+        if let hit = frame.anchors.compactMap(\.lastBurst).max(), time >= hit {
+            let progress = (time-hit)/max(0.12, preset.burstSeconds*1.8)
+            if progress < 1 { flare = (1-progress)*(1-progress) }
+        }
+        let air = ambient(style: style, tint: preset.color,
+                          level: base*airLevel*presence*(0.45+0.55*stir),
+                          flare: flare, time: time, aspect: aspect, reduceMotion: reduceMotion)
 
         // ── 腕／脚に まとわりつくところ ────────────────────────────────────
         // 手首の点に絵を貼るのではなく、**骨に沿って** 描く。骨が取れないコマ
@@ -416,8 +470,229 @@ public enum SceneBuilder {
         }
 
         // A hard budget prevents a future preset from becoming a particle storm.
-        scene.primitives = Array(scene.primitives.prefix(24))
+        // 空気は **いちばん後ろ**（配列の先頭 ＝ 先に描く）。上限は別枠にして、
+        // 腕のかざりや衝撃波を空気が押し出さないようにする。
+        let backdrop = Array(air.prefix(6))
+        scene.primitives = backdrop + Array(scene.primitives.prefix(24))
+        scene.ambientCount = backdrop.count
         return scene
+    }
+
+    // ── 背景（その場所の空気）を作るところ ────────────────────────────────
+
+    private enum AirEdge { case top, bottom, left, right }
+
+    /// 画面のふちから内側へ、すうっと薄れる色の帯 ＝ 「その場所の明かり」。
+    /// `depth` ぶん入ったところで完全に消えるので、**まん中には届かない**。
+    private static func veil(_ edge: AirEdge, depth: Double, color: FXColor, alpha: Double,
+                             blend: FXPrimitive.Blend = .add) -> FXPrimitive {
+        let d = fxClamp(depth, 0.05, 0.90)
+        let ends: [FXPoint]
+        switch edge {
+        case .top:    ends = [FXPoint(0.5, 0), FXPoint(0.5, d)]
+        case .bottom: ends = [FXPoint(0.5, 1), FXPoint(0.5, 1-d)]
+        case .left:   ends = [FXPoint(0, 0.5), FXPoint(d, 0.5)]
+        case .right:  ends = [FXPoint(1, 0.5), FXPoint(1-d, 0.5)]
+        }
+        return .init(kind: .veil, points: ends, color: color.opacity(alpha), blend: blend)
+    }
+
+    /// ふちだけが色づく（または暗くなる）輪。まん中は素通し —— 子どもの顔は
+    /// たいてい まん中にあるので、そこには乗せない。
+    private static func vignette(color: FXColor, alpha: Double, reach: Double = 1.15,
+                                 blend: FXPrimitive.Blend = .add) -> FXPrimitive {
+        .init(kind: .halo, points: [FXPoint(0.5, 0.5)], color: color.opacity(alpha),
+              radius: fxClamp(reach, 0.5, 1.6), blend: blend)
+    }
+
+    /// 画面ぜんたいに散らす粒（雪・火の粉・花びら）。`drift` は 1秒あたりの動きで、
+    /// 単位は「画面の高さ ＝ 1」。はしまで行ったら反対から出てくるので、短い稽古でも
+    /// ずっと降りつづける。腕の `sprayPoints` と違って **骨を見ない**（空気は
+    /// 追跡が外れたコマでも そこに在る）。
+    private static func dust(count: Int, seed: Int, drift: FXPoint, time: Double, aspect: Double,
+                             color: FXColor, radius: Double, glyph: String = "dot",
+                             angle: Double = 0, blend: FXPrimitive.Blend = .add) -> FXPrimitive {
+        var pts: [FXPoint] = []
+        pts.reserveCapacity(count)
+        let safeAspect = max(0.2, aspect)
+        for i in 0..<count {
+            // 粒ごとに速さを変える。そろっていると「行進」に見える。
+            let pace = 0.55+0.90*noise(seed, i &* 5 &+ 2)
+            let sway = 0.010*sin(time*(0.8+pace)+Double(i))
+            var x = noise(seed, i &* 5) + (drift.x*pace*time)/safeAspect + sway
+            var y = noise(seed, i &* 5 &+ 1) + drift.y*pace*time
+            x -= x.rounded(.down); y -= y.rounded(.down)
+            pts.append(FXPoint(x, y))
+        }
+        return .init(kind: .spray, points: pts, color: color, radius: radius,
+                     glyphID: glyph, angle: angle, blend: blend)
+    }
+
+    /// その色の「暗いほう」。**空気は 暗くする側にも振らないと出ない。**
+    /// 実写（白い壁の部屋）で確かめた: 光を足すやり方（`plusLighter`）だけだと、
+    /// 白い壁はいくら足しても白いままで、雷雨も炎も **何も起きていないように
+    /// 見えた**。唯一ちゃんと場所が変わって見えたのは、暗くしていた「かげ」だけ。
+    private static func ink(_ c: FXColor) -> FXColor {
+        FXColor(c.red*0.22+0.02, c.green*0.18+0.02, c.blue*0.30+0.04)
+    }
+
+    /// 背景（その場所の空気）。style ごとに **場所そのもの** を変える。
+    /// 1コマにつき1回だけ呼ばれ、返すのは多くても6本。
+    ///
+    /// 作りは どの style も同じ順番:
+    ///   1. ふちを その色の暗いほうで沈める（子どもが明かりの中に立つ）
+    ///   2. その場所の明かりを ふちから差す（炎は下から、雷は上から）
+    ///   3. 空気の中のもの（雪・火の粉・花びら）を流す
+    private static func ambient(style: String, tint: FXColor, level: Double, flare: Double,
+                                time: Double, aspect: Double, reduceMotion: Bool) -> [FXPrimitive] {
+        guard level > 0.004, time.isFinite, level.isFinite else { return [] }
+        var out: [FXPrimitive] = []
+        // 技が決まった瞬間だけ、部屋ごと反応する（明かりのほうだけ。暗さは動かさない）。
+        let lit = level*(1+1.6*fxClamp(flare))
+
+        // ── 1. まず 暗くする ──────────────────────────────────────────────
+        // ふちだけを沈めて、まん中（子どもの顔）は素通し。
+        let darkness: Double
+        switch style {
+        case "shadow": darkness = 0.95
+        case "ice", "dragon", "flame", "water", "aura": darkness = 0.58
+        case "lightning", "sparkle", "blizzard": darkness = 0.50
+        default: darkness = 0.44
+        }
+        out.append(vignette(color: ink(tint), alpha: level*darkness, reach: 1.05, blend: .over))
+
+        // ── 2. その場所の明かりと、3. 空気の中のもの ────────────────────────
+        switch style {
+
+        case "lightning":
+            // 雷雨の部屋。上が またたいて、火花がのぼる。
+            let flicker = reduceMotion ? 1 : 0.55+0.45*noise(Int((time*boltPerSecond*0.6).rounded(.down)), 17)
+            // 上からの光は **浅く**。深くすると、いちばん上にある顔が その色に
+            // 染まって、肌の色まで変わってしまう（実写で確認）。
+            out.append(veil(.top, depth: 0.34, color: tint, alpha: lit*0.50*flicker, blend: .over))
+            if !reduceMotion {
+                out.append(dust(count: 16, seed: 401, drift: FXPoint(0.04, -0.09), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.85), radius: 0.0045))
+            }
+
+        case "flame":
+            // 床が燃えている部屋。下から暖かい光が来て、火の粉が立ちのぼる。
+            let flicker = reduceMotion ? 1 : 0.72+0.28*noise(Int((time*flamePerSecond*0.5).rounded(.down)), 31)
+            out.append(veil(.bottom, depth: 0.58, color: tint, alpha: lit*0.70*flicker, blend: .over))
+            if !reduceMotion {
+                out.append(dust(count: 22, seed: 77, drift: FXPoint(0.03, -0.11), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.95), radius: 0.0055))
+            }
+
+        case "ice":
+            // 凍った部屋。結晶がゆっくり落ちてくる。**またたかせない**
+            //（氷は揺れない、の続き）。
+            if !reduceMotion {
+                out.append(dust(count: 16, seed: 611, drift: FXPoint(0.01, 0.045), time: time,
+                                aspect: aspect, color: tint.opacity(level*1.6), radius: 0.0060,
+                                glyph: "star", blend: .over))
+            }
+
+        case "blizzard":
+            // 吹雪の中。雪が部屋を斜めに横切る。手前と奥で速さを変えると、
+            // 「その中に居る」感じになる。**粒は `over`** —— 白い壁に白い光を
+            // 足しても、雪は見えない。
+            if !reduceMotion {
+                out.append(dust(count: 28, seed: 12, drift: FXPoint(-0.22, 0.13), time: time,
+                                aspect: aspect, color: tint.opacity(level*1.5), radius: 0.0045,
+                                glyph: "dash", angle: 2.68, blend: .over))
+                out.append(dust(count: 14, seed: 913, drift: FXPoint(-0.42, 0.24), time: time,
+                                aspect: aspect, color: tint.opacity(level*1.2), radius: 0.0080,
+                                glyph: "dash", angle: 2.68, blend: .over))
+            }
+
+        case "water":
+            // 水の中。下から明かりが差して、泡がのぼる。
+            let swell = reduceMotion ? 1 : 0.85+0.15*sin(time*1.6)
+            out.append(veil(.bottom, depth: 0.62, color: tint, alpha: lit*0.60*swell, blend: .over))
+            if !reduceMotion {
+                out.append(dust(count: 14, seed: 505, drift: FXPoint(0.012, -0.055), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.90), radius: 0.0070))
+            }
+
+        case "wind":
+            // 風の通り道。すじが部屋を横切っていく。
+            if !reduceMotion {
+                for i in 0..<3 {
+                    let y = 0.16+0.62*noise(9001, i)
+                    let u = (time*0.45+Double(i)*0.37).truncatingRemainder(dividingBy: 1)
+                    let x = -0.5+u*2.0
+                    let fade = sin(Double.pi*u)          // 画面のはしで 出入りする
+                    // 弓なりに 3点。まっすぐな線は「ひっかき傷」に見える。
+                    out.append(.init(kind: .ribbon, points: [
+                        FXPoint(x, y),
+                        FXPoint(x+0.22, y-0.030),
+                        FXPoint(x+0.44, y-0.020),
+                    ], color: tint.opacity(level*0.95*fade), lineWidth: 0.0050, taper: 0))
+                }
+                out.append(dust(count: 12, seed: 313, drift: FXPoint(0.30, -0.02), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.55), radius: 0.0035))
+            }
+
+        case "sparkle":
+            // 星の部屋。2組をずらして またたかせる（1組だと ただの点に見える）。
+            if !reduceMotion {
+                out.append(dust(count: 12, seed: 71, drift: FXPoint(0.01, -0.02), time: time,
+                                aspect: aspect, color: tint.opacity(level*(0.55+0.45*sin(time*3.1))),
+                                radius: 0.0065, glyph: "star"))
+                out.append(dust(count: 12, seed: 72, drift: FXPoint(-0.01, -0.03), time: time,
+                                aspect: aspect, color: tint.opacity(level*(0.55+0.45*sin(time*3.1+2.2))),
+                                radius: 0.0050, glyph: "star"))
+            }
+
+        case "petal":
+            // 花の下。花びらが部屋いっぱいに舞い落ちる。
+            out.append(veil(.top, depth: 0.32, color: tint, alpha: lit*0.42, blend: .over))
+            if !reduceMotion {
+                out.append(dust(count: 18, seed: 421, drift: FXPoint(0.06, 0.075), time: time,
+                                aspect: aspect, color: tint.opacity(level*1.5), radius: 0.0090,
+                                glyph: "petal", angle: time*0.7, blend: .over))
+            }
+
+        case "shadow":
+            // 暗くなる部屋。沈めるのは上でやっているので、ここは漂う粒だけ。
+            if !reduceMotion {
+                out.append(dust(count: 12, seed: 808, drift: FXPoint(-0.02, -0.03), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.70), radius: 0.0080))
+            }
+
+        case "dragon":
+            // 霧の立ちこめた場所。下に霧、上へ火の粉。
+            out.append(veil(.bottom, depth: 0.50, color: tint, alpha: lit*0.52, blend: .over))
+            if !reduceMotion {
+                out.append(dust(count: 14, seed: 314, drift: FXPoint(0.05, -0.07), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.80), radius: 0.0055))
+            }
+
+        case "rainbow":
+            // 光が差し込む部屋。**3色を 別々のふちに** 置く（preset の色は使わない）。
+            // 同じ上のふちに3枚重ねたら、混ざって ただの白い霞になった。
+            out.append(veil(.top, depth: 0.26, color: .init(1, 0.35, 0.40), alpha: lit*0.40, blend: .over))
+            out.append(veil(.left, depth: 0.32, color: .init(0.40, 1, 0.60), alpha: lit*0.40, blend: .over))
+            out.append(veil(.right, depth: 0.32, color: .init(0.45, 0.65, 1), alpha: lit*0.40, blend: .over))
+
+        case "aura":
+            // 気が満ちている場所。部屋ぜんたいが ゆっくり脈打つ。
+            let pulse = reduceMotion ? 1 : 0.80+0.20*sin(time*2.2)
+            out.append(vignette(color: tint, alpha: lit*0.55*pulse))
+            if !reduceMotion {
+                out.append(dust(count: 10, seed: 202, drift: FXPoint(0.02, -0.035), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.70), radius: 0.0060))
+            }
+
+        default: // "ribbon"
+            // リボンの部屋。光の粒が ゆっくり漂う。
+            if !reduceMotion {
+                out.append(dust(count: 14, seed: 150, drift: FXPoint(0.04, -0.045), time: time,
+                                aspect: aspect, color: tint.opacity(level*0.85), radius: 0.0070))
+            }
+        }
+        return out
     }
 
     // ── 形を作るところ ────────────────────────────────────────────────────
