@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import Capacitor
 import Foundation
+import LocalAuthentication
 import Photos
 import StoreKit
 import UIKit
@@ -29,6 +30,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "freeDiskSpace", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveToPhotos", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "biometryKind", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "authenticateParent", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playMusic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setMusicPaused", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopMusic", returnType: CAPPluginReturnPromise),
@@ -292,6 +295,53 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject(error?.localizedDescription ?? "saving to 写真 failed")
                 }
             }
+        }
+    }
+
+    // MARK: - おうちの人のロック
+
+    /// Which biometry this iPhone has, so the gate can say 「Face ID」 or
+    /// 「指紋（Touch ID）」 rather than guessing: "faceId", "touchId",
+    /// "opticId" or "none" (no sensor, none enrolled, or locked out).
+    @objc func biometryKind(_ call: CAPPluginCall) {
+        let context = LAContext()
+        var error: NSError?
+        // Biometrics only — never .deviceOwnerAuthentication, which falls back
+        // to the device passcode. On a family iPhone the child usually knows
+        // the passcode, so that fallback would hand them the gate. When the
+        // sensor can't be used the app asks for the parent's PIN instead.
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            call.resolve(["kind": "none"])
+            return
+        }
+        switch context.biometryType {
+        case .faceID: call.resolve(["kind": "faceId"])
+        case .touchID: call.resolve(["kind": "touchId"])
+        default:
+            if #available(iOS 17.0, *), context.biometryType == .opticID {
+                call.resolve(["kind": "opticId"])
+            } else {
+                call.resolve(["kind": "none"])
+            }
+        }
+    }
+
+    /// Face ID / Touch ID for the parental gate — the shortcut a parent turns
+    /// on only after saying this iPhone is theirs. Resolves { ok } rather than
+    /// rejecting on a failed or cancelled check, so JS just falls back to the
+    /// PIN box.
+    @objc func authenticateParent(_ call: CAPPluginCall) {
+        let context = LAContext()
+        // No 「パスコードを使用」 button: the PIN in the app is the fallback.
+        context.localizedFallbackTitle = ""
+        let reason = call.getString("reason") ?? "おうちの人かどうかを確認します"
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            call.resolve(["ok": false, "available": false])
+            return
+        }
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { ok, _ in
+            call.resolve(["ok": ok, "available": true])
         }
     }
 

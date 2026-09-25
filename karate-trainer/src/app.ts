@@ -34,6 +34,9 @@ import { loadLetters, addLetter, markLetterRead, removeLetter } from "./letter-s
 import { getShareAllowed, setShareAllowed } from "./share-setting-store";
 import { renderParentalGate } from "./parental-gate";
 import {
+  type DeviceOwner, getParentLock, setDeviceOwner, setParentBiometrics, setParentPin,
+} from "./parent-lock-store";
+import {
   loadCharacterState,
   saveCharacterState,
   type CharacterId,
@@ -208,6 +211,11 @@ export interface KarateAppDeps {
   requestReview?(): void;
   // Hands a file to the OS share sheet (voice backup export on native).
   exportFile?(filename: string, blob: Blob): Promise<void>;
+  // おうちの人のロックの近道（Face ID / 指紋（Touch ID））。ネイティブだけ配線
+  // され、ウェブとテストでは省略 → 近道そのものが出ない。
+  // biometryKind: この端末で使える生体認証の名前（使えないなら null）。
+  biometryKind?(): Promise<string | null>;
+  authenticateParent?(reason: string): Promise<boolean>;
   savedVideos?: SavedVideosLike;
   // App Store subscriptions (iOS app). When set, the plan follows what Apple
   // says was bought; without it (web, tests) the plan cards set it directly.
@@ -445,6 +453,10 @@ export class KarateApp {
 
   async start(): Promise<void> {
     this.showSetup();
+    // 家族タブを開くときには答えが要るので、先に聞いておく。
+    void Promise.resolve(this.deps.biometryKind?.() ?? null)
+      .then((label) => { this.biometryLabel = label; })
+      .catch(() => { /* 使えないものとして扱う */ });
     const billing = this.deps.billing;
     if (billing) {
       billing.onChange((info) => this.applyBilling(info));
@@ -700,10 +712,24 @@ export class KarateApp {
 
   private familyUnlocked = false;
 
+  // この端末で使える生体認証の名前（Face ID / 指紋（Touch ID））。start() で
+  // 一度だけ聞く。使えない端末・ウェブ・テストでは null のまま。
+  private biometryLabel: string | null = null;
+
   private showFamily(): void {
     // Gate the 家族 tab once per session so kids can't change members/plans.
     if (!this.familyUnlocked) {
+      const lock = getParentLock(this.base());
       renderParentalGate(this.root, {
+        // 暗証番号があればそれを聞く（無ければ今まで通りかけ算）。
+        pin: lock.pin,
+        // 近道は、親が「この iPhone は自分のもの」と答えてオンにしたときだけ。
+        biometrics: lock.biometrics && this.biometryLabel && this.deps.authenticateParent
+          ? {
+            label: this.biometryLabel,
+            unlock: () => this.deps.authenticateParent!("おうちの人かどうかを確認します"),
+          }
+          : undefined,
         onPass: () => {
           this.familyUnlocked = true;
           // Prices that failed to load (offline) get another try each visit.
@@ -787,6 +813,19 @@ export class KarateApp {
       decor: loadDecor(base),
       canRemoveDecor: canRemoveDecor(loadPlan(base)),
       onSelectDecor: (decor: Decor) => { setDecor(decor, base); this.showFamily(); },
+      parentLock: {
+        hasPin: getParentLock(base).pin !== null,
+        owner: getParentLock(base).owner,
+        biometrics: getParentLock(base).biometrics,
+        biometryLabel: this.deps.authenticateParent ? this.biometryLabel : null,
+        onSetPin: (pin) => {
+          const problem = setParentPin(pin, base);
+          if (!problem) this.showFamily();
+          return problem;
+        },
+        onSetOwner: (owner: DeviceOwner) => { setDeviceOwner(owner, base); this.showFamily(); },
+        onSetBiometrics: (on) => { setParentBiometrics(on, base); this.showFamily(); },
+      },
       testTools: this.deps.testTools ? this.testToolsView() : undefined,
       kufuCount: countKufu(this.mem()),
       onClearAllKufu: () => {

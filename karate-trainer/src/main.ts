@@ -6,7 +6,10 @@ import { VoiceStore, idbKv } from "./voice-store";
 import { makeWakeGuard, shareRecording, saveRecording } from "./platform";
 import { mountInstallBanner, detectEnv } from "./ui/install-banner";
 import { burnOverlay } from "./overlay-burner";
-import { NativeVideoRecorder, nativeSaveTracker, openAppSettings, requestAppReview } from "./native-recorder";
+import {
+  BIOMETRY_LABEL, NativeVideoRecorder, authenticateParent, biometryKind, nativeSaveTracker,
+  openAppSettings, requestAppReview,
+} from "./native-recorder";
 import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
 import { makeNativeBgm, playNativeClip } from "./native-audio";
 import { Capacitor } from "@capacitor/core";
@@ -179,6 +182,14 @@ const app = new KarateApp(root, {
   rafLoop: tickLoop,
   shareRecording,
   saveRecording,
+  // おうちの人のロックの近道。Face ID の無い端末（SE など）は指紋（Touch ID）。
+  biometryKind: isNative
+    ? async () => {
+      const kind = await biometryKind();
+      return kind === "none" ? null : BIOMETRY_LABEL[kind];
+    }
+    : undefined,
+  authenticateParent: isNative ? (reason: string) => authenticateParent(reason) : undefined,
   // The piano app never plays BGM: the piano itself is the music. With no
   // player the BGM buttons are not shown either.
   bgm: IS_PIANO ? undefined : isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),

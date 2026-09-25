@@ -3951,3 +3951,120 @@ input[data-gate-input]:disabled,
   50%      { transform: translateY(4px); }
 }
 
+/* ---- おうちの人のロック ---- */
+
+/* ゲート側: 「あんしょうばんごうを わすれた」 と Face ID / 指紋 のボタン。
+   わすれた は最後の逃げ道なので、押し間違えないよう小さく控えめに置く。 */
+.btn-gate-biometrics {
+  margin-top: 0.25rem;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  border: 2px solid var(--panel-line);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.btn-gate-biometrics:disabled {
+  opacity: 0.5;
+}
+
+.btn-gate-forgot {
+  margin-top: 0.15rem;
+  padding: 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--ink-dim, #b0a8c8);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  /* The gate sits on the dojo photo, where dimmed text alone washes out — and
+     this link is the only way back for a parent who forgot the PIN. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+
+/* 家族タブ側の設定。 */
+.family-lock-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  border: 2px solid var(--panel-line);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.family-lock-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.family-lock-pin {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.family-lock-set {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  border: 2px solid var(--panel-line);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.family-lock-error {
+  font-size: 0.8rem;
+  color: #ff9b9b;
+}
+
+.family-lock-hint {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ink-dim, #b0a8c8);
+}
+
+.family-lock-clear {
+  align-self: flex-start;
+  padding: 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--ink-dim, #b0a8c8);
+  font-size: 0.8rem;
+  text-decoration: underline;
+}
+
+.family-lock-subtitle {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.family-lock-owners {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.family-lock-owner {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.family-lock-bio {
+  cursor: pointer;
+}
+
+.family-lock-bio input {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: 0 0 auto;
+}
+
+.family-lock-bio input:disabled + span {
+  opacity: 0.55;
+}

@@ -133,7 +133,7 @@ it("家族 has jump chips for every section, and each one has a target", async (
   await openFamily();
 
   const chips = [...root.querySelectorAll<HTMLButtonElement>("[data-family-jump-to]")];
-  expect(chips.map((c) => c.textContent)).toEqual(["メンバー", "設定", "使い方", "かざり", "プラン"]);
+  expect(chips.map((c) => c.textContent)).toEqual(["メンバー", "設定", "使い方", "ロック", "かざり", "プラン"]);
   for (const chip of chips) {
     const anchor = chip.dataset.familyJumpTo!;
     const target = root.querySelector(`[data-family-anchor="${anchor}"]`);

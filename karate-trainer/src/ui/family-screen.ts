@@ -12,6 +12,7 @@ import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { LETTER_MAX_LEN, LETTER_BY_MAX_LEN, LETTER_KEEP } from "../letter-store";
 import type { Letter } from "../letter-store";
 import { COPY } from "../flavor";
+import { type DeviceOwner, PIN_MIN_LEN, PIN_MAX_LEN } from "../parent-lock-store";
 
 export interface FamilyDeps {
   members: Member[];
@@ -61,9 +62,26 @@ export interface FamilyDeps {
   // Apple instead of setting the plan, with restore / manage and the required
   // subscription terms. Absent (web, older callers) → cards call onSelectPlan.
   billing?: BillingView;
+  // おうちの人のロック（端末ぜんぶで一つ）。Section hidden if absent.
+  parentLock?: ParentLockView;
   // test アプリ only (test-mode.ts): テスト用 controls for the active member.
   // Section hidden if absent — never passed in the App Store build.
   testTools?: TestToolsView;
+}
+
+// 家族タブの前に立つゲートの設定。暗証番号を決めると、かけ算の代わりにそれを
+// 聞くようになる（かけ算は「幼い子には解けない」という当て推量なので、子が
+// 育つと破れる。親だけが知っている番号なら破れない）。
+export interface ParentLockView {
+  hasPin: boolean;
+  owner: DeviceOwner | null;
+  biometrics: boolean;
+  // この端末の生体認証の名前（Face ID / 指紋（Touch ID））。使えないなら null。
+  biometryLabel: string | null;
+  // 使えない番号なら理由を返し、何もしない。null で暗証番号をやめる。
+  onSetPin(pin: string | null): string | null;
+  onSetOwner(owner: DeviceOwner): void;
+  onSetBiometrics(on: boolean): void;
 }
 
 export interface TestToolsView {
@@ -305,13 +323,16 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   const billingNodes = billing ? buildBillingFooter(billing) : [];
   const howtoNodes = buildHowtoSection(root);
+  const lockNodes = buildParentLockSection(deps);
   markAnchor(howtoNodes[0], "howto");
+  markAnchor(lockNodes[0], "lock");
   markAnchor(decorNodes[0], "decor");
 
   // The jump bar goes first: it is pinned at the very top of the screen (CSS),
   // where its own background covers the strip behind the phone's clock.
   root.append(buildJumpNav(root), title, listTitle, list, addRow, memberHint, memberSettings,
-              ...buildParentNote(), ...howtoNodes, ...decorNodes, planTitle, planNote, planCards, ...billingNodes);
+              ...buildParentNote(), ...howtoNodes, ...lockNodes, ...decorNodes,
+              planTitle, planNote, planCards, ...billingNodes);
 }
 
 // The 家族 tab is one long page (members → settings → 使い方 → かざり → プラン), so
@@ -321,6 +342,7 @@ const JUMP_TARGETS: { anchor: string; label: string }[] = [
   { anchor: "members", label: "メンバー" },
   { anchor: "settings", label: "設定" },
   { anchor: "howto", label: "使い方" },
+  { anchor: "lock", label: "ロック" },
   { anchor: "decor", label: "かざり" },
   { anchor: "plan", label: "プラン" },
 ];
@@ -919,3 +941,141 @@ function buildClassSection(deps: FamilyDeps): Node[] {
   return [classTitle, classList];
 }
 
+// 「おうちの人のロック」: この家族タブの前に立つゲートの設定。
+//
+// ・暗証番号 — 決めるとかけ算の代わりにこれを聞く。親だけが知っている秘密なので
+//   子が育っても破れない（かけ算は解けるようになったら終わり）。
+// ・この iPhone はだれのもの — Face ID / 指紋 を近道にしていいかの判断。子ども
+//   自身の端末なら登録されている顔も指紋も子どものものなので、近道は出さない。
+// ・生体認証 — 上の2つがそろったときだけ出るチェック。
+//
+// 配線が無ければ [] を返す（ウェブ・古い呼び出し元）。
+function buildParentLockSection(deps: FamilyDeps): Node[] {
+  const lock = deps.parentLock;
+  if (!lock) return [];
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "おうちの人のロック";
+
+  const note = document.createElement("div");
+  note.className = "family-plan-note";
+  note.textContent = lock.hasPin
+    ? "この画面をひらくとき、あんしょうばんごうを聞きます。"
+    : "いまは かけ算の問題でまもっています。あんしょうばんごうを決めると、そちらを聞くようになります（お子さんが計算できるようになっても だいじょうぶ）。";
+
+  const box = document.createElement("div");
+  box.className = "family-lock-box";
+  box.dataset.parentLock = "";
+
+  // --- あんしょうばんごう ---
+  const pinRow = document.createElement("div");
+  pinRow.className = "family-lock-row";
+
+  const pinInput = document.createElement("input");
+  pinInput.type = "password";
+  pinInput.className = "family-lock-pin";
+  pinInput.dataset.lockPin = "";
+  pinInput.setAttribute("inputmode", "numeric");
+  pinInput.setAttribute("pattern", "[0-9]*");
+  pinInput.setAttribute("autocomplete", "off");
+  pinInput.maxLength = PIN_MAX_LEN;
+  pinInput.placeholder = `${PIN_MIN_LEN}〜${PIN_MAX_LEN}けたの数字`;
+  pinInput.setAttribute("aria-label", "あたらしい あんしょうばんごう");
+
+  const pinSet = document.createElement("button");
+  pinSet.type = "button";
+  pinSet.className = "family-lock-set";
+  pinSet.dataset.lockPinSet = "";
+  pinSet.textContent = lock.hasPin ? "変える" : "決める";
+
+  const pinErr = document.createElement("div");
+  pinErr.className = "family-lock-error";
+  pinErr.dataset.lockPinError = "";
+  pinErr.hidden = true;
+  pinErr.setAttribute("role", "alert");
+
+  pinSet.addEventListener("click", () => {
+    const problem = lock.onSetPin(pinInput.value);
+    if (problem) {
+      pinErr.hidden = false;
+      pinErr.textContent = problem;
+      return;
+    }
+    pinErr.hidden = true;
+    pinInput.value = "";
+  });
+
+  pinRow.append(pinInput, pinSet);
+
+  const pinHint = document.createElement("div");
+  pinHint.className = "family-lock-hint";
+  pinHint.textContent = "お子さんが知っている数字（たんじょう日など）は さけてください。わすれたときは、ゲートの「あんしょうばんごうを わすれた」から かけ算にもどせます。";
+
+  box.append(pinRow, pinErr, pinHint);
+
+  if (lock.hasPin) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "family-lock-clear";
+    clear.dataset.lockPinClear = "";
+    clear.textContent = "あんしょうばんごうを やめる（かけ算にもどす）";
+    clear.addEventListener("click", () => { lock.onSetPin(null); });
+    box.append(clear);
+  }
+
+  // --- この iPhone はだれのもの ---
+  const ownerTitle = document.createElement("div");
+  ownerTitle.className = "family-lock-subtitle";
+  ownerTitle.textContent = "この iPhone はだれのもの？";
+
+  const ownerRow = document.createElement("div");
+  ownerRow.className = "family-lock-owners";
+  ownerRow.dataset.lockOwner = "";
+
+  ([["parent", "おうちの人のもの"], ["child", "子どものもの"]] as [DeviceOwner, string][])
+    .forEach(([owner, label]) => {
+      const opt = document.createElement("label");
+      opt.className = "family-lock-owner";
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "family-lock-owner";
+      radio.value = owner;
+      radio.dataset.lockOwnerOption = owner;
+      radio.checked = lock.owner === owner;
+      radio.addEventListener("change", () => { if (radio.checked) lock.onSetOwner(owner); });
+      const text = document.createElement("span");
+      text.textContent = label;
+      opt.append(radio, text);
+      ownerRow.append(opt);
+    });
+
+  box.append(ownerTitle, ownerRow);
+
+  // --- Face ID / 指紋 の近道 ---
+  if (lock.biometryLabel) {
+    const bioRow = document.createElement("label");
+    bioRow.className = "family-lock-row family-lock-bio";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.dataset.lockBiometrics = "";
+    check.checked = lock.biometrics;
+    // 暗証番号と「おうちの人のもの」がそろって初めて意味がある。
+    check.disabled = !lock.hasPin || lock.owner !== "parent";
+    check.addEventListener("change", () => lock.onSetBiometrics(check.checked));
+    const text = document.createElement("span");
+    text.textContent = `${lock.biometryLabel} でもひらけるようにする`;
+    bioRow.append(check, text);
+
+    const bioHint = document.createElement("div");
+    bioHint.className = "family-lock-hint";
+    bioHint.dataset.lockBioHint = "";
+    bioHint.textContent = check.disabled
+      ? `あんしょうばんごうを決めて、この iPhone を「おうちの人のもの」にすると使えます。${lock.biometryLabel} が答えるのは「この iPhone の持ち主か」までなので、お子さんの端末では近道になりません。`
+      : `いつもは ${lock.biometryLabel}、うまくいかないときは あんしょうばんごうで ひらきます。`;
+
+    box.append(bioRow, bioHint);
+  }
+
+  return [sectionTitle, note, box];
+}

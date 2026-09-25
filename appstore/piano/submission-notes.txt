@@ -57,6 +57,22 @@ DATA & KIDS CATEGORY (Guideline 1.3)
    (NSPrivacyTracking = false), no IDFA.
 Privacy policy: https://alan-piano.pages.dev/privacy
 
+PARENTAL GATE (Guideline 1.3 / 5.1.4)
+The 家族 tab — the only place with purchases, subscriptions, member management
+and the switch that reveals the send button — is behind a parental gate, once
+per session. By default the gate is a two-digit × one-digit multiplication. A
+parent can instead set their own 4–8 digit PIN in that tab, which then replaces
+the multiplication; the multiplication stays reachable from a 「わすれた」 link so
+a parent who forgets the PIN is not locked out of their own data. Three wrong
+answers lock the gate for 30 seconds.
+Face ID / Touch ID is offered only as a shortcut, and only after the parent has
+both set a PIN and stated that this iPhone is theirs, because biometrics
+identify the device's owner rather than an adult — on a child's own iPhone the
+enrolled face or fingerprint is the child's. It uses
+.deviceOwnerAuthenticationWithBiometrics with no passcode fallback, and any
+failure falls back to the PIN. Saving a practice video needs no gate: it writes
+into the device's own Photos library and opens nothing else.
+
 【アプリのプライバシー（質問票）— 上のメモと必ず一致させる】
 - 「データを収集する」を選ぶ（RevenueCat があるため「収集しない」は不可）
 - 購入 → 購入履歴：アプリの機能 / ユーザーに紐付けない / トラッキングに使わない

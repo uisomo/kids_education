@@ -100,6 +100,9 @@ export interface KarateRecorderPluginLike {
   getSaveStatus?(): Promise<SaveStatus>;
   // Writes a finished video into the phone's own 写真 library (no share sheet).
   saveToPhotos?(opts: { uri: string }): Promise<void>;
+  // おうちの人のロック: which biometry this iPhone has, and one check with it.
+  biometryKind?(): Promise<{ kind?: string }>;
+  authenticateParent?(opts: { reason?: string }): Promise<{ ok?: boolean }>;
   markVideoSeen?(opts: { jobId: string }): Promise<void>;
   // Native playback (AudioController): one engine for music and character
   // voices, so neither interrupts the other and the volume really applies.
@@ -271,6 +274,50 @@ export async function saveVideoToPhotos(
   if (typeof plugin.saveToPhotos !== "function") return false;
   await plugin.saveToPhotos({ uri });
   return true;
+}
+
+// おうちの人のロックの近道に使える生体認証。Face ID の無い端末（SE など）は
+// 指紋（Touch ID）が返る。使えないとき（センサー無し・未登録・ロックアウト・
+// ウェブ）は "none" で、そのときゲートは暗証番号だけになる。
+export type BiometryKind = "faceId" | "touchId" | "opticId" | "none";
+
+export const BIOMETRY_LABEL: Record<Exclude<BiometryKind, "none">, string> = {
+  faceId: "Face ID",
+  touchId: "指紋（Touch ID）",
+  opticId: "Optic ID",
+};
+
+export async function biometryKind(
+  deps: { plugin?: KarateRecorderPluginLike; isNative?: boolean } = {},
+): Promise<BiometryKind> {
+  const isNative = deps.isNative ?? Capacitor.isNativePlatform();
+  if (!isNative) return "none";
+  try {
+    const plugin = deps.plugin ?? karateRecorderPlugin();
+    if (typeof plugin.biometryKind !== "function") return "none";
+    const kind = (await plugin.biometryKind())?.kind;
+    return kind === "faceId" || kind === "touchId" || kind === "opticId" ? kind : "none";
+  } catch {
+    return "none";
+  }
+}
+
+// One Face ID / Touch ID check. Never throws: a failed or cancelled check just
+// returns false and the gate falls back to the parent's PIN.
+export async function authenticateParent(
+  reason: string,
+  deps: { plugin?: KarateRecorderPluginLike; isNative?: boolean } = {},
+): Promise<boolean> {
+  const isNative = deps.isNative ?? Capacitor.isNativePlatform();
+  if (!isNative) return false;
+  try {
+    const plugin = deps.plugin ?? karateRecorderPlugin();
+    if (typeof plugin.authenticateParent !== "function") return false;
+    return (await plugin.authenticateParent({ reason }))?.ok === true;
+  } catch (e) {
+    console.warn("authenticateParent failed", e);
+    return false;
+  }
 }
 
 export async function openAppSettings(

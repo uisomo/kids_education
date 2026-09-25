@@ -34,6 +34,8 @@
 	<string>空手のれんしゅうをビデオでさつえいするためにカメラをつかいます。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>れんしゅうのビデオに音（かけ声）をいれるためにマイクをつかいます。</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>家族タブ（買いもの・メンバー・プランの設定）をひらくときに、おうちの人かどうかを確認するために使います。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>れんしゅうのビデオを写真に保存するために使います。</string>
 	<key>UIApplicationSceneManifest</key>
