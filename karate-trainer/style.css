@@ -4113,9 +4113,86 @@ input[data-gate-input]:disabled,
 }
 
 
-/* ─── ✨キラキラ タブ ──────────────────────────────────────────────────────
-   集めたキラキラと集めた帯。まだ持っていないものも並べる（何が待っているか
+/* ─── 🎒 アイテム タブ ─────────────────────────────────────────────────────
+   集めた キラキラ・帯・ブロック。まだ持っていないものも並べる（何が待っているか
    見えないと集める気持ちにならない）が、中身は影だけにして名前は出さない。 */
+.item-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 1rem;
+  padding: 0.3rem;
+}
+.item-tab {
+  border: 0;
+  border-radius: 0.8rem;
+  padding: 0.5rem 0.2rem;
+  background: transparent;
+  color: var(--ink-dim, #b0a8c8);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.item-tab.is-on {
+  background: rgba(255, 209, 102, 0.18);
+  color: var(--ink, #fff);
+  box-shadow: inset 0 0 0 2px rgba(255, 209, 102, 0.75);
+}
+/* ブロックは絵そのものが ごほうびなので、キラキラより大きく出す。 */
+.block-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+.block-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.3rem 0.5rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+.block-cell.locked { background: rgba(255, 255, 255, 0.03); }
+.block-art {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.7rem;
+  display: block;
+  object-fit: cover;
+}
+/* まだの絵は かたちだけ見える。色は開いてからのお楽しみ。 */
+.block-cell.locked .block-art { filter: grayscale(1) brightness(0.3) contrast(0.9); opacity: 0.6; }
+.block-cell.locked .sparkle-name { color: var(--ink-dim, #b0a8c8); }
+/* 🏆 帯10本ごとの トロフィー。塗りは その帯の色。 */
+.trophy-shelf {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+.trophy-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+.trophy-cup {
+  width: 2.8rem;
+  height: 2.8rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid;
+  border-radius: 50%;
+  font-size: 1.35rem;
+  box-shadow: 0 0 0.6rem rgba(255, 209, 102, 0.35);
+}
+.belt-shelf-many {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #ffd166;
+}
 .screen.sparkle {
   display: flex;
   flex-direction: column;

@@ -21,9 +21,13 @@ import {
   getSelectedPreset, setSelectedPreset, setDrillLevel, drillNames,
 } from "./menu-belt-store";
 import { renderStrengthScreen } from "./ui/strength-screen";
-import { renderSparkleScreen } from "./ui/sparkle-screen";
-import { awardForPractice, loadUnlocked, setUnlocked, MY_SPARKLES } from "./sparkle-store";
-import { syncBeltCollection } from "./belt-collection-store";
+import { renderItemScreen, type ItemSection } from "./ui/item-screen";
+import { loadUnlocked, setUnlocked, MY_SPARKLES, sparkleById } from "./sparkle-store";
+import {
+  seedBeltCollection, earnBelt, beltCount, trophies, setEarnedBelts, BELTS_PER_TROPHY,
+} from "./belt-collection-store";
+import { recordPracticeForBlocks, setPracticeCount, unlockedBlocks } from "./block-store";
+import { BLOCKS } from "./block-catalog";
 import { renderFamilyScreen, type BillingView, type TestToolsView } from "./ui/family-screen";
 import { createBottomNav, type NavTab } from "./ui/bottom-nav";
 import { scopedStorage } from "./scoped-storage";
@@ -69,7 +73,9 @@ import {
   applyMotionEffects, cachedMotionPresets, cancelMotionEffects, motionEffectPresets,
   motionPlaybackUrl, motionPresetsAsked, MOTION_MODE,
 } from "./motion-effects";
-import { loadLiveEffect, setLiveEffect } from "./live-effects-store";
+import {
+  loadEquippedSparkle, setEquippedSparkle, loadLiveOn, setLiveOn,
+} from "./live-effects-store";
 
 export interface VideoRecorderLike {
   startCamera(): Promise<MediaStream>;
@@ -260,6 +266,9 @@ export class KarateApp {
   private guideOffered = false;
   // Object URL made for the done screen's <video>, revoked when leaving it.
   private doneVideoUrl: string | null = null;
+  // アイテムタブで いま見ている中身（キラキラ／帯／ブロック）。タブを選び直すまで
+  // 覚えておく: キラキラをつけるたびに 先頭へ戻ると、ブロックが見られない。
+  private itemSection: ItemSection = "sparkle";
   // Removes the session's visibilitychange listener.
   private detachVisibility: (() => void) | null = null;
 
@@ -706,21 +715,24 @@ export class KarateApp {
     this.root.append(nav);
   }
 
-  // ✨キラキラ タブ: 集めたキラキラと帯。押すと「稽古中のキラキラ」を選べる
-  // （家族タブの同じ設定と同じ置き場所。家じゅうで1つ）。
+  // 🎒 アイテム タブ: 集めた キラキラ・帯・ブロック。キラキラを押すと
+  // **つける**（稽古中の画面にも、保存した動画にも 同じものが出る）。
   private showSparkle(): void {
-    // 帯は メニューごとに持っているので、コレクションをここで追いつかせる。
-    // メニューを消しても、集めた帯は残る。
-    syncBeltCollection(
+    // 新しい数えかたに変わる前から使っている人の帯を、いちどだけ拾う
+    // （2回目からは何もしない）。
+    seedBeltCollection(
       this.usablePresets().map((p) => loadMenuBelt(p.id, this.mem()).belt),
       this.mem(),
     );
-    renderSparkleScreen(this.root, {
+    renderItemScreen(this.root, {
       storage: this.mem(),
-      selectedId: loadLiveEffect(this.base()) || null,
+      section: this.itemSection,
+      onSection: (section) => { this.itemSection = section; this.showSparkle(); },
+      selectedId: loadEquippedSparkle(this.mem(), this.base()) || null,
       onSelect: (id) => {
-        // もう一度おすと やめる（家族タブの「なし」と同じ）。
-        setLiveEffect(loadLiveEffect(this.base()) === id ? "" : id, this.base());
+        // もう一度おすと 外す。
+        const now = loadEquippedSparkle(this.mem(), this.base());
+        setEquippedSparkle(now === id ? "" : id, this.mem());
         this.showSparkle();
       },
     });
@@ -854,14 +866,11 @@ export class KarateApp {
       decor: loadDecor(base),
       canRemoveDecor: canRemoveDecor(loadPlan(base)),
       onSelectDecor: (decor: Decor) => { setDecor(decor, base); this.showFamily(); },
-      // けいこ中のキラキラ（画面だけ）。一覧はネイティブが持っているので、
-      // 家族タブを開くたびに聞きに行き、返ってきたら描き直す。
-      liveEffect: loadLiveEffect(base),
-      // 持っていないキラキラは出さない（キラキラタブで集めるもの）。
-      liveEffectPresets: cachedMotionPresets().filter(
-        (p) => loadUnlocked(this.mem()).includes(p.id),
-      ),
-      onSelectLiveEffect: (presetId: string) => { setLiveEffect(presetId, base); this.showFamily(); },
+      // 稽古中に キラキラを画面へ出すかどうか（どのキラキラかは、子どもが
+      // アイテムタブでつける）。オフにしても、保存する動画のキラキラは変わらない。
+      liveOn: loadLiveOn(base),
+      liveSparkleName: sparkleById(loadEquippedSparkle(this.mem(), base))?.name ?? null,
+      onSetLiveOn: (on: boolean) => { setLiveOn(on, base); this.showFamily(); },
       parentLock: {
         hasPin: getParentLock(base).pin !== null,
         owner: getParentLock(base).owner,
@@ -920,12 +929,27 @@ export class KarateApp {
         this.guideStep = "off";
         this.showFamily();
       },
-      sparkles: { owned: loadUnlocked(this.mem()).length, total: MY_SPARKLES.length },
+      sparkles: {
+        owned: loadUnlocked(this.mem()).length,
+        total: MY_SPARKLES.length,
+        belts: beltCount(this.mem()),
+        blocks: unlockedBlocks(this.mem()).length,
+        blockTotal: BLOCKS.length,
+      },
+      // ぜんぶ開ける: キラキラ・帯・トロフィー・ブロックを いっぺんに。
+      // 帯は「1色ずつ 10本」まで入れて、トロフィーも並ぶようにする。
       onUnlockAllSparkles: () => {
         setUnlocked(MY_SPARKLES.map((sp) => sp.id), this.mem());
+        setEarnedBelts(BELTS.flatMap((_, i) => Array.from({ length: BELTS_PER_TROPHY }, () => i)), this.mem());
+        setPracticeCount(BLOCKS[BLOCKS.length - 1].at, this.mem());
         this.showFamily();
       },
-      onResetSparkles: () => { setUnlocked([], this.mem()); this.showFamily(); },
+      onResetSparkles: () => {
+        setUnlocked([], this.mem());
+        setEarnedBelts([], this.mem());
+        setPracticeCount(0, this.mem());
+        this.showFamily();
+      },
     };
   }
 
@@ -1111,9 +1135,12 @@ export class KarateApp {
     }
     let stream: MediaStream;
     try {
-      // 家族タブで選ばれていれば、稽古中の画面にキラキラを出す。選ばれて
-      // いなければネイティブは解析用の出力すら足さないので、負荷はゼロ。
-      recorder.setLiveEffects?.(loadLiveEffect(this.base()), MOTION_MODE);
+      // つけているキラキラを 稽古中の画面にも出す（家族タブでオフにできる）。
+      // 何も渡さなければ、ネイティブは解析用の出力すら足さないので負荷はゼロ。
+      recorder.setLiveEffects?.(
+        loadLiveOn(this.base()) ? loadEquippedSparkle(this.mem(), this.base()) : "",
+        MOTION_MODE,
+      );
       stream = await recorder.startCamera();
       await this.deps.wakeGuard.acquire();
     } catch {
@@ -1458,22 +1485,29 @@ export class KarateApp {
         promotedTo: null,
         missed,
       };
+      // もらいもの は ここで ぜんぶ決まる。順番に意味がある:
+      //   1. 帯（メニューの帯が1つ上がったら 1本）
+      //   2. 🏆 トロフィー（帯 10本ごと）と ✨キラキラ（帯 5本ごと）は、
+      //      1. の帯が増えたぶんから 自動でついてくる
+      //   3. 🧊 ブロック（稽古の回数で 1つずつ）
+      const sparklesBefore = loadUnlocked(this.mem());
+      const trophiesBefore = trophies(this.mem()).length;
       if (completed && linked && !missed) {
         const { state, promoted } = recordPractice(linked.id, linked.menu, this.finishedDrills, this.mem());
         beltResult = { completed, bars: state.bars, promotedTo: promoted ? BELTS[state.index].name : null };
+        // 帯が1つ上がった ＝ 帯を1本もらった。メニューごとにもらえるので、
+        // 同じ色の帯が何本も並ぶ（それが「集まっていく」ということ）。
+        if (promoted) earnBelt(state.index, this.mem());
       }
-
-      // ✨キラキラ: やり切った稽古なら、まだ持っていないものを **1つだけ** 開ける。
-      // 帯とちがって「保存したメニュー」が要らない — おためしのメニューでも、
-      // 休まず最後まで やり切ったなら ちゃんともらえる。
-      const drillRows = this.menu
-        .map((d, i) => ({ d, i }))
-        .filter(({ d }) => d.kind !== "rest" && d.name.trim());
-      const award = awardForPractice({
-        completed,
-        allDrillsDone: drillRows.length > 0 && drillRows.every(({ i }) => this.finishedRows.has(i)),
-        menu: this.menu,
-      }, this.mem());
+      // ✨キラキラ は 帯の数から決まるので、増えたかどうかを見るだけ。
+      const newSparkleId = loadUnlocked(this.mem()).find((id) => !sparklesBefore.includes(id));
+      const award = { unlocked: newSparkleId ? sparkleById(newSparkleId) ?? null : null };
+      const newTrophy = trophies(this.mem()).slice(trophiesBefore)[0] ?? null;
+      // 🧊 ブロック: 最後まで行って 種目を1つ以上やり切った稽古を1回と数える
+      // （🔥 の連続日数と同じ数えかた）。保存したメニューは要らない。
+      const blockAward = completed && this.finishedDrills.length > 0
+        ? recordPracticeForBlocks(this.mem())
+        : { count: 0, unlocked: null };
 
       const labels = {
         // 📅 いつの練習か. Videos pile up in the camera roll and a year later
@@ -1542,11 +1576,13 @@ export class KarateApp {
           onShown: () => recorder.markSeen?.(),
         }
         : undefined;
-      // ✨キラキラ が使える iPhone か（iOS 17 以上・ネイティブ）。使えなければ
-      // 空配列が返り、done 画面はその行を出さない。
-      const unlockedSparkles = new Set(loadUnlocked(this.mem()));
-      const motionPresets = (recorder?.fileUri ? await motionEffectPresets() : [])
-        .filter((p) => unlockedSparkles.has(p.id));
+      // ✨キラキラ: **つけているもの** を そのまま動画に焼き込む（選び直す行は
+      // 無い ＝ 稽古中に見えていたものと同じ）。持っていないものが保存に残って
+      // いても出さない。使えない iPhone（iOS 17 未満）では何も起きない。
+      const equippedId = loadEquippedSparkle(this.mem(), this.base());
+      const equipped = loadUnlocked(this.mem()).includes(equippedId)
+        ? (recorder?.fileUri ? await motionEffectPresets() : []).find((p) => p.id === equippedId) ?? null
+        : null;
 
       renderDoneScreen(this.root, {
         videoUrl,
@@ -1594,16 +1630,18 @@ export class KarateApp {
             .finally(() => { if (guiding) this.showGuideFinish(); });
         },
         sparkleAward: award.unlocked ? { name: award.unlocked.name } : undefined,
-        ...(motionPresets.length
+        blockAward: blockAward.unlocked ? { name: blockAward.unlocked.name } : undefined,
+        trophyAward: newTrophy ? { name: newTrophy.name } : undefined,
+        ...(equipped
           ? {
             motionFx: {
-              presets: motionPresets,
+              name: equipped.name,
               // もとになるのは「仕上がった動画」そのもの（キラキラ付きの
               // コピーではない）。ネイティブ側はそれを読むだけで書き換えない。
-              apply: async (presetId: string, onProgress: (phase: string, fraction: number) => void) => {
+              apply: async (onProgress: (phase: string, fraction: number) => void) => {
                 const source = recorder?.fileUri?.();
                 if (!source) throw new Error("動画がまだできていません");
-                const uri = await applyMotionEffects({ uri: source, preset: presetId }, onProgress);
+                const uri = await applyMotionEffects({ uri: source, preset: equipped.id }, onProgress);
                 return { playbackUrl: motionPlaybackUrl(uri), fileUri: uri };
               },
               cancel: () => { void cancelMotionEffects(); },

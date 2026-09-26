@@ -489,38 +489,38 @@ it("omits けいこ中のキラキラ entirely when the phone offers none", () =
   expect(root.querySelector('[data-family-jump-to="live"]')).toBeNull();
 });
 
-it("offers 「なし」 plus each かざり, with the stored one marked", () => {
+it("『稽古中のキラキラ』は 画面に出すかどうかだけ（どれにするかは選ばない）", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps({
-    liveEffect: "mintHalo", liveEffectPresets: LIVE_PRESETS, onSelectLiveEffect: vi.fn(),
+    liveOn: true, liveSparkleName: "⚡️ いなずま", onSetLiveOn: vi.fn(),
   }));
   const options = [...root.querySelectorAll<HTMLElement>("[data-live-effect]")];
-  expect(options.map((o) => o.dataset.liveEffect)).toEqual(["", "quietLightning", "mintHalo"]);
+  expect(options.map((o) => o.dataset.liveEffect)).toEqual(["on", ""]);
   expect(root.querySelector(".decor-option.on[data-live-effect]")!.getAttribute("data-live-effect"))
-    .toBe("mintHalo");
+    .toBe("on");
   // 長いページなので、上のチップから飛べること。
   expect(root.querySelector('[data-family-jump-to="live"]')).not.toBeNull();
 });
 
-it("picking one fires onSelectLiveEffect, and 「なし」 turns it off", () => {
+it("押すと onSetLiveOn が オン／オフで呼ばれる", () => {
   const root = document.createElement("div");
-  const onSelectLiveEffect = vi.fn();
-  renderFamilyScreen(root, deps({
-    liveEffect: "", liveEffectPresets: LIVE_PRESETS, onSelectLiveEffect,
-  }));
-  root.querySelector<HTMLButtonElement>('[data-live-effect="quietLightning"]')!.click();
-  expect(onSelectLiveEffect).toHaveBeenCalledWith("quietLightning");
+  const onSetLiveOn = vi.fn();
+  renderFamilyScreen(root, deps({ liveOn: true, liveSparkleName: null, onSetLiveOn }));
   root.querySelector<HTMLButtonElement>('[data-live-effect=""]')!.click();
-  expect(onSelectLiveEffect).toHaveBeenLastCalledWith("");
+  expect(onSetLiveOn).toHaveBeenCalledWith(false);
+  root.querySelector<HTMLButtonElement>('[data-live-effect="on"]')!.click();
+  expect(onSetLiveOn).toHaveBeenLastCalledWith(true);
 });
 
-it("says the live かざり does not reach the saved video", () => {
+it("つけているキラキラの名前を書き、動画には入ると言う", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps({
-    liveEffect: "", liveEffectPresets: LIVE_PRESETS, onSelectLiveEffect: vi.fn(),
+    liveOn: true, liveSparkleName: "⚡️ いなずま", onSetLiveOn: vi.fn(),
   }));
   const note = [...root.querySelectorAll(".family-plan-note")]
     .map((n) => n.textContent ?? "")
-    .find((t) => t.includes("キラキラ") || t.includes("かざりが出ます"));
-  expect(note).toContain("ほぞんする どうが には入りません");
+    .find((t) => t.includes("かざりが出ます"));
+  expect(note).toContain("⚡️ いなずま");
+  // 画面の設定と動画は別。オフにしても動画には入る、と言い切る。
+  expect(note).toContain("つけているものが あとから入ります");
 });

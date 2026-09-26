@@ -49,6 +49,10 @@ export interface DoneDeps {
   // ✨キラキラ: この稽古で 新しく1つ開いたときだけ入る。集めたものは
   // キラキラタブで見られるので、ここは「開いたよ」と言うだけ。
   sparkleAward?: { name: string };
+  // 🧊 この稽古で開いたブロック（絵）。開かなければ渡ってこない。
+  blockAward?: { name: string };
+  // 🏆 この稽古でもらったトロフィー（帯 10本ごと）。
+  trophyAward?: { name: string };
   // 工夫: drills practiced this session (deduped, rest excluded). Each row opens
   // the same 💡 card as the setup screen (list + 「けす」 + add one more).
   kufuDrills?: DoneKufuDrill[];
@@ -72,16 +76,16 @@ export interface DoneDeps {
     // The finished video made it onto the screen.
     onShown?(): void;
   };
-  // ✨キラキラ: 仕上がった動画に、動きに合わせたかざり（細い輪郭だけ）を乗せた
-  // *別の* 動画を作る。元の動画は消えないので「なし」でいつでも戻れる。
-  // native（iOS 17 以上）でだけ渡ってくる。無ければ行ごと出ない。
+  // ✨キラキラ: つけているキラキラを、仕上がった動画に **自動で** 焼き込む。
+  // 元の動画は消えないので「もとの動画」にいつでも戻せる。
+  // native（iOS 17 以上）で、キラキラをつけているときだけ渡ってくる。
+  // 無ければ行ごと出ない。**どれにするか選ぶ行はもう無い**（稽古中に見えていた
+  // ものと同じものが入る）。
   motionFx?: {
-    presets: { id: string; name: string }[];
+    /// つけているキラキラの名前（「⚡️ いなずま」）。
+    name: string;
     // 作りおわった動画。途中でやめられたときは reject する。
-    apply(
-      presetId: string,
-      onProgress: (phase: string, fraction: number) => void,
-    ): Promise<{ playbackUrl: string; fileUri: string }>;
+    apply(onProgress: (phase: string, fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string }>;
     cancel(): void;
     // いま画面に出ている動画。null は もとの動画。保存・送信はこれを使う。
     onCurrent(fileUri: string | null): void;
@@ -144,13 +148,21 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     headText.append(beltLine);
   }
 
-  if (deps.sparkleAward) {
+  // この稽古で もらったもの。出るのは もらった日だけ（毎回は出ない）。
+  // 順番は「めずらしい順」: トロフィー → キラキラ → ブロック。
+  const awards: [string, string | undefined][] = [
+    ["trophyAward", deps.trophyAward && `🏆 ${deps.trophyAward.name} を もらったよ！`],
+    ["sparkleAward", deps.sparkleAward && `✨ あたらしい キラキラ！ ${deps.sparkleAward.name}`],
+    ["blockAward", deps.blockAward && `🧊 あたらしい ブロック！ ${deps.blockAward.name}`],
+  ];
+  awards.forEach(([mark, text]) => {
+    if (!text) return;
     const line = document.createElement("p");
     line.className = "done-sparkle-award";
-    line.dataset.sparkleAward = "";
-    line.textContent = `✨ あたらしい キラキラ！ ${deps.sparkleAward.name}`;
+    line.dataset[mark] = "";
+    line.textContent = text;
     headText.append(line);
-  }
+  });
   header.append(trophyImg, headText, stars);
 
   // Video Replay
@@ -302,117 +314,87 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   split.className = kufuOn ? "done-split" : "done-split is-solo";
   split.append(video, ...(kufuOn ? [kufuSection] : []));
 
-  // ✨キラキラ: 動きに合わせたかざりを乗せた *別の* 動画を作る行。
+  // ✨キラキラ: つけているキラキラを、仕上がった動画に **自動で** 焼き込む。
   //
-  // 録画そのものには手を入れない。保存のおわった動画を読んで新しいファイルを
-  // 書くので、「なし」を押せばいつでも もとの動画に戻れるし、保存・送信も
-  // いま見えているほうが使われる。
+  // 録画そのものには手を入れない（AVFoundation がカメラの絵をそのまま書いて
+  // いる）。保存のおわった動画を読んで *別のファイル* を書くので、いつでも
+  // 「もとの動画」に戻せるし、保存・送信は いま見えているほうが使われる。
   //
-  // 何分もかかることがあるので、押したら進み具合と「やめる」を出す。
+  // **どれにするか選ぶ行は もう無い。** どのキラキラが出るかは アイテムタブで
+  // 決まっていて、稽古中に画面で見えていたものと同じものが動画に入る。
   let fxRow: HTMLElement | null = null;
-  let revealFx = (): void => { /* かざりが無い日は何もしない */ };
-  if (deps.motionFx?.presets.length) {
+  let startFx = (): void => { /* キラキラをつけていない日は 何も起きない */ };
+  if (deps.motionFx) {
     const fx = deps.motionFx;
     const row = document.createElement("div");
     row.className = "fx-row";
     row.dataset.motionFx = "";
-    // 仕上げが終わるまで出さない: それまで完成した動画がまだ無い。
-    row.hidden = !!deps.finishing;
-
-    const label = document.createElement("span");
-    label.className = "fx-label";
-    label.textContent = "✨ キラキラ";
-
-    const choices = document.createElement("div");
-    choices.className = "fx-choices";
+    // 仕上げが終わるまで出さない: それまで もとになる動画がまだ無い。
+    row.hidden = true;
 
     const status = document.createElement("div");
     status.className = "fx-status";
     status.dataset.fxStatus = "";
+    status.textContent = `✨ ${fx.name} を つけているよ… 0%`;
 
     const stop = document.createElement("button");
     stop.className = "fx-stop";
     stop.dataset.fxStop = "";
     stop.textContent = "やめる";
-    stop.hidden = true;
 
-    // "" は もとの動画。
-    let chosen = "";
-    let busy = false;
-    const buttons = new Map<string, HTMLButtonElement>();
-    // 作りおわった動画は覚えておく: 一度つけたかざりに戻すのは待ち時間なし。
-    const made = new Map<string, { playbackUrl: string; fileUri: string }>();
-
-    const paint = () => {
-      buttons.forEach((button, id) => {
-        button.classList.toggle("is-on", id === chosen);
-        button.disabled = busy;
-      });
-      stop.hidden = !busy;
-      status.hidden = !busy;
-    };
-
-    const pick = async (id: string): Promise<void> => {
-      if (busy || id === chosen) return;
-      const ready = id === "" ? { playbackUrl: originalSrc, fileUri: "" } : made.get(id);
-      if (ready) {
-        chosen = id;
-        paint();
-        showVideoSource(ready.playbackUrl);
-        fx.onCurrent(ready.fileUri || null);
-        return;
-      }
-      busy = true;
-      status.textContent = "うごきを見ているよ… 0%";
-      stop.disabled = false;
-      paint();
-      try {
-        const result = await fx.apply(id, (phase, fraction) => {
-          const pct = Math.floor(fraction * 100);
-          status.textContent = phase === "exporting"
-            ? `キラキラを つけているよ… ${pct}%`
-            : `うごきを 見ているよ… ${pct}%`;
-        });
-        made.set(id, result);
-        chosen = id;
-        showVideoSource(result.playbackUrl);
-        fx.onCurrent(result.fileUri);
-        showDoneToast(root, "✨ キラキラが ついたよ！");
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        if (/cancel/i.test(message)) {
-          showDoneToast(root, "キラキラは やめたよ");
-        } else {
-          console.error("motion effects failed", e);
-          showDoneToast(root, "⚠️ キラキラは つけられなかった。もとの動画はそのままだよ", 4000);
-        }
-      } finally {
-        busy = false;
-        paint();
-      }
-    };
-
-    const addChoice = (id: string, text: string) => {
-      const button = document.createElement("button");
-      button.className = "fx-choice";
-      button.dataset.fxPreset = id;
-      button.textContent = text;
-      button.addEventListener("click", () => { void pick(id); });
-      buttons.set(id, button);
-      choices.append(button);
-    };
-    addChoice("", "なし");
-    fx.presets.forEach((preset) => addChoice(preset.id, preset.name));
-
-    stop.addEventListener("click", () => {
-      stop.disabled = true;
-      fx.cancel();
+    // できあがったら もとの動画と見くらべられるようにする（「なし」に戻る道）。
+    const toggle = document.createElement("button");
+    toggle.className = "fx-choice";
+    toggle.dataset.fxToggle = "";
+    toggle.hidden = true;
+    let made: { playbackUrl: string; fileUri: string } | null = null;
+    let showingFx = false;
+    const paintToggle = () => { toggle.textContent = showingFx ? "↩︎ もとの動画" : "✨ キラキラ"; };
+    toggle.addEventListener("click", () => {
+      if (!made) return;
+      showingFx = !showingFx;
+      showVideoSource(showingFx ? made.playbackUrl : originalSrc);
+      fx.onCurrent(showingFx ? made.fileUri : null);
+      paintToggle();
     });
 
-    paint();
-    row.append(label, choices, status, stop);
+    stop.addEventListener("click", () => { stop.disabled = true; fx.cancel(); });
+
+    row.append(status, stop, toggle);
     fxRow = row;
-    revealFx = () => { row.hidden = false; };
+    startFx = () => {
+      row.hidden = false;
+      // キラキラが付くまでは保存させない: 途中で保存すると、画面で見えていた
+      // ものと保存されたものが違う動画になる。
+      setSaveEnabled(false);
+      void fx.apply((phase, fraction) => {
+        const pct = Math.floor(fraction * 100);
+        status.textContent = phase === "exporting"
+          ? `✨ ${fx.name} を つけているよ… ${pct}%`
+          : "うごきを 見ているよ… " + String(pct) + "%";
+      }).then((result) => {
+        made = result;
+        showingFx = true;
+        showVideoSource(result.playbackUrl);
+        fx.onCurrent(result.fileUri);
+        status.textContent = `✨ ${fx.name} が ついたよ！`;
+        toggle.hidden = false;
+        paintToggle();
+        showDoneToast(root, "✨ キラキラが ついたよ！");
+      }).catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : String(e);
+        if (/cancel/i.test(message)) {
+          status.textContent = "キラキラは やめたよ";
+        } else {
+          console.error("motion effects failed", e);
+          status.textContent = "⚠️ キラキラは つけられなかった（もとの動画はそのままだよ）";
+        }
+      }).finally(() => {
+        stop.hidden = true;
+        // 付いても付かなくても、ここから先は保存できる。
+        setSaveEnabled(true);
+      });
+    };
   }
 
   // Save / Share Button with Parental Gate
@@ -498,7 +480,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       // 仕上がったほうが「もとの動画」になる: ✨キラキラ の「なし」はここへ戻る。
       originalSrc = result.playbackUrl;
       showVideoSource(result.playbackUrl);
-      revealFx();
+      startFx();
       showDoneToast(root, "✅ 動画ができたよ！");
       if (video.isConnected) deps.finishing?.onShown?.();
     }).catch(finished);
@@ -506,6 +488,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
 
   // Nothing to save or send until the finished video exists.
   if (deps.finishing) setSaveEnabled(false);
+  else startFx();
 
   root.append(header, split, ...(fxRow ? [fxRow] : []), sheetSlot, actions, sendNode);
   if (showBurninStatus) root.insertBefore(burninStatus, actions);

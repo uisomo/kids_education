@@ -16,8 +16,10 @@ it("fires onSelect with the tapped tab id", () => {
   expect(onSelect).toHaveBeenCalledWith("family");
 });
 
-it("has the ✨キラキラ tab between 特訓 and 積み重ね", () => {
+it("has the 🎒アイテム tab between 特訓 and 積み重ね", () => {
   const nav = createBottomNav({ active: "train", onSelect: vi.fn() });
   const ids = [...nav.querySelectorAll("[data-navtab]")].map((b) => b.getAttribute("data-navtab"));
   expect(ids).toEqual(["train", "sparkle", "strength", "family"]);
+  // 中身は キラキラ だけではない（帯・ブロックも入る）ので、名前は「アイテム」。
+  expect(nav.querySelector('[data-navtab="sparkle"]')!.textContent).toContain("アイテム");
 });

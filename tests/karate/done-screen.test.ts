@@ -356,8 +356,9 @@ it("waits for the finished video before offering かざり", async () => {
       onProgress: () => { /* not used here */ },
     },
     motionFx: {
-      presets: [{ id: "quietLightning", name: "⚡️ いなずま" }],
-      apply: vi.fn(), cancel: vi.fn(), onCurrent: vi.fn(),
+      name: "⚡️ いなずま",
+      apply: vi.fn().mockReturnValue(new Promise(() => { /* mid-flight */ })),
+      cancel: vi.fn(), onCurrent: vi.fn(),
     },
   }));
 
@@ -369,61 +370,60 @@ it("waits for the finished video before offering かざり", async () => {
   expect(row.hidden).toBe(false);
 });
 
-it("swaps in the かざり video, reports it for saving, and goes back on 「なし」", async () => {
+it("つけているキラキラを 自分で つけて、できたら差し替える（選ぶ行は無い）", async () => {
   const root = document.createElement("div");
   const onCurrent = vi.fn();
   const apply = vi.fn().mockResolvedValue({ playbackUrl: "blob:fx", fileUri: "file:///fx.mp4" });
   renderDoneScreen(root, fxDeps({
-    motionFx: {
-      presets: [{ id: "quietLightning", name: "⚡️ いなずま" }],
-      apply, cancel: vi.fn(), onCurrent,
-    },
+    motionFx: { name: "⚡️ いなずま", apply, cancel: vi.fn(), onCurrent },
   }));
 
   const video = root.querySelector("video")!;
-  root.querySelector<HTMLButtonElement>('[data-fx-preset="quietLightning"]')!.click();
+  // どれにするかを選ぶボタンは もう無い（稽古中に見えていたものが入る）。
+  expect(root.querySelector("[data-fx-preset]")).toBeNull();
   await vi.waitFor(() => expect(video.getAttribute("src")).toBe("blob:fx"));
   expect(apply).toHaveBeenCalledOnce();
   // 保存・送信は キラキラ のほうを使う。
   expect(onCurrent).toHaveBeenLastCalledWith("file:///fx.mp4");
 
-  root.querySelector<HTMLButtonElement>('[data-fx-preset=""]')!.click();
+  // 見くらべる道は残す: もとの動画に戻せる。
+  const toggle = root.querySelector<HTMLButtonElement>("[data-fx-toggle]")!;
+  toggle.click();
   expect(video.getAttribute("src")).toBe("blob:raw");
-  // null = もとの動画。
   expect(onCurrent).toHaveBeenLastCalledWith(null);
-
-  // 一度作ったものに戻るのは待ち時間なし: 作り直さない。
-  root.querySelector<HTMLButtonElement>('[data-fx-preset="quietLightning"]')!.click();
+  toggle.click();
   expect(video.getAttribute("src")).toBe("blob:fx");
+  // 作り直さない。
   expect(apply).toHaveBeenCalledOnce();
 });
 
-it("keeps the original video when making かざり fails", async () => {
+it("キラキラが つけられなくても、もとの動画は そのまま残る", async () => {
   const root = document.createElement("div");
   const onCurrent = vi.fn();
   renderDoneScreen(root, fxDeps({
     motionFx: {
-      presets: [{ id: "mintHalo", name: "🟢 わっか" }],
+      name: "🟢 わっか",
       apply: vi.fn().mockRejectedValue(new Error("disk full")),
       cancel: vi.fn(), onCurrent,
     },
   }));
 
-  const button = root.querySelector<HTMLButtonElement>('[data-fx-preset="mintHalo"]')!;
-  button.click();
-  await vi.waitFor(() => expect(button.disabled).toBe(false));
+  const status = root.querySelector("[data-fx-status]")!;
+  await vi.waitFor(() => expect(status.textContent).toContain("つけられなかった"));
   expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:raw");
   expect(onCurrent).not.toHaveBeenCalled();
+  // 失敗しても 保存はできる。
+  expect(root.querySelector<HTMLButtonElement>("[data-download]")!.disabled).toBe(false);
 });
 
-it("shows progress and a 「やめる」 button while かざり is being made", async () => {
+it("つけているあいだは 進み具合と「やめる」を出し、保存は待たせる", async () => {
   const root = document.createElement("div");
   let report!: (phase: string, fraction: number) => void;
   const cancel = vi.fn();
   renderDoneScreen(root, fxDeps({
     motionFx: {
-      presets: [{ id: "quietLightning", name: "⚡️ いなずま" }],
-      apply: (_id: string, onProgress: (phase: string, fraction: number) => void) => {
+      name: "⚡️ いなずま",
+      apply: (onProgress: (phase: string, fraction: number) => void) => {
         report = onProgress;
         return new Promise(() => { /* never settles: stays mid-flight */ });
       },
@@ -432,15 +432,15 @@ it("shows progress and a 「やめる」 button while かざり is being made", 
   }));
 
   const stop = root.querySelector<HTMLButtonElement>("[data-fx-stop]")!;
-  expect(stop.hidden).toBe(true);
-  root.querySelector<HTMLButtonElement>('[data-fx-preset="quietLightning"]')!.click();
-  await Promise.resolve();
-
   expect(stop.hidden).toBe(false);
+  // 途中で保存すると、画面で見えていたものと違う動画が残ってしまう。
+  expect(root.querySelector<HTMLButtonElement>("[data-download]")!.disabled).toBe(true);
+
   report("analyzing", 0.4);
   expect(root.querySelector("[data-fx-status]")!.textContent).toContain("40%");
   report("exporting", 0.9);
   expect(root.querySelector("[data-fx-status]")!.textContent).toContain("90%");
+  expect(root.querySelector("[data-fx-status]")!.textContent).toContain("⚡️ いなずま");
 
   stop.click();
   expect(cancel).toHaveBeenCalledOnce();

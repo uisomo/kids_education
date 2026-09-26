@@ -1,41 +1,44 @@
-// ✨キラキラ タブ — 集めたキラキラと、集めた帯。
+// 🎒 アイテム タブ — 集めたものが ぜんぶ ここに入る。
+//
+//   ✨ キラキラ … 帯を 5本もらうごとに 1つ。おすと **つける**（稽古中の画面にも、
+//                 保存した動画にも 同じものが出る）
+//   🥋 帯       … メニューの帯が1つ上がるごとに 1本。10本で トロフィーが1つ
+//   🧊 ブロック … 稽古の回数で 1つずつ。ブロックの少ない絵から
 //
 // 「持っていないもの」も並べて出すのが大事。何が待っているか見えないと、
-// 集める気持ちにならない。ただし 中身は見せない（形は影だけ、名前は ？）。
+// 集める気持ちにならない。ただし **中身は見せない**（形は影だけ、名前は ？）。
 // どうやったら開くかだけ 書いておく。
 
-import { MY_SPARKLES, loadUnlocked, nextToUnlock, SHORT_SECONDS, LONG_SECONDS } from "../sparkle-store";
-import type { SparkleDef, SparkleTier } from "../sparkle-catalog";
+import { MY_SPARKLES, loadUnlocked, nextToUnlock, BELTS_PER_SPARKLE } from "../sparkle-store";
+import type { SparkleDef } from "../sparkle-catalog";
 import { BELTS } from "../belt-store";
 import { createObi } from "./belt-card";
-import { beltCollection } from "../belt-collection-store";
+import {
+  beltCollection, beltCount, trophies, beltsToNextTrophy, BELTS_PER_TROPHY,
+} from "../belt-collection-store";
+import { BLOCKS } from "../block-catalog";
+import { unlockedBlocks, nextBlock, practiceCount } from "../block-store";
 import { COPY, IS_PIANO } from "../flavor";
 
-export interface SparkleScreenDeps {
+export type ItemSection = "sparkle" | "belt" | "block";
+
+export interface ItemScreenDeps {
   storage?: Storage;
-  /// いま選ばれているキラキラの id（done 画面・家族タブと同じもの）。
+  /// いま つけているキラキラの id。
   selectedId?: string | null;
   /// 持っているキラキラを押したとき。渡さなければ押しても何も起きない。
   onSelect?(id: string): void;
+  /// どの中身を出すか。押して切り替えたら onSection で返す。
+  section?: ItemSection;
+  onSection?(section: ItemSection): void;
 }
 
-const TIER_RULE: Record<SparkleTier, string> = {
-  start: "さいしょから つかえるよ",
-  short: `${SHORT_SECONDS / 60}ふん いじょうの メニューを さいごまで やりきると 1こ`,
-  long: `休憩なしの ${LONG_SECONDS / 60}ふん いじょうを さいごまで やりきると 1こ`,
-};
+const SECTIONS: { id: ItemSection; label: string }[] = [
+  { id: "sparkle", label: "✨ キラキラ" },
+  { id: "belt", label: `${IS_PIANO ? "🎼" : "🥋"} ${COPY.belt}` },
+  { id: "block", label: "🧊 ブロック" },
+];
 
-const TIER_LABEL: Record<SparkleTier, string> = {
-  start: "はじめから",
-  short: `${SHORT_SECONDS / 60}ふん いじょう`,
-  long: `休憩なし ${LONG_SECONDS / 60}ふん`,
-};
-
-// タブに出すアイコン。**そのキラキラが動画でやることを、そのまま小さく描く。**
-// 稲妻ならギザギザ、炎なら立ちのぼる舌、氷なら角ばった結晶、吹雪なら流れる粒。
-// 関係のない絵（ハートやお花）を出すと、開けてみるまで何がもらえるのか分からない。
-//
-// 太さと濃さを変えて3回重ねるのも動画と同じ理由（1本の線だと ただの落書き）。
 const NS = "http://www.w3.org/2000/svg";
 
 function sparkleArt(s: SparkleDef, owned: boolean): SVGSVGElement {
@@ -243,40 +246,40 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 
-export function renderSparkleScreen(root: HTMLElement, deps: SparkleScreenDeps = {}): void {
-  root.textContent = "";
-  root.className = "screen sparkle";
+function countLine(text: string, mark: string): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "sparkle-count";
+  el.dataset[mark] = "";
+  el.textContent = text;
+  return el;
+}
 
-  const title = document.createElement("h1");
-  title.className = "screen-title";
-  title.textContent = "✨ キラキラ";
-  root.append(title);
+function hintLine(text: string, mark: string): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "sparkle-hint";
+  el.dataset[mark] = "";
+  el.textContent = text;
+  return el;
+}
 
+/// ✨ キラキラ: 持っているものを押すと つける（もう一度おすと外す）。
+function sparkleSection(deps: ItemScreenDeps): HTMLElement[] {
   const unlocked = new Set(loadUnlocked(deps.storage));
+  const out: HTMLElement[] = [
+    countLine(`${unlocked.size} / ${MY_SPARKLES.length} こ あつめた`, "sparkleCount"),
+  ];
 
-  const count = document.createElement("div");
-  count.className = "sparkle-count";
-  count.dataset.sparkleCount = String(unlocked.size);
-  count.textContent = `${unlocked.size} / ${MY_SPARKLES.length} こ あつめた`;
-  root.append(count);
-
-  // つぎに何が開くか。開く順は決まっているので「つぎの1つ」だけ言う。
   const next = nextToUnlock(deps.storage);
-  if (next.short || next.long) {
-    const hint = document.createElement("div");
-    hint.className = "sparkle-hint";
-    hint.dataset.sparkleHint = "";
-    const lines: string[] = [];
-    if (next.long) lines.push(`🔒 ${TIER_RULE.long}`);
-    if (next.short) lines.push(`🔒 ${TIER_RULE.short}`);
-    hint.textContent = lines.join("\n");
-    root.append(hint);
-  }
+  out.push(hintLine(
+    next
+      ? `おすと つけられるよ。稽古中の画面にも 動画にも 出るよ\n🔒 つぎの キラキラ は ${COPY.belt}が あと ${next.remaining}本`
+      : "おすと つけられるよ。稽古中の画面にも 動画にも 出るよ\n🎉 キラキラは ぜんぶ あつめたよ！",
+    "sparkleHint",
+  ));
 
   const grid = document.createElement("div");
   grid.className = "sparkle-grid";
   grid.dataset.sparkleGrid = "";
-
   MY_SPARKLES.forEach((s) => {
     const owned = unlocked.has(s.id);
     const cell = document.createElement(owned && deps.onSelect ? "button" : "div");
@@ -287,7 +290,6 @@ export function renderSparkleScreen(root: HTMLElement, deps: SparkleScreenDeps =
       cell.type = "button";
       cell.addEventListener("click", () => deps.onSelect?.(s.id));
     }
-
     cell.append(sparkleArt(s, owned));
 
     const name = document.createElement("span");
@@ -298,42 +300,155 @@ export function renderSparkleScreen(root: HTMLElement, deps: SparkleScreenDeps =
 
     const tag = document.createElement("span");
     tag.className = "sparkle-tier";
-    tag.textContent = owned ? "" : TIER_LABEL[s.tier];
+    tag.textContent = owned
+      ? (s.id === deps.selectedId ? "つけてるよ" : "")
+      : `${COPY.belt} ${BELTS_PER_SPARKLE}本`;
     cell.append(tag);
-
     grid.append(cell);
   });
-  root.append(grid);
+  out.push(grid);
+  return out;
+}
 
-  // ── 集めた帯 ───────────────────────────────────────────────────────────
-  const beltTitle = document.createElement("h2");
-  beltTitle.className = "sparkle-section";
-  beltTitle.textContent = `${IS_PIANO ? "🎼" : "🥋"} あつめた${COPY.belt}`;
-  root.append(beltTitle);
+/// 🥋 帯: もらった本数と、10本ごとの トロフィー。
+function beltSection(deps: ItemScreenDeps): HTMLElement[] {
+  const total = beltCount(deps.storage);
+  const out: HTMLElement[] = [
+    countLine(`${total} 本 あつめた`, "beltCount"),
+    hintLine(
+      `メニューの${COPY.belt}が 1つ上がるたびに 1本もらえるよ\n🏆 ${COPY.belt} ${BELTS_PER_TROPHY}本で トロフィーが 1つ（あと ${beltsToNextTrophy(deps.storage)}本）`,
+      "beltHint",
+    ),
+  ];
 
-  const belts = beltCollection(deps.storage);
-  const owned = belts.filter((b) => b.owned).length;
-
-  const beltCount = document.createElement("div");
-  beltCount.className = "sparkle-count";
-  beltCount.dataset.beltCount = String(owned);
-  beltCount.textContent = `${owned} / ${BELTS.length} ほん あつめた`;
-  root.append(beltCount);
+  // トロフィー棚。1つも無いうちは 出さない（空の棚はさびしい）。
+  const cups = trophies(deps.storage);
+  if (cups.length) {
+    const shelf = document.createElement("div");
+    shelf.className = "trophy-shelf";
+    shelf.dataset.trophyShelf = String(cups.length);
+    cups.forEach((t) => {
+      const cell = document.createElement("div");
+      cell.className = "trophy-cell";
+      cell.dataset.trophy = String(t.number);
+      const cup = document.createElement("span");
+      cup.className = "trophy-cup";
+      // 帯と同じ塗りを トロフィーの形に流しこむ。
+      cup.style.background = t.fill;
+      cup.style.borderColor = t.ink;
+      cup.textContent = "🏆";
+      const name = document.createElement("span");
+      name.className = "belt-shelf-name";
+      name.textContent = t.name;
+      cell.append(cup, name);
+      shelf.append(cell);
+    });
+    out.push(shelf);
+  }
 
   const shelf = document.createElement("div");
   shelf.className = "belt-shelf";
   shelf.dataset.beltShelf = "";
-  belts.forEach((b) => {
+  beltCollection(deps.storage).forEach((b) => {
     const belt = BELTS[b.index];
+    const owned = b.count > 0;
     const cell = document.createElement("div");
-    cell.className = `belt-shelf-cell${b.owned ? " owned" : " locked"}${belt.rpg ? " rpg" : ""}`;
+    cell.className = `belt-shelf-cell${owned ? " owned" : " locked"}${belt.rpg ? " rpg" : ""}`;
     cell.dataset.belt = String(b.index);
+    cell.dataset.beltCount = String(b.count);
     cell.append(createObi(b.index));
     const name = document.createElement("span");
     name.className = "belt-shelf-name";
-    name.textContent = b.owned ? belt.name : "？？？";
+    name.textContent = owned ? belt.name : "？？？";
     cell.append(name);
+    if (b.count > 1) {
+      // 同じ帯を 何本ももらえる（メニューごとにもらえるので）。
+      const many = document.createElement("span");
+      many.className = "belt-shelf-many";
+      many.textContent = `×${b.count}`;
+      cell.append(many);
+    }
     shelf.append(cell);
   });
-  root.append(shelf);
+  out.push(shelf);
+  return out;
+}
+
+/// 🧊 ブロック: 稽古の回数で 少ない絵から開く。
+function blockSection(deps: ItemScreenDeps): HTMLElement[] {
+  const owned = new Set(unlockedBlocks(deps.storage).map((b) => b.id));
+  const next = nextBlock(deps.storage);
+  const out: HTMLElement[] = [
+    countLine(`${owned.size} / ${BLOCKS.length} こ あつめた`, "blockCount"),
+    hintLine(
+      next
+        ? `稽古を ${practiceCount(deps.storage)} 回したよ\n🔒 つぎの ブロックは あと ${next.remaining}回`
+        : `稽古を ${practiceCount(deps.storage)} 回したよ\n🎉 ブロックは ぜんぶ あつめたよ！`,
+      "blockHint",
+    ),
+  ];
+
+  const grid = document.createElement("div");
+  grid.className = "block-grid";
+  grid.dataset.blockGrid = "";
+  BLOCKS.forEach((b) => {
+    const have = owned.has(b.id);
+    const cell = document.createElement("div");
+    cell.className = `block-cell${have ? " owned" : " locked"}`;
+    cell.dataset.block = b.id;
+
+    const img = document.createElement("img");
+    img.className = "block-art";
+    img.src = b.src;
+    img.alt = have ? b.name : "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    cell.append(img);
+
+    const name = document.createElement("span");
+    name.className = "sparkle-name";
+    name.textContent = have ? b.name : "？？？";
+    cell.append(name);
+
+    const tag = document.createElement("span");
+    tag.className = "sparkle-tier";
+    // 持っているものは 何このブロックでできているか、まだのものは 何回めで開くか。
+    tag.textContent = have ? `${b.cubes}こ` : `${b.at}回め`;
+    cell.append(tag);
+    grid.append(cell);
+  });
+  out.push(grid);
+  return out;
+}
+
+export function renderItemScreen(root: HTMLElement, deps: ItemScreenDeps = {}): void {
+  root.textContent = "";
+  root.className = "screen sparkle";
+
+  const title = document.createElement("h1");
+  title.className = "screen-title";
+  title.textContent = "🎒 アイテム";
+  root.append(title);
+
+  const shown: ItemSection = deps.section ?? "sparkle";
+
+  // 3つの切り替え。1枚に ぜんぶ並べると 長すぎて、集めたものが見つからない。
+  const tabs = document.createElement("div");
+  tabs.className = "item-tabs";
+  tabs.dataset.itemTabs = shown;
+  SECTIONS.forEach((s) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `item-tab${s.id === shown ? " is-on" : ""}`;
+    button.dataset.itemTab = s.id;
+    button.textContent = s.label;
+    button.addEventListener("click", () => deps.onSection?.(s.id));
+    tabs.append(button);
+  });
+  root.append(tabs);
+
+  const body = shown === "belt" ? beltSection(deps)
+    : shown === "block" ? blockSection(deps)
+      : sparkleSection(deps);
+  root.append(...body);
 }

@@ -1,4 +1,4 @@
-// Bottom tab bar: 特訓 / キラキラ / 積み重ね / 家族. Rendered as a standalone element that the
+// Bottom tab bar: 特訓 / アイテム / 積み重ね / 家族. Rendered as a standalone element that the
 // app appends after a tab screen so it survives the screen's root.textContent
 // reset. Hidden during training / loading / intro / done (full-screen capture).
 
@@ -17,7 +17,9 @@ const STRENGTH_ICON_SRC = "/images/nav-strength.png";
 
 const TABS: { id: NavTab; label: string; icon: string; iconSrc?: string }[] = [
   { id: "train", label: "特訓", icon: COPY.drillIcon },
-  { id: "sparkle", label: "キラキラ", icon: "✨" },
+  // 「アイテム」の中に キラキラ・帯・ブロックが入る（tab の id は sparkle のまま:
+  // 保存や test アプリの入口が この名前で通っている）。
+  { id: "sparkle", label: "アイテム", icon: "🎒" },
   { id: "strength", label: "積み重ね", icon: "🪜", iconSrc: STRENGTH_ICON_SRC },
   { id: "family", label: "家族", icon: "👨‍👩‍👧" },
 ];

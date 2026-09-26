@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 // ✨キラキラ を あつめる決まり。ここが狂うと「がんばったのに何ももらえない」／
 // 「一気に全部もらえる」のどちらかになる。
+//
+// いまの決まり: **帯を 5本もらうごとに 1つ**（カタログの順に）。
 import { it, expect, beforeEach } from "vitest";
-import type { Menu } from "../../karate-trainer/src/types";
 import {
-  MY_SPARKLES, awardForPractice, loadUnlocked, setUnlocked, tierEarned, nextToUnlock,
+  MY_SPARKLES, loadUnlocked, setUnlocked, nextToUnlock, earnedCount, BELTS_PER_SPARKLE,
 } from "../../karate-trainer/src/sparkle-store";
+import { earnBelt, setEarnedBelts } from "../../karate-trainer/src/belt-collection-store";
 
 function memStorage(): Storage {
   const m = new Map<string, string>();
@@ -19,75 +21,65 @@ function memStorage(): Storage {
   } as Storage;
 }
 
-const drill = (id: string, seconds: number) => ({ id, name: `技${id}`, seconds, kind: "drill" as const });
-const rest = (id: string, seconds: number) => ({ id, name: "休憩", seconds, kind: "rest" as const });
+const starters = MY_SPARKLES.filter((s) => s.tier === "start").map((s) => s.id);
+let store: Storage;
+beforeEach(() => { store = memStorage(); });
 
-// 6分・休憩なし
-const longMenu: Menu = [drill("a", 180), drill("b", 180)];
-// 6分だが休憩あり（実働5分）
-const restMenu: Menu = [drill("a", 150), rest("r", 60), drill("b", 150)];
-// 3分半・休憩なし
-const shortMenu: Menu = [drill("a", 210)];
-// 2分
-const tinyMenu: Menu = [drill("a", 120)];
+/// 帯を n 本もらう（色は白でよい: 決まりは本数だけを見る）。
+function earn(n: number): void {
+  for (let i = 0; i < n; i++) earnBelt(0, store);
+}
 
-let storage: Storage;
-beforeEach(() => { storage = memStorage(); });
-
-const done = (menu: Menu) => ({ completed: true, allDrillsDone: true, menu });
-
-it("最初から持っているのは start のぶんだけ", () => {
-  const start = MY_SPARKLES.filter((s) => s.tier === "start").map((s) => s.id);
-  expect(loadUnlocked(storage)).toEqual(start);
-  expect(start.length).toBeLessThan(MY_SPARKLES.length);
+it("最初は はじめから持っているものだけ", () => {
+  expect(loadUnlocked(store)).toEqual(starters);
+  expect(earnedCount(store)).toBe(0);
 });
 
-it("休憩なし5分いじょうを やり切ると long が1つ", () => {
-  expect(tierEarned(done(longMenu))).toBe("long");
-  const award = awardForPractice(done(longMenu), storage);
-  expect(award.unlocked?.tier).toBe("long");
-  expect(loadUnlocked(storage)).toContain(award.unlocked!.id);
+it(`${BELTS_PER_SPARKLE}本めの帯で 1つ開く（4本では まだ開かない）`, () => {
+  earn(BELTS_PER_SPARKLE - 1);
+  expect(loadUnlocked(store)).toEqual(starters);
+  earn(1);
+  expect(loadUnlocked(store).length).toBe(starters.length + 1);
 });
 
-it("休憩が入っていると、5分あっても long にはならない（short になる）", () => {
-  expect(tierEarned(done(restMenu))).toBe("short");
-  expect(awardForPractice(done(restMenu), storage).unlocked?.tier).toBe("short");
+it("帯 10本で 2つ、15本で 3つ —— 一気には開かない", () => {
+  earn(10);
+  expect(earnedCount(store)).toBe(2);
+  earn(5);
+  expect(earnedCount(store)).toBe(3);
 });
 
-it("3分いじょうで short、3分未満なら何ももらえない", () => {
-  expect(tierEarned(done(shortMenu))).toBe("short");
-  expect(tierEarned(done(tinyMenu))).toBeNull();
-  expect(awardForPractice(done(tinyMenu), storage).unlocked).toBeNull();
+it("開く順は カタログの順（start のつぎから）", () => {
+  const earnedOrder = MY_SPARKLES.filter((s) => s.tier !== "start").map((s) => s.id);
+  earn(BELTS_PER_SPARKLE);
+  const have = loadUnlocked(store);
+  expect(have).toContain(earnedOrder[0]);
+  expect(have).not.toContain(earnedOrder[1]);
 });
 
-it("途中でやめた／飛ばした稽古は もらえない", () => {
-  expect(awardForPractice({ completed: false, allDrillsDone: true, menu: longMenu }, storage).unlocked).toBeNull();
-  expect(awardForPractice({ completed: true, allDrillsDone: false, menu: longMenu }, storage).unlocked).toBeNull();
-  expect(loadUnlocked(storage)).toHaveLength(MY_SPARKLES.filter((s) => s.tier === "start").length);
+it("つぎの1つと、あと何本の帯で開くかを返す", () => {
+  expect(nextToUnlock(store)?.remaining).toBe(BELTS_PER_SPARKLE);
+  earn(3);
+  expect(nextToUnlock(store)?.remaining).toBe(BELTS_PER_SPARKLE - 3);
 });
 
-it("1回の稽古で開くのは 多くても1つ", () => {
-  const before = loadUnlocked(storage).length;
-  awardForPractice(done(longMenu), storage);
-  expect(loadUnlocked(storage)).toHaveLength(before + 1);
+it("帯をぜんぶ集めても、キラキラの数をこえて開かない", () => {
+  setEarnedBelts(Array.from({ length: 999 }, () => 0), store);
+  expect(loadUnlocked(store)).toEqual(MY_SPARKLES.map((s) => s.id));
 });
 
-it("long を全部そろえたあとは、long の稽古で short が開く", () => {
-  setUnlocked(MY_SPARKLES.filter((s) => s.tier !== "short").map((s) => s.id), storage);
-  const award = awardForPractice(done(longMenu), storage);
-  expect(award.tier).toBe("long");
-  expect(award.unlocked?.tier).toBe("short");
+it("古い決まりで開けたものは 取り上げない", () => {
+  // 帯が 0本でも、保存に残っている id はそのまま持っている。
+  const old = MY_SPARKLES.filter((s) => s.tier !== "start")[3];
+  setUnlocked([old.id], store);
+  expect(loadUnlocked(store)).toContain(old.id);
+  // はじめから持っているものも消えない。
+  starters.forEach((id) => expect(loadUnlocked(store)).toContain(id));
 });
 
-it("ぜんぶ持っていたら、やり切っても何も開かない（届いたことは分かる）", () => {
-  setUnlocked(MY_SPARKLES.map((s) => s.id), storage);
-  const award = awardForPractice(done(longMenu), storage);
-  expect(award.unlocked).toBeNull();
-  expect(award.alreadyComplete).toBe(true);
-  expect(nextToUnlock(storage)).toEqual({ short: undefined, long: undefined });
-});
-
-it("カタログから消えた id は持ち物から落ちる", () => {
-  storage.setItem("karate.sparkles", JSON.stringify(["もう無いやつ"]));
-  expect(loadUnlocked(storage)).not.toContain("もう無いやつ");
+it("並びは いつもカタログ順（保存の順ではない）", () => {
+  earn(20);
+  const have = loadUnlocked(store);
+  const order = MY_SPARKLES.map((s) => s.id).filter((id) => have.includes(id));
+  expect(have).toEqual(order);
 });

@@ -96,7 +96,7 @@ it("puts the jump bar first on the 家族 screen, above the 家族 title", async
   // own background — not the scrolling page — sits behind the phone's clock.
   const first = root.firstElementChild!;
   expect(first.classList.contains("family-jump-nav")).toBe(true);
-  expect(first.querySelectorAll("[data-family-jump-to]")).toHaveLength(6);
+  expect(first.querySelectorAll("[data-family-jump-to]")).toHaveLength(7);
   expect(root.querySelector(".screen-title")!.textContent).toBe("家族");
 });
 

@@ -1,31 +1,57 @@
-// 稽古中に **画面にだけ** 出すキラキラ。家族タブで親が選ぶ、家じゅう共通の
-// 設定（かざりと同じ置き場所）。空文字は「出さない」で、それが既定。
+// いま つけている ✨キラキラ（そうび）と、稽古中に画面へ出すかどうか。
 //
-// だいじな区別:
-//   ここで選んだものは **保存される動画には入らない**。録画は AVFoundation が
-//   カメラの絵をそのまま書いているので、画面に重ねたものは入りようがない。
-//   保存動画のキラキラは、稽古のあとに done 画面でつける別の機能。
-//   同じ動画を別々に解析するので、見えていたものと保存されたものは
-//   ぴったり同じにはならない。
+// **キラキラは1つだけ。** アイテムタブで選んだものが、
+//   - 稽古のあいだ 画面に出て、
+//   - 保存した動画にも 同じものが入る。
+// 「稽古中のキラキラ」と「動画のキラキラ」が別々にあると、どっちが出るのか
+// 誰にも分からなくなる（実際そうなっていた）。
 //
-// 既定がオフなのは、稽古中に Vision を回すぶんカメラと電池を使うから。
-// 親が一度えらんだら、次の稽古から出る（稽古の途中では変わらない）。
+// つけているキラキラは **人ごと**（集めるものなので、きょうだいで別）。
+// 稽古中に画面へ出すかどうかは **家じゅう共通**（カメラと電池のはなしで、
+// 集めものとは関係がない）。
 
-const KEY = "karate.liveEffects";
+const KEY = "karate.equippedSparkle";
+/// 旧: 家じゅう共通の「稽古中のキラキラ」。人ごとの置き場所に引っ越す。
+const OLD_KEY = "karate.liveEffects";
+const LIVE_KEY = "karate.liveOn";
 
-/// 選ばれているかざりの id、または "" （出さない）。
-export function loadLiveEffect(storage: Storage = localStorage): string {
+/// つけているキラキラの id。何もつけていなければ ""。
+/// `household` を渡すと、まだ引っ越していない古い設定を1回だけ拾う。
+export function loadEquippedSparkle(storage: Storage = localStorage, household?: Storage): string {
   try {
-    return storage.getItem(KEY) ?? "";
+    const mine = storage.getItem(KEY);
+    if (mine !== null) return mine;
+    const old = household?.getItem(OLD_KEY) ?? null;
+    return old ?? "";
   } catch {
     return "";
   }
 }
 
-export function setLiveEffect(presetId: string, storage: Storage = localStorage): void {
+export function setEquippedSparkle(presetId: string, storage: Storage = localStorage): void {
   try {
-    if (presetId) storage.setItem(KEY, presetId);
-    else storage.removeItem(KEY);
+    // "" も保存する（「わざと外した」と「まだ選んでいない」を分けるため。
+    // 外したのに 古い設定が生き返ると、消したはずのキラキラが動画に入る）。
+    storage.setItem(KEY, presetId);
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+/// 稽古のあいだ、画面にもキラキラを出すか。既定はオン
+/// （つけたキラキラは 稽古中にも見えるもの、という約束）。
+/// 重いと感じた親は 家族タブでオフにできる。動画のほうは変わらない。
+export function loadLiveOn(storage: Storage = localStorage): boolean {
+  try {
+    return storage.getItem(LIVE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export function setLiveOn(on: boolean, storage: Storage = localStorage): void {
+  try {
+    storage.setItem(LIVE_KEY, on ? "1" : "0");
   } catch {
     /* ignore storage errors */
   }

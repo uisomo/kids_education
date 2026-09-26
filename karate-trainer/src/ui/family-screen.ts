@@ -57,11 +57,11 @@ export interface FamilyDeps {
   // explaining.
   decor?: Decor;
   onSelectDecor?(decor: Decor): void;
-  // けいこ中のキラキラ（画面だけ）。えらべるかざりが無い iPhone では
-  // liveEffectPresets が空で、この節ごと出ない。
-  liveEffect?: string;
-  liveEffectPresets?: { id: string; name: string }[];
-  onSelectLiveEffect?(presetId: string): void;
+  // 稽古中に キラキラを画面へ出すかどうか。**どのキラキラかは ここでは選ばない**
+  // （子どもが アイテムタブでつける）。onSetLiveOn が無ければ この節ごと出ない。
+  liveOn?: boolean;
+  liveSparkleName?: string | null;
+  onSetLiveOn?(on: boolean): void;
   canRemoveDecor?: boolean;
   // App Store subscriptions (iOS app). Present → the plan cards buy through
   // Apple instead of setting the plan, with restore / manage and the required
@@ -100,9 +100,9 @@ export interface TestToolsView {
   onAskReview?(): void;
   // 初回ガイド「10びょう いっしょに録る」をもう一度（ふつうは一度きり）。
   onRestartGuide?(): void;
-  // ✨キラキラ を ぜんぶ開ける／最初の分だけに戻す。本物のアプリでは
-  // 5分の稽古を何回もやらないと確かめられないので。
-  sparkles?: { owned: number; total: number };
+  // 🎁 アイテム（キラキラ・帯・ブロック）を ぜんぶ開ける／最初にもどす。
+  // 本物のアプリでは 帯を何十本も取らないと確かめられないので。
+  sparkles?: { owned: number; total: number; belts: number; blocks: number; blockTotal: number };
   onUnlockAllSparkles?(): void;
   onResetSparkles?(): void;
 }
@@ -451,15 +451,16 @@ function buildTestToolsSection(deps: FamilyDeps): Node[] {
     box.append(guideRow);
   }
 
-  // ✨ キラキラ を まとめて開ける／戻す
+  // 🎁 アイテム（キラキラ・帯・ブロック）を まとめて開ける／戻す
   if (tools.sparkles && tools.onUnlockAllSparkles && tools.onResetSparkles) {
+    const items = tools.sparkles;
     const label = document.createElement("div");
     label.className = "family-plan-note";
     label.dataset.testSparkleCount = "";
-    label.textContent = `✨ いま ${tools.sparkles.owned}/${tools.sparkles.total} こ`;
+    label.textContent = `✨ ${items.owned}/${items.total}　${COPY.belt} ${items.belts}本　🧊 ${items.blocks}/${items.blockTotal}`;
     const row = document.createElement("div");
     row.className = "family-test-row";
-    const all = testButton("✨ ぜんぶ開ける", () => tools.onUnlockAllSparkles!());
+    const all = testButton("🎁 ぜんぶ開ける", () => tools.onUnlockAllSparkles!());
     all.dataset.testUnlockSparkles = "";
     const reset = testButton("↩︎ 最初にもどす", () => tools.onResetSparkles!());
     reset.dataset.testResetSparkles = "";
@@ -583,15 +584,14 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
   return [sectionTitle, note, list];
 }
 
-/// けいこ中のキラキラ: 練習しているあいだ **画面にだけ** 出るかざり。
+/// 稽古中のキラキラ: 練習しているあいだ、画面にもキラキラを出すかどうか。
 ///
-/// ほぞんする動画のキラキラ（done 画面でつけるもの）とは別。録画はカメラの絵を
-/// そのまま書いているので、画面に重ねたものは保存される動画には入らない。
-/// ここはその説明も一緒に出す — 親が「保存したのに付いていない」と思わないように。
+/// **どのキラキラかは ここでは選ばない。** 子どもが アイテムタブでつけたものが、
+/// 稽古中の画面にも、保存する動画にも 同じように出る。ここで切れるのは
+/// 「稽古中の画面に出すか」だけ（カメラと電池のはなし）。動画のほうは変わらない。
 function buildLiveEffectSection(deps: FamilyDeps): Node[] {
-  const { liveEffect, liveEffectPresets, onSelectLiveEffect } = deps;
-  if (!onSelectLiveEffect || !liveEffectPresets?.length) return [];
-  const chosen = liveEffect ?? "";
+  const { liveOn, liveSparkleName, onSetLiveOn } = deps;
+  if (!onSetLiveOn) return [];
 
   const sectionTitle = document.createElement("div");
   sectionTitle.className = "family-section-label";
@@ -599,37 +599,43 @@ function buildLiveEffectSection(deps: FamilyDeps): Node[] {
 
   const note = document.createElement("p");
   note.className = "family-plan-note";
-  note.textContent = `${COPY.practice}しているあいだ、うごきに合わせて画面にかざりが出ます。`
-    + "画面だけで、ほぞんする どうが には入りません（どうがには おわった画面でつけられます）。"
-    + "カメラと電池をつかうので、あつくなるときは「なし」にしてください。";
+  note.textContent = (liveSparkleName
+    ? `いまついているのは「${liveSparkleName}」です。`
+    : "いまは何もついていません（アイテムタブでつけられます）。")
+    + `${COPY.practice}しているあいだ、うごきに合わせて画面にかざりが出ます。`
+    + "ほぞんする どうが には、つけているものが あとから入ります（この設定とは関係ありません）。"
+    + "カメラと電池をつかうので、あつくなるときは「画面には出さない」にしてください。";
 
   const list = document.createElement("div");
   list.className = "decor-options";
   list.dataset.liveEffectOptions = "";
 
-  const options = [{ id: "", name: "なし" }, ...liveEffectPresets];
+  const options: { on: boolean; name: string; hint: string }[] = [
+    { on: true, name: "画面にも出す", hint: `${COPY.practice}中も見える` },
+    { on: false, name: "画面には出さない", hint: "どうがには入る" },
+  ];
   for (const option of options) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "decor-option";
-    btn.dataset.liveEffect = option.id;
-    if (option.id === chosen) btn.classList.add("on");
+    btn.dataset.liveEffect = option.on ? "on" : "";
+    if (option.on === liveOn) btn.classList.add("on");
 
     const name = document.createElement("span");
     name.className = "decor-option-name";
     name.textContent = option.name;
     const hint = document.createElement("span");
     hint.className = "decor-option-hint";
-    hint.textContent = option.id ? "画面だけに出る" : "画面には出さない";
+    hint.textContent = option.hint;
     btn.append(name, hint);
-    if (option.id === chosen) {
+    if (option.on === liveOn) {
       const badge = document.createElement("span");
       badge.className = "decor-option-badge";
       badge.dataset.liveEffectOn = "";
       badge.textContent = "いまこれ";
       btn.append(badge);
     }
-    btn.addEventListener("click", () => onSelectLiveEffect(option.id));
+    btn.addEventListener("click", () => onSetLiveOn(option.on));
     list.append(btn);
   }
 
