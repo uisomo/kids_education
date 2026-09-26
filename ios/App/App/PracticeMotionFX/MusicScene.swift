@@ -108,6 +108,30 @@ extension SceneBuilder {
         return DisplayPath(points, aspect: aspect)
     }
 
+    /// 打鍵からの **音の形**（エンベロープ）。ピアノは「カン！」と立ち上がって
+    /// すぐ落ち、あとは細く伸びる。光も同じ形にする。
+    /// **直線で薄くしてはいけない** — 一定の速さで消える光は、機械が消したように
+    /// 見えて「弾いた」感じが出ない。立ち上がり 45ms、0.55秒で 0.42 まで落ちる。
+    static func strikeEnvelope(_ frames: [FXAudioFrame], midi: Int, at time: Double) -> Double {
+        // その音が最後に鳴り始めた時刻。1.6秒より前のものは見ない。
+        var age: Double? = nil
+        for frame in frames.reversed() {
+            let d = time-frame.time
+            if d < 0 { continue }
+            if d > 1.6 { break }
+            if frame.notes.contains(where: { $0.onset && $0.midi == midi }) { age = d; break }
+        }
+        guard let age else { return 0.42 }
+        let attack = 0.045, sustain = 0.42
+        if age < attack {
+            let u = fxClamp(age/attack)
+            return u*u*(3-2*u)                      // なめらかな立ち上がり
+        }
+        let u = fxClamp((age-attack)/0.55)
+        let fall = (1-u)*(1-u)                      // ease-out で落ちる
+        return sustain+(1-sustain)*fall
+    }
+
     /// 音のひとコマから、絵をぜんぶ作る。
     ///
     /// - `frames`: 時間順の音のコマ。**いまより前のぶんだけ**（川と花火に要る）。
@@ -170,10 +194,14 @@ extension SceneBuilder {
                                             sway: sway, aspect: aspect) else { continue }
                 let colour = noteColour(note.pitchClass, preset: preset.color, mix: mix)
                 // 鳴り始めは いちばん明るく、伸ばしているあいだ 静かになっていく。
-                let lit = base*(0.60+0.40*fxClamp(note.strength))
+                // **柱は主役ではない**（主役は打鍵の花火）。伸びている音の柱を
+                // 強いままにすると、画面が縦じまで埋まって どれが「いま弾いた音」か
+                // 分からなくなる。0.78 を掛けて 一段 下げる。
+                let env = strikeEnvelope(frames, midi: note.midi, at: time)
+                let lit = base*0.78*(0.55+0.45*fxClamp(note.strength))*(0.40+0.60*env)
                 // 空手の腕より **太くうねらせる**。柱は細長いので、同じ振れ幅では
                 // 何が巻きついているのか分からない。
-                let amp = wrapAmplitude*shortToY*1.9*(0.75+0.55*fxClamp(note.strength))
+                let amp = wrapAmplitude*shortToY*1.9*(0.75+0.55*fxClamp(note.strength))*(0.85+0.15*env)
                 decorate(path, style: style, colour: colour, lit: lit, amp: amp,
                          energy: fxClamp(note.strength), aspect: aspect, shortToY: shortToY,
                          // 柱ごとに 種を変える（同じ形が3本ならばない）。
@@ -181,7 +209,7 @@ extension SceneBuilder {
                 // 柱の根元の光。鍵盤のあたりが光って「ここから出ている」と分かる。
                 scene.primitives.append(.init(kind: .orb, points: [FXPoint(x, 1.0)],
                                               color: colour.opacity(lit*0.9),
-                                              radius: orbSize*(0.7+0.5*fxClamp(note.strength))))
+                                              radius: orbSize*(0.7+0.5*fxClamp(note.strength))*(0.75+0.35*env)))
             }
         }
 
@@ -219,6 +247,8 @@ extension SceneBuilder {
                     let colour = noteColour(note.pitchClass, preset: preset.color, mix: mix)
                     let r = orbSize*(0.9+5.0*progress)*(0.75+0.7*fxClamp(note.strength))
                     // 広がる輪を2本（内と外）。1本だけだと「照準」に見える。
+                    // **広がるほど 細く・薄く。** 太さのまま広がる輪は「輪っかの
+                    // 絵」に見える（煙の輪は 広がりながら消える）。
                     for (index, scale) in [1.0, 0.62].enumerated() {
                         var ring: [FXPoint] = []
                         for k in 0...22 {
@@ -226,24 +256,31 @@ extension SceneBuilder {
                             ring.append(FXPoint(x+cos(a)*r*scale*shortToX, y+sin(a)*r*scale*shortToY))
                         }
                         scene.primitives.append(.init(kind: .glow, points: ring,
-                            color: colour.opacity(base*fade*(index == 0 ? 0.95 : 0.55)),
-                            lineWidth: boltWidth*(0.5+fade)*(index == 0 ? 1.0 : 0.7)))
+                            color: colour.opacity(base*fade*(index == 0 ? 0.95 : 0.50)),
+                            lineWidth: boltWidth*(0.22+0.85*fade)*(index == 0 ? 1.0 : 0.65)))
                     }
                     // はじけて散る粒。外へ飛びながら消える。
+                    // **角度を等間隔にしない。** きれいに16等分すると、輪のふちが
+                    // のこぎりの歯になって「歯車」に見えた（実写で確認）。
                     var sparks: [FXPoint] = []
                     for k in 0..<16 {
-                        let a = Double(k)/16*2*Double.pi+Double(note.midi)
-                        let d = r*(1.0+0.9*noise(note.midi, k))*(0.6+0.7*progress)
+                        let wobble = (noise(note.midi &+ 911, k)-0.5)*0.55
+                        let a = (Double(k)+wobble)/16*2*Double.pi+Double(note.midi)
+                        // 輪のふちに 粒が並ぶと「ブレスレット」に見える。
+                        // **内にも外にも散らす**（0.5〜2.4倍）。
+                        let d = r*(0.5+1.9*noise(note.midi, k))*(0.55+0.95*progress)
                         sparks.append(FXPoint(x+cos(a)*d*shortToX, y+sin(a)*d*shortToY))
                     }
+                    // 火の粉は **やわらかい粒**（"star" の十字は輪のふちに並ぶと
+                    // うるさい）。花びらの style だけ 花びらのまま。
                     scene.primitives.append(.init(kind: .spray, points: sparks,
-                                                  color: colour.opacity(base*fade),
-                                                  radius: bandWidth*0.52*(0.6+fade),
-                                                  glyphID: style == "petal" ? "petal" : "star"))
-                    // まん中の たま。はじけた芯。
-                    scene.primitives.append(.init(kind: .orb, points: [FXPoint(x, y)],
                                                   color: colour.opacity(base*fade*0.95),
-                                                  radius: orbSize*(0.9+0.7*fade)))
+                                                  radius: bandWidth*0.48*(0.45+fade),
+                                                  glyphID: style == "petal" ? "petal" : "dot"))
+                    // まん中の たま。はじけた芯。散るほど 小さく畳む。
+                    scene.primitives.append(.init(kind: .orb, points: [FXPoint(x, y)],
+                                                  color: colour.opacity(base*fade*0.85),
+                                                  radius: orbSize*(0.55+0.95*fade)))
                 }
                 if blooms >= 3 { break }
             }

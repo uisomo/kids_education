@@ -158,12 +158,9 @@ public enum VideoEffectsExporter {
                     let time = request.compositionTime.seconds
                     let scene = timeline.scene(at: time,preset: preset,intensity: configuration.intensity,
                                                reduceMotion: configuration.reduceMotion)
-                    var image = base
-                    if let overlay = try rasterizer.image(for: scene) {
-                        let scaled = overlay.transformed(by: .init(scaleX: outputRect.width/overlay.extent.width,
-                                                                   y: outputRect.height/overlay.extent.height))
-                        image = scaled.composited(over: base)
-                    }
+                    // 空気・にじみ（ブルーム）・光を **1か所で** 組み立てる
+                    // （`OverlayRasterizer.composite`）。ハーネスも同じ道を通る。
+                    let image = try rasterizer.composite(scene: scene,over: base,outputRect: outputRect)
                     request.finish(with: image.cropped(to: outputRect),context: ciContext)
                 } catch { request.finish(with: error) }
             }

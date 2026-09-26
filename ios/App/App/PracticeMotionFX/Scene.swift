@@ -464,14 +464,22 @@ public enum SceneBuilder {
 
         case "rainbow":
             // 7色は多すぎるので3本。preset の色は使わない（虹だから）。
-            let hues: [FXColor] = [.init(1, 0.30, 0.32), .init(0.35, 1, 0.55), .init(0.45, 0.62, 1)]
-            for (index, hue) in hues.enumerated() {
+            // **3本を同じ強さにしない。** 同じ太さ・同じ濃さの帯が3本並ぶと
+            // 「毛糸」に見える。1本を主役にして、あとの2本は添えるだけにする。
+            let hues: [(FXColor, Double, Double)] = [
+                (.init(1, 0.30, 0.32), 1.00, 1.15),   // 主役
+                (.init(0.35, 1, 0.55), 0.62, 0.78),
+                (.init(0.45, 0.62, 1), 0.48, 0.62),
+            ]
+            for (index, spec) in hues.enumerated() {
+                let (hue, weight, width) = spec
                 scene.primitives.append(.init(kind: .ribbon,
                     points: wrap(path, aspect: aspect, samples: 28,
                                  amplitude: amp*(0.75+0.25*Double(index)),
                                  turns: 2.4, phase: time*spinPerSecond*2*Double.pi+Double(index)*0.7,
                                  jitter: 0, seed: 0),
-                    color: hue.opacity(lit*0.9), lineWidth: bandWidth*1.15, taper: 0.4))
+                    // 先を細くする（0.4 では まだ「切った紐」に見えた）。
+                    color: hue.opacity(lit*0.9*weight), lineWidth: bandWidth*width, taper: 0.14))
             }
 
         case "aura":
@@ -490,7 +498,7 @@ public enum SceneBuilder {
                     points: wrap(path, aspect: aspect, samples: 30, amplitude: amp,
                                  turns: 2.6, phase: phase+offset, jitter: 0, seed: 0),
                     color: colour.opacity(lit*weight),
-                    lineWidth: bandWidth*1.4*(weight == 1 ? 1 : 0.6), taper: 0.35))
+                    lineWidth: bandWidth*1.4*(weight == 1 ? 1 : 0.6), taper: 0.18))
             }
         }
     }

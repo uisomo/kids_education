@@ -24,6 +24,10 @@ FXCLIP=12 ./tools/motionfx-harness/build.sh ~/Downloads/karate-training-XXXX.MP4
 `ios/App/App/PracticeMotionFX/` の Swift をコピーして `#if os(iOS)` を外し、
 `import UIKit` を `CoreGraphics` に替えて固めているだけ。**アプリ側のロジックは
 一切ここに複製していない** ので、数値を触ったらそのまま結果に出る。
+
+合成も **アプリの書き出しと同じ道**（`OverlayRasterizer.composite` ＝
+空気 → ブルーム → 光）を通る。ここを迂回して `EffectPainter` を直接呼ぶと、
+ブルームの無い・色の違う絵を見ることになる（2026-09-26 まで そうだった）。
 30秒の動画で 90秒ほどかかる。
 
 なぜこれが要るかは [`karate-trainer/MOTION_EFFECTS.md`](../../karate-trainer/MOTION_EFFECTS.md)

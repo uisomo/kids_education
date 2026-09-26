@@ -89,6 +89,21 @@
     経緯は [`MOTION_EFFECTS.md`](../../../../karate-trainer/MOTION_EFFECTS.md) の
     「背景の『その場所の空気』」。
 
+- **2026-09-26（その6）: ブルームと、2枚の層。**
+  - `EffectPainter.swift`: `FXPaintLayer`（`all` / `air` / `light`）。
+    `draw()` は層で振り分けて描く（上限 32 は **分ける前に** 数える）。
+    `.glow` は3本→5本、`.orb` は3段→6段、芯は `mixWhite()` で白 55〜60% まで
+    （純白にすると色が消える）。`.spray` の丸い粒は `softDot()` の放射グラデ。
+    空気の濃さの上限は **0.32 → 0.22**（線形で重ねると ずっと濃く沈むため）。
+  - `OverlayRasterizer`: 層ごとに context を持ち、`composite(scene:over:outputRect:)`
+    が **空気 → にじみ（`CIGaussianBlur`＋`CIAdditionCompositing`） → 光** の順に
+    1コマを組み立てる。`FXBloom` で半径（長辺比）と強さを決める。
+  - `VideoEffectsExporter` と **Mac のハーネス** は、どちらもこの `composite` を
+    通る。前は ハーネスだけ CoreGraphics（sRGB）で合成していて、
+    **見ていた絵がアプリの書き出しと別物だった。**
+  - 経緯は [`MOTION_EFFECTS.md`](../../../../karate-trainer/MOTION_EFFECTS.md) の
+    「✨キラキラ を 美しくする」。
+
 上流を更新するときは、この差分を当て直すこと。
 
 `MotionEffects.swift` はこのアプリ側のブリッジで、上流には無い。
