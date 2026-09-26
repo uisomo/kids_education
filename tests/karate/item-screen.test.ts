@@ -57,12 +57,19 @@ it("キラキラ: 持っているものは押せて、まだのものは 中身�
   expect(shut.textContent).not.toContain(locked.name);
 });
 
-it("帯: 本数・トロフィー・同じ帯の重なりを出す", () => {
+it("帯: 本数・色ごとの数・その色のトロフィーを出す", () => {
   setEarnedBelts([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], store);
   renderItemScreen(root, { storage: store, section: "belt" });
   expect(root.querySelector("[data-belt-count]")!.textContent).toContain("11 本");
-  expect(root.querySelector("[data-trophy-shelf]")!.getAttribute("data-trophy-shelf")).toBe("1");
-  expect(root.querySelector('[data-belt="0"]')!.textContent).toContain("×10");
+  // 白が10本 ＝ 白のトロフィーが2つ。
+  expect(root.querySelector("[data-trophy-shelf]")!.getAttribute("data-trophy-shelf")).toBe("2");
+  const white = root.querySelector<HTMLElement>('[data-belt="0"]')!;
+  expect(white.textContent).toContain("×10");
+  expect(white.dataset.beltTrophy ?? white.querySelector<HTMLElement>("[data-belt-trophy]")!.dataset.beltTrophy).toBe("2");
+  // 1本だけの色も 数が出て、あと何本で トロフィーかを言う。
+  const yellow = root.querySelector<HTMLElement>('[data-belt="1"]')!;
+  expect(yellow.textContent).toContain("×1");
+  expect(yellow.textContent).toContain("あと4本");
 });
 
 it("ブロック: 開いた絵だけ名前が出て、まだのものは 何回めかを言う", () => {

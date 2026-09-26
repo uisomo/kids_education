@@ -142,7 +142,7 @@ it("帯が1つ上がると 帯を1本もらい、5本めで キラキラが1つ�
   expect(root.querySelector("[data-block-award]")).not.toBeNull();
 });
 
-it("帯 10本めで トロフィーをもらう", async () => {
+it("同じ色の帯 5本めで その色の トロフィーをもらう", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const storage = memStorage();
@@ -151,11 +151,13 @@ it("帯 10本めで トロフィーをもらう", async () => {
   const mem = scopedStorage(storage, getActiveId(storage));
   setSelectedPreset(preset.id, mem);
   setDrillLevel(preset.id, "前蹴り", 9, mem);
-  setEarnedBelts([0, 0, 0, 0, 0, 0, 0, 0, 0], mem);
+  // この稽古でもらうのは 黄帯（白 → 黄）。先に黄を4本持たせておく。
+  setEarnedBelts([1, 1, 1, 1], mem);
 
   await practiceOnce(root, storage);
 
   expect(trophies(mem)).toHaveLength(1);
+  expect(trophies(mem)[0].index).toBe(1);
   const line = root.querySelector("[data-trophy-award]")!;
   expect(line.textContent).toContain("トロフィー");
   // 種目の名前は入れない。

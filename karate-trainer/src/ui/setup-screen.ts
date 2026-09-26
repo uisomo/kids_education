@@ -10,6 +10,7 @@ import { COPY, IS_PIANO } from "../flavor";
 import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 import { openHookModal } from "./hook-modal";
 import { openLetterModal } from "./letter-modal";
+import { openHowtoMenu } from "./howto";
 import type { Letter } from "../letter-store";
 
 export interface SetupMember {
@@ -126,6 +127,22 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   title.className = "screen-title";
   title.textContent = `今日の${COPY.practice}`;
 
+  // ヘッダーの左がわ: 🎬 使い方どうが と ✉️ おたより。
+  const headerLeft = document.createElement("div");
+  headerLeft.className = "setup-header-left";
+  header.append(headerLeft);
+
+  // 🎬 使い方どうが: 家族タブの奥にあっても だれも見つけられないので、
+  // 稽古を始めるこの画面に 動画マークを出す。押すと どうがの一覧がひらく。
+  const howto = document.createElement("button");
+  howto.type = "button";
+  howto.className = "setup-howto-chip";
+  howto.dataset.howtoChip = "";
+  howto.setAttribute("aria-label", "使い方どうが");
+  howto.textContent = "🎬";
+  howto.addEventListener("click", () => openHowtoMenu(root));
+  headerLeft.append(howto);
+
   // ✉️ おたより, top-left: on the screen whenever there is a letter to read, so
   // a kept letter can be read again. The NEW badge and the shake belong to
   // unread ones only — the shake stops after three swings, because something
@@ -169,7 +186,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
         },
       });
     });
-    header.append(chip);
+    headerLeft.append(chip);
   }
 
   header.append(title);

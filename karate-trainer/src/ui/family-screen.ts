@@ -3,7 +3,7 @@
 // and E4 (応援コメント) build on this screen later.
 
 import type { Member } from "../member-store";
-import { buildHowtoSection, buildParentNote } from "./howto";
+import { buildParentNote } from "./howto";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
@@ -333,9 +333,11 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   memberSettings.append(activeCard, ...classNodes, ...beltNodes, ...commentNodes, ...kufuNodes, ...shareNodes, ...testNodes);
 
   const billingNodes = billing ? buildBillingFooter(billing) : [];
-  const howtoNodes = buildHowtoSection(root);
+  // 使い方どうが は 特訓タブの 🎬 に移した（この長いページに埋もれていたし、
+  // 使い方を知りたいのは 稽古を始めるところに立っているとき）。
+  const parentNodes = buildParentNote();
   const lockNodes = buildParentLockSection(deps);
-  markAnchor(howtoNodes[0], "howto");
+  markAnchor(parentNodes[0], "parent");
   markAnchor(lockNodes[0], "lock");
   markAnchor(decorNodes[0], "decor");
   markAnchor(liveNodes[0], "live");
@@ -343,17 +345,18 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // The jump bar goes first: it is pinned at the very top of the screen (CSS),
   // where its own background covers the strip behind the phone's clock.
   root.append(buildJumpNav(root, { live: liveNodes.length > 0 }), title, listTitle, list, addRow, memberHint, memberSettings,
-              ...buildParentNote(), ...howtoNodes, ...lockNodes, ...decorNodes, ...liveNodes,
+              ...parentNodes, ...lockNodes, ...decorNodes, ...liveNodes,
               planTitle, planNote, planCards, ...billingNodes);
 }
 
-// The 家族 tab is one long page (members → settings → 使い方 → かざり → プラン), so
-// it carries a row of chips, pinned at the top of the screen, that jump
-// straight to a section.
+// The 家族 tab is one long page (members → settings → 保護者の方へ → かざり →
+// プラン), so it carries chips, pinned at the top of the screen, that jump
+// straight to a section. They wrap onto a second row (CSS) — on a small phone a
+// horizontally scrolling row hid the last chips off the edge of the screen.
 const JUMP_TARGETS: { anchor: string; label: string }[] = [
   { anchor: "members", label: "メンバー" },
   { anchor: "settings", label: "設定" },
-  { anchor: "howto", label: "使い方" },
+  { anchor: "parent", label: "保護者へ" },
   { anchor: "lock", label: "ロック" },
   { anchor: "decor", label: "かざり" },
   { anchor: "live", label: "キラキラ" },

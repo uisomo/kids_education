@@ -1,5 +1,9 @@
-// 家族 tab: 「保護者の方へ」 (how to keep the practice going) and the 使い方どうが
-// — short clips made from real app screens by tools/howto/render-howto.swift
+// 「保護者の方へ」 (家族 tab) and the 使い方どうが — opened from the 🎬 mark in the
+// 特訓 tab's header, where somebody who is about to practise can actually find
+// them (they used to sit halfway down the long 家族 tab).
+//
+// The clips are short videos made from real app screens
+// by tools/howto/render-howto.swift
 // (spec: tools/howto/howto.json). They are streamed, not bundled (13 MB):
 // karate-trainer/howto-site is deployed on its own to the 「howto」 branch of
 // the Pages project, so the live web app is never touched:
@@ -58,11 +62,8 @@ export function buildParentNote(): Node[] {
   return [box];
 }
 
-export function buildHowtoSection(host: HTMLElement): Node[] {
-  const title = document.createElement("div");
-  title.className = "family-section-label";
-  title.textContent = "使い方どうが";
-
+/// どうがの一覧（1つ押すと その動画が上にひらく）。
+function buildHowtoList(host: HTMLElement): HTMLElement {
   const grid = document.createElement("div");
   grid.className = "howto-grid";
   grid.dataset.howtoList = "";
@@ -75,7 +76,48 @@ export function buildHowtoSection(host: HTMLElement): Node[] {
     btn.addEventListener("click", () => openHowtoVideo(host, v));
     grid.append(btn);
   }
-  return [title, grid];
+  return grid;
+}
+
+/// 🎬 特訓タブの ヘッダーの 🎬 から開く、使い方どうがの一覧。
+export function openHowtoMenu(host: HTMLElement): () => void {
+  host.querySelectorAll("[data-howto-menu]").forEach((el) => el.remove());
+
+  const overlay = document.createElement("div");
+  overlay.className = "kufu-overlay";
+  overlay.dataset.howtoMenu = "";
+
+  const card = document.createElement("div");
+  card.className = "kufu-card howto-menu-card";
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+
+  const title = document.createElement("div");
+  title.className = "kufu-card-title";
+  title.textContent = "🎬 使い方どうが";
+
+  const hint = document.createElement("div");
+  hint.className = "kufu-card-hint";
+  hint.textContent = "見たいものを おしてね";
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "kufu-card-cancel";
+  close.dataset.howtoMenuClose = "";
+  close.textContent = "とじる";
+
+  const dispose = () => {
+    // 上に動画が開いていたら いっしょに閉じる。
+    host.querySelectorAll("[data-howto-modal]").forEach((el) => el.remove());
+    overlay.remove();
+  };
+  close.addEventListener("click", dispose);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) dispose(); });
+
+  card.append(title, hint, buildHowtoList(host), close);
+  overlay.append(card);
+  host.append(overlay);
+  return dispose;
 }
 
 // Plays one clip in the 工夫 card look; tapping outside or 「とじる」 closes it.

@@ -2716,42 +2716,42 @@ input[data-label] {
    bar pulls up over the screen's own safe-area padding and then pays it back as
    padding-top: its background fills the strip behind the clock instead of the
    page scrolling under it, and the chips start below the clock. */
+/* 横スクロールだと、せまい画面（SE）で右のほうのチップが 画面の外に隠れて
+   「上のメニューが全部見えない」。**折り返して 2段にし、ぜんぶ見せる。** */
 .family-jump-nav {
   position: sticky;
   top: 0;
   z-index: 3;
   display: flex;
-  gap: 0.4rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem;
   margin: calc(-1.25rem - env(safe-area-inset-top)) -1rem 0;
-  padding: calc(0.45rem + env(safe-area-inset-top)) 1rem 0.45rem;
+  padding: calc(0.45rem + env(safe-area-inset-top)) 0.6rem 0.45rem;
   background: rgba(26, 22, 43, 0.92);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 
-.family-jump-nav::-webkit-scrollbar { display: none; }
-
 .family-jump-chip {
   flex: 0 0 auto;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 900;
   color: #1a162b;
   background: rgba(255, 209, 102, 0.92);
   border: none;
   border-radius: 999px;
-  padding: 0.32rem 0.8rem;
+  padding: 0.3rem 0.7rem;
   min-height: 32px;
 }
 
 .family-jump-chip:active { transform: translateY(1px); }
 
-/* Jump targets clear the sticky bar (chips + its safe-area top padding). */
+/* Jump targets clear the sticky bar (2 rows of chips + its safe-area top
+   padding), so a tapped section never hides behind the bar itself. */
 .screen.family [data-family-anchor] {
-  scroll-margin-top: calc(3.4rem + env(safe-area-inset-top));
+  scroll-margin-top: calc(5.2rem + env(safe-area-inset-top));
 }
 
 .decor-option.locked {
@@ -3169,6 +3169,32 @@ input[data-label] {
 /* ✉️ おたより chip, top-left of 今日の稽古. On the screen whenever a letter is
    kept, so one can be read again; the NEW badge and the shake are for unread
    ones only. */
+/* ヘッダーの左がわ: 🎬 使い方どうが と ✉️ おたより を横に並べる。 */
+.screen.setup .setup-header-left {
+  grid-column: 1;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* 🎬 使い方どうが。✉️ と同じ丸いピル。 */
+.setup-howto-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  padding: 0.25rem 0.45rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.setup-howto-chip:active { transform: translateY(1px); }
+
 .setup-letter-chip {
   grid-column: 1;
   justify-self: start;
@@ -3852,6 +3878,9 @@ input[data-gate-input]:disabled,
   font-size: 0.9rem;
   font-weight: 900;
 }
+/* 🎬 の一覧（特訓タブから）。一覧自体は 工夫カードと同じ見た目。 */
+.howto-menu-card .howto-grid { margin: 0.2rem 0 0.4rem; }
+
 .howto-card .howto-video {
   width: 100%;
   max-height: 65vh;
@@ -4192,6 +4221,14 @@ input[data-gate-input]:disabled,
   font-size: 0.72rem;
   font-weight: 900;
   color: #ffd166;
+}
+/* 色ごとの 🏆 と、つぎの1つまで あと何本か（同じ色 5本で 1つ）。 */
+.belt-shelf-trophy {
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--ink-dim, #b0a8c8);
 }
 .screen.sparkle {
   display: flex;

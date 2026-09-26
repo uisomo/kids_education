@@ -12,6 +12,7 @@ import { HOOK_PRESETS, presetText, nextPresetIndex } from "../../karate-trainer/
 import { HOOK_PALETTES, hookPalette, hookFill, nextHookPalette } from "../../karate-trainer/src/hook-style";
 import { MAX_TEXT_CHARS, MAX_TEXT_LINES } from "../../karate-trainer/src/drill-texts";
 import { shouldAskReview, markReviewAsked } from "../../karate-trainer/src/review-store";
+import { markVideoSaved } from "../../karate-trainer/src/saved-video-store";
 import { openHookModal } from "../../karate-trainer/src/ui/hook-modal";
 import type { Menu } from "../../karate-trainer/src/types";
 
@@ -96,6 +97,8 @@ it("writes the day of the practice into the saved video", async () => {
 
 it("asks for a rating from the second day on, and not every day after that", () => {
   const storage = memStorage();
+  // 2026-09-26: 星を聞くのは、動画を保存したことがある人だけ。
+  markVideoSaved(storage);
   const day1 = new Date(2026, 8, 23, 9);
   // First launch only remembers the day — nobody rates an app they just got.
   expect(shouldAskReview(storage, day1)).toBe(false);

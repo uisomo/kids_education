@@ -24,7 +24,7 @@ import { renderStrengthScreen } from "./ui/strength-screen";
 import { renderItemScreen, type ItemSection } from "./ui/item-screen";
 import { loadUnlocked, setUnlocked, MY_SPARKLES, sparkleById } from "./sparkle-store";
 import {
-  seedBeltCollection, earnBelt, beltCount, trophies, setEarnedBelts, BELTS_PER_TROPHY,
+  seedBeltCollection, earnBelt, beltCount, trophies, gainedTrophy, setEarnedBelts, BELTS_PER_TROPHY,
 } from "./belt-collection-store";
 import { recordPracticeForBlocks, setPracticeCount, unlockedBlocks } from "./block-store";
 import { BLOCKS } from "./block-catalog";
@@ -53,6 +53,7 @@ import { OverlayEventLog, type OverlayEvent, type OverlayMenuItem, type SoundEve
 import { parseDrillTexts, textCount, revealedGrid } from "./drill-texts";
 import { getHook, setHook, getHookPick, setHookPick } from "./hook-store";
 import { shouldOfferGuide, markGuideDone, markGuideSkipped, resetGuide } from "./guide-store";
+import { markVideoSaved, resetSavedVideos } from "./saved-video-store";
 import { renderGuideOffer, renderGuideFinish, attachGuideSpot, clearGuideSpot, guideMenu } from "./ui/guide";
 import { presetText, nextPresetIndex } from "./hook-presets";
 import { nextHookPalette, HOOK_COLOR_MODE } from "./hook-style";
@@ -447,6 +448,7 @@ export class KarateApp {
         ? Promise.resolve(this.deps.saveRecording
           ? this.deps.saveRecording(new Blob(), extOf(), fileUri)
           : this.deps.shareRecording(new Blob(), extOf(), fileUri))
+          .then(() => { markVideoSaved(this.base()); })
         : Promise.resolve();
       const host = this.root.ownerDocument.body;
       opened = true;
@@ -925,6 +927,9 @@ export class KarateApp {
       onAskReview: this.deps.requestReview ? () => this.deps.requestReview!() : undefined,
       onRestartGuide: () => {
         resetGuide(this.base());
+        // さそいカードは「一度も動画を保存していない人」だけに出るので、
+        // テストでやり直すときは その記録も消す（消さないと もう出ない）。
+        resetSavedVideos(this.base());
         this.guideOffered = false;
         this.guideStep = "off";
         this.showFamily();
@@ -937,7 +942,7 @@ export class KarateApp {
         blockTotal: BLOCKS.length,
       },
       // ぜんぶ開ける: キラキラ・帯・トロフィー・ブロックを いっぺんに。
-      // 帯は「1色ずつ 10本」まで入れて、トロフィーも並ぶようにする。
+      // 帯は「1色ずつ 5本」入れて、色ごとのトロフィーも並ぶようにする。
       onUnlockAllSparkles: () => {
         setUnlocked(MY_SPARKLES.map((sp) => sp.id), this.mem());
         setEarnedBelts(BELTS.flatMap((_, i) => Array.from({ length: BELTS_PER_TROPHY }, () => i)), this.mem());
@@ -1487,11 +1492,11 @@ export class KarateApp {
       };
       // もらいもの は ここで ぜんぶ決まる。順番に意味がある:
       //   1. 帯（メニューの帯が1つ上がったら 1本）
-      //   2. 🏆 トロフィー（帯 10本ごと）と ✨キラキラ（帯 5本ごと）は、
+      //   2. 🏆 トロフィー（同じ色の帯 5本ごと）と ✨キラキラ（帯 5本ごと）は、
       //      1. の帯が増えたぶんから 自動でついてくる
       //   3. 🧊 ブロック（稽古の回数で 1つずつ）
       const sparklesBefore = loadUnlocked(this.mem());
-      const trophiesBefore = trophies(this.mem()).length;
+      const trophiesBefore = trophies(this.mem());
       if (completed && linked && !missed) {
         const { state, promoted } = recordPractice(linked.id, linked.menu, this.finishedDrills, this.mem());
         beltResult = { completed, bars: state.bars, promotedTo: promoted ? BELTS[state.index].name : null };
@@ -1502,7 +1507,7 @@ export class KarateApp {
       // ✨キラキラ は 帯の数から決まるので、増えたかどうかを見るだけ。
       const newSparkleId = loadUnlocked(this.mem()).find((id) => !sparklesBefore.includes(id));
       const award = { unlocked: newSparkleId ? sparkleById(newSparkleId) ?? null : null };
-      const newTrophy = trophies(this.mem()).slice(trophiesBefore)[0] ?? null;
+      const newTrophy = gainedTrophy(trophiesBefore, trophies(this.mem()));
       // 🧊 ブロック: 最後まで行って 種目を1つ以上やり切った稽古を1回と数える
       // （🔥 の連続日数と同じ数えかた）。保存したメニューは要らない。
       const blockAward = completed && this.finishedDrills.length > 0
@@ -1627,6 +1632,9 @@ export class KarateApp {
             ? this.deps.saveRecording(blobToSave, shareExt(), shareFileUri())
             : this.deps.shareRecording(blobToSave, shareExt(), shareFileUri());
           return Promise.resolve(saved)
+            // 保存できた ＝ このアプリの仕事はひととおり通った。ここから
+            // 「10びょうで やってみる？」は出さず、★ は聞けるようになる。
+            .then(() => { markVideoSaved(this.base()); })
             .finally(() => { if (guiding) this.showGuideFinish(); });
         },
         sparkleAward: award.unlocked ? { name: award.unlocked.name } : undefined,

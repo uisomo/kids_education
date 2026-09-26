@@ -273,7 +273,7 @@ it("shows the ✉️ chip with NEW while a letter is unread", () => {
   expect(chip).not.toBeNull();
   expect(chip!.querySelector("[data-letter-new]")!.textContent).toBe("NEW");
   // In the header, left of 今日の稽古 — not a bar pushing the menu down.
-  expect(chip!.parentElement).toBe(root.querySelector(".toybox-header"));
+  expect(chip!.closest(".toybox-header")).toBe(root.querySelector(".toybox-header"));
   expect(root.firstElementChild).toBe(root.querySelector(".toybox-header"));
   // 稽古 開始 still ends the page, under its own line of switches.
   const startRow = root.querySelector("[data-start-row]")!;

@@ -5,9 +5,13 @@
 // メニューが3つあれば 白帯も3回もらえる（同じ帯が並ぶ）。数が増えていくのが
 // うれしいところなので、重なりは わざと消さない。
 //
-// 帯が 10本 たまるごとに **トロフィーが1つ**。色は帯の並びから順に取る
-// （1つめは白、2つめは黄…）。名前に「空手」とは書かない —— ピアノのアプリでも
-// 同じものがもらえるし、外に見せるものに種目を書く必要はない。
+// **同じ色の帯が 5本** たまるごとに、**その色のトロフィーが1つ**（白帯5本で
+// 白のトロフィー）。だから帯の棚には、色ごとに何本持っているかの数を出す。
+// 名前に「空手」とは書かない —— ピアノのアプリでも同じものがもらえるし、
+// 外に見せるものに種目を書く必要はない。
+//
+// 前の決まりは「色に関係なく 10本ごとに1つ」だった。トロフィーは まだ
+// 外に出していない（テスト機だけ）ので、引きつぎは考えない。
 
 import { BELTS } from "./belt-store";
 
@@ -16,7 +20,8 @@ const KEY = "karate.beltsEarned";
 /// 読むだけ（白からその帯までは通ってきた、と考えて数に直す）。
 const OLD_KEY = "karate.beltsCollected";
 const LAST = BELTS.length - 1;
-export const BELTS_PER_TROPHY = 10;
+/// 同じ色を何本あつめたら トロフィー1つか。
+export const BELTS_PER_TROPHY = 5;
 /// 保存する上限。毎日1本もらっても数年ぶん。ここに当たるほど集めた人は、
 /// それ以上数えなくても こまらない。
 const MAX_KEPT = 400;
@@ -88,7 +93,9 @@ export function seedBeltCollection(beltIndexes: number[], storage: Storage = loc
 }
 
 export interface TrophyDef {
-  /// 何個めのトロフィーか（1から）。
+  /// どの色（BELTS の番号）の トロフィーか。
+  index: number;
+  /// その色で 何個めか（1から）。同じ色を 10本あつめれば 2つ並ぶ。
   number: number;
   /// 見せる名前（「しろの トロフィー」など）。種目の名前は入れない。
   name: string;
@@ -102,25 +109,58 @@ function colourName(index: number): string {
   return BELTS[index].name.replace(/の?(帯|音符)$/, "");
 }
 
-export function trophyAt(number: number): TrophyDef {
-  const belt = BELTS[(number - 1) % BELTS.length];
+export function trophyAt(index: number, number = 1): TrophyDef {
+  const i = clamp(index);
+  const belt = BELTS[i];
   return {
-    number,
-    name: `${colourName((number - 1) % BELTS.length)}の トロフィー`,
+    index: i,
+    number: Math.max(1, Math.floor(number)),
+    name: `${colourName(i)}の トロフィー`,
     fill: belt.fill,
     ink: belt.ink,
   };
 }
 
-/// いま持っているトロフィー。
-export function trophies(storage: Storage = localStorage): TrophyDef[] {
-  const count = Math.floor(beltCount(storage) / BELTS_PER_TROPHY);
-  return Array.from({ length: count }, (_, i) => trophyAt(i + 1));
+/// 色ごとの トロフィーの数（帯の並び順）。
+export function trophyCounts(storage: Storage = localStorage): number[] {
+  return beltCollection(storage).map((b) => Math.floor(b.count / BELTS_PER_TROPHY));
 }
 
-/// つぎのトロフィーまで あと何本の帯か。
+/// いま持っているトロフィー。色の順に、同じ色は 1つめ→2つめ の順で並ぶ。
+export function trophies(storage: Storage = localStorage): TrophyDef[] {
+  const out: TrophyDef[] = [];
+  trophyCounts(storage).forEach((n, index) => {
+    for (let i = 1; i <= n; i++) out.push(trophyAt(index, i));
+  });
+  return out;
+}
+
+/// 帯を1本もらう前と後の トロフィーを見て、**増えた1つ**を返す（無ければ null）。
+/// 色ごとに増えるので「後ろに足されたもの」では見つけられない。
+export function gainedTrophy(before: TrophyDef[], after: TrophyDef[]): TrophyDef | null {
+  if (after.length <= before.length) return null;
+  const tally = (list: TrophyDef[]): Map<number, number> => list.reduce(
+    (m, t) => m.set(t.index, (m.get(t.index) ?? 0) + 1), new Map<number, number>(),
+  );
+  const had = tally(before);
+  for (const [index, n] of tally(after)) {
+    if (n > (had.get(index) ?? 0)) return trophyAt(index, n);
+  }
+  return null;
+}
+
+/// その色の トロフィーまで あと何本か（5本ちょうどなら、次の1つまでの 5本）。
+export function beltsToNextTrophyFor(index: number, storage: Storage = localStorage): number {
+  const count = beltCollection(storage)[clamp(index)].count;
+  return BELTS_PER_TROPHY - (count % BELTS_PER_TROPHY);
+}
+
+/// どれか1色でも トロフィーに いちばん近い色の、あと何本か。
 export function beltsToNextTrophy(storage: Storage = localStorage): number {
-  return BELTS_PER_TROPHY - (beltCount(storage) % BELTS_PER_TROPHY);
+  return beltCollection(storage).reduce(
+    (best, b) => Math.min(best, BELTS_PER_TROPHY - (b.count % BELTS_PER_TROPHY)),
+    BELTS_PER_TROPHY,
+  );
 }
 
 /// 帯ごとに、何本持っているか（画面のコレクション用）。

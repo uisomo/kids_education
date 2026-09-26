@@ -8,8 +8,8 @@ import {
   practiceCount, unlockedBlocks, nextBlock, recordPracticeForBlocks, setPracticeCount,
 } from "../../karate-trainer/src/block-store";
 import {
-  earnBelt, beltCount, loadEarnedBelts, trophies, beltsToNextTrophy, beltCollection,
-  seedBeltCollection, setEarnedBelts, BELTS_PER_TROPHY,
+  earnBelt, beltCount, loadEarnedBelts, trophies, beltsToNextTrophy, beltsToNextTrophyFor,
+  trophyCounts, beltCollection, seedBeltCollection, setEarnedBelts, BELTS_PER_TROPHY,
 } from "../../karate-trainer/src/belt-collection-store";
 import { BELTS } from "../../karate-trainer/src/belt-store";
 
@@ -88,24 +88,41 @@ it("帯は もらうたびに 増えていく（同じ色が何本でも）", ()
   expect(beltCollection(store)[0]).toEqual({ index: 0, count: 2 });
 });
 
-it(`${BELTS_PER_TROPHY}本で トロフィーが1つ、色は帯の順`, () => {
+it(`同じ色を ${BELTS_PER_TROPHY}本 あつめると その色の トロフィー`, () => {
   for (let i = 0; i < BELTS_PER_TROPHY - 1; i++) earnBelt(0, store);
   expect(trophies(store)).toEqual([]);
   expect(beltsToNextTrophy(store)).toBe(1);
   earnBelt(0, store);
   const [first] = trophies(store);
+  expect(first.index).toBe(0);
   expect(first.number).toBe(1);
   expect(first.fill).toBe(BELTS[0].fill);
   // 種目の名前は入れない（空手ともピアノとも書かない）。
   expect(first.name).not.toContain("空手");
   expect(first.name).not.toContain("ピアノ");
   expect(beltsToNextTrophy(store)).toBe(BELTS_PER_TROPHY);
+  expect(beltsToNextTrophyFor(0, store)).toBe(BELTS_PER_TROPHY);
 });
 
-it("トロフィーは 10本ごとに増える", () => {
-  setEarnedBelts(Array.from({ length: 25 }, () => 0), store);
-  expect(trophies(store)).toHaveLength(2);
-  expect(trophies(store)[1].fill).toBe(BELTS[1].fill);
+it("色がちがう帯は たまらない（5本そろった色だけ トロフィー）", () => {
+  setEarnedBelts([0, 0, 0, 0, 1, 1, 1, 1], store);
+  expect(trophies(store)).toEqual([]);
+  expect(beltCount(store)).toBe(8);
+  expect(beltsToNextTrophyFor(1, store)).toBe(1);
+  earnBelt(1, store);
+  const cups = trophies(store);
+  expect(cups).toHaveLength(1);
+  expect(cups[0].index).toBe(1);
+  expect(cups[0].fill).toBe(BELTS[1].fill);
+});
+
+it("同じ色を 10本 あつめれば その色の トロフィーが2つ", () => {
+  setEarnedBelts(Array.from({ length: 12 }, () => 0), store);
+  const cups = trophies(store);
+  expect(cups).toHaveLength(2);
+  expect(cups.map((c) => c.number)).toEqual([1, 2]);
+  expect(cups.every((c) => c.index === 0)).toBe(true);
+  expect(trophyCounts(store)[0]).toBe(2);
 });
 
 it("前の数えかた（いちばん上の帯だけ）から 引きつぐ", () => {

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { HOWTO_VIDEOS, buildHowtoSection, buildParentNote } from "../../karate-trainer/src/ui/howto";
+import { HOWTO_VIDEOS, openHowtoMenu, buildParentNote } from "../../karate-trainer/src/ui/howto";
 
 describe("使い方どうが / 保護者の方へ", () => {
   it("every how-to clip is streamed from howto-site, not bundled into the app", () => {
@@ -17,7 +17,7 @@ describe("使い方どうが / 保護者の方へ", () => {
 
   it("a button opens the clip in a card and とじる closes it", () => {
     const host = document.createElement("div");
-    host.append(...buildHowtoSection(host));
+    openHowtoMenu(host);
     host.querySelector<HTMLButtonElement>('[data-howto="hook"]')!.click();
     expect(host.querySelector<HTMLVideoElement>("[data-howto-video]")!.getAttribute("src")).toBe("https://howto.karate-trainer.pages.dev/howto/howto-hook.mp4");
     // Offline → a note instead of a silent black box.

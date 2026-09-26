@@ -6,6 +6,11 @@
 // someone who already rated this version, and at most three times a year), so
 // this only tracks the chance to ask: not on the first day, not twice in the
 // same season, and not more than three times ever.
+//
+// And only someone who has SAVED a video at least once: the stars are worth
+// asking for after the app has done its one job, not before.
+
+import { hasSavedVideo } from "./saved-video-store";
 
 const KEY = "karate.review";
 
@@ -68,6 +73,7 @@ export function shouldAskReview(storage: Storage = localStorage, now: Date = new
   save(state, storage);                       // first launch: remember the day
   const today = dayKey(now);
   if (today === state.first) return false;    // day one is for using the app
+  if (!hasSavedVideo(storage)) return false;  // nothing saved yet → nothing to rate
   if (state.askCount >= MAX_ASKS) return false;
   if (state.asked && daysBetween(state.asked, today) < AGAIN_AFTER_DAYS) return false;
   return true;

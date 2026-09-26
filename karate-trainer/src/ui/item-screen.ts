@@ -2,7 +2,8 @@
 //
 //   ✨ キラキラ … 帯を 5本もらうごとに 1つ。おすと **つける**（稽古中の画面にも、
 //                 保存した動画にも 同じものが出る）
-//   🥋 帯       … メニューの帯が1つ上がるごとに 1本。10本で トロフィーが1つ
+//   🥋 帯       … メニューの帯が1つ上がるごとに 1本。**同じ色5本で その色の
+//                 トロフィーが1つ**（だから色ごとに 何本あつめたかを出す）
 //   🧊 ブロック … 稽古の回数で 1つずつ。ブロックの少ない絵から
 //
 // 「持っていないもの」も並べて出すのが大事。何が待っているか見えないと、
@@ -14,7 +15,7 @@ import type { SparkleDef } from "../sparkle-catalog";
 import { BELTS } from "../belt-store";
 import { createObi } from "./belt-card";
 import {
-  beltCollection, beltCount, trophies, beltsToNextTrophy, BELTS_PER_TROPHY,
+  beltCollection, beltCount, trophies, trophyCounts, beltsToNextTrophyFor, BELTS_PER_TROPHY,
 } from "../belt-collection-store";
 import { BLOCKS } from "../block-catalog";
 import { unlockedBlocks, nextBlock, practiceCount } from "../block-store";
@@ -310,13 +311,14 @@ function sparkleSection(deps: ItemScreenDeps): HTMLElement[] {
   return out;
 }
 
-/// 🥋 帯: もらった本数と、10本ごとの トロフィー。
+/// 🥋 帯: もらった本数と、**同じ色5本ごと**の トロフィー。色ごとに
+/// 「何本あつめたか」の数を出すのが大事 —— あと何本で トロフィーか が見える。
 function beltSection(deps: ItemScreenDeps): HTMLElement[] {
   const total = beltCount(deps.storage);
   const out: HTMLElement[] = [
     countLine(`${total} 本 あつめた`, "beltCount"),
     hintLine(
-      `メニューの${COPY.belt}が 1つ上がるたびに 1本もらえるよ\n🏆 ${COPY.belt} ${BELTS_PER_TROPHY}本で トロフィーが 1つ（あと ${beltsToNextTrophy(deps.storage)}本）`,
+      `メニューの${COPY.belt}が 1つ上がるたびに 1本もらえるよ\n🏆 おなじ色の${COPY.belt}を ${BELTS_PER_TROPHY}本 あつめると、その色の トロフィーが 1つ`,
       "beltHint",
     ),
   ];
@@ -330,7 +332,8 @@ function beltSection(deps: ItemScreenDeps): HTMLElement[] {
     cups.forEach((t) => {
       const cell = document.createElement("div");
       cell.className = "trophy-cell";
-      cell.dataset.trophy = String(t.number);
+      // 同じ色が 2つ以上 並ぶので、色と何個めかの両方で名前をつける。
+      cell.dataset.trophy = `${t.index}-${t.number}`;
       const cup = document.createElement("span");
       cup.className = "trophy-cup";
       // 帯と同じ塗りを トロフィーの形に流しこむ。
@@ -346,6 +349,7 @@ function beltSection(deps: ItemScreenDeps): HTMLElement[] {
     out.push(shelf);
   }
 
+  const trophyPerColour = trophyCounts(deps.storage);
   const shelf = document.createElement("div");
   shelf.className = "belt-shelf";
   shelf.dataset.beltShelf = "";
@@ -361,12 +365,22 @@ function beltSection(deps: ItemScreenDeps): HTMLElement[] {
     name.className = "belt-shelf-name";
     name.textContent = owned ? belt.name : "？？？";
     cell.append(name);
-    if (b.count > 1) {
-      // 同じ帯を 何本ももらえる（メニューごとにもらえるので）。
+    if (owned) {
+      // 何本持っているか。同じ帯を 何本ももらえる（メニューごとにもらえるので）。
       const many = document.createElement("span");
       many.className = "belt-shelf-many";
       many.textContent = `×${b.count}`;
       cell.append(many);
+
+      // この色の トロフィーと、つぎの1つまで あと何本か。
+      const trophyLine = document.createElement("span");
+      trophyLine.className = "belt-shelf-trophy";
+      trophyLine.dataset.beltTrophy = String(trophyPerColour[b.index]);
+      const left = beltsToNextTrophyFor(b.index, deps.storage);
+      trophyLine.textContent = trophyPerColour[b.index] > 0
+        ? `🏆×${trophyPerColour[b.index]}・あと${left}本`
+        : `あと${left}本で 🏆`;
+      cell.append(trophyLine);
     }
     shelf.append(cell);
   });

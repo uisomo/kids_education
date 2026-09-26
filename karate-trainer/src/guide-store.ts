@@ -6,6 +6,8 @@
 // 置く。「あとで」を選んだときは done にせず数だけ数え、しつこくない回数
 // (MAX_SKIPS) までは次の起動でもう一度さそう。
 
+import { hasSavedVideo } from "./saved-video-store";
+
 const KEY = "karate.guide";
 
 // 「あとで」がこの回数たまったら、もうカードは出さない（家族→テスト用から
@@ -44,7 +46,10 @@ function save(value: GuideState, storage: Storage): void {
 }
 
 // 今日の稽古の画面に「10びょうで やってみる？」カードを出すか。
+// **一度でも動画を保存した人には もう出さない** — 保存までできた人に
+// 「作ってみよう」と言うのは、やりかたを知っている人への声かけになってしまう。
 export function shouldOfferGuide(storage: Storage = localStorage): boolean {
+  if (hasSavedVideo(storage)) return false;
   const g = getGuide(storage);
   return !g.done && g.skips < MAX_SKIPS;
 }
