@@ -272,8 +272,8 @@ function sparkleSection(deps: ItemScreenDeps): HTMLElement[] {
   const next = nextToUnlock(deps.storage);
   out.push(hintLine(
     next
-      ? `おすと つけられるよ。稽古中の画面にも 動画にも 出るよ\n🔒 つぎの キラキラ は ${COPY.belt}が あと ${next.remaining}本`
-      : "おすと つけられるよ。稽古中の画面にも 動画にも 出るよ\n🎉 キラキラは ぜんぶ あつめたよ！",
+      ? `おすと つけられるよ。${COPY.practice}中の画面にも 動画にも 出るよ\n🔒 つぎの キラキラ は ${COPY.belt}が あと ${next.remaining}本`
+      : `おすと つけられるよ。${COPY.practice}中の画面にも 動画にも 出るよ\n🎉 キラキラは ぜんぶ あつめたよ！`,
     "sparkleHint",
   ));
 
@@ -382,8 +382,8 @@ function blockSection(deps: ItemScreenDeps): HTMLElement[] {
     countLine(`${owned.size} / ${BLOCKS.length} こ あつめた`, "blockCount"),
     hintLine(
       next
-        ? `稽古を ${practiceCount(deps.storage)} 回したよ\n🔒 つぎの ブロックは あと ${next.remaining}回`
-        : `稽古を ${practiceCount(deps.storage)} 回したよ\n🎉 ブロックは ぜんぶ あつめたよ！`,
+        ? `${COPY.practice}を ${practiceCount(deps.storage)} 回したよ\n🔒 つぎの ブロックは あと ${next.remaining}回`
+        : `${COPY.practice}を ${practiceCount(deps.storage)} 回したよ\n🎉 ブロックは ぜんぶ あつめたよ！`,
       "blockHint",
     ),
   ];
