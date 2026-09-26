@@ -1,6 +1,8 @@
 // ✨キラキラ を あつめる。どれを持っているかは **もらった帯の数だけ** で決まる。
 //
-//   帯を 5本 もらうごとに、カタログの順で 1つ開く。
+//   カタログの順に開いていくが、**ハードルは だんだん上がる**:
+//   はじめの6つは 5本ずつ、つぎの6つは 10本ずつ、そのつぎの6つは 15本ずつ…
+//   （のべでは 6つめ=30本、12こめ=90本、18こめ=180本、24こめ=300本）
 //
 // 「最初から持っているもの」（tier が start）は、帯が 0本でも使える。
 //
@@ -18,8 +20,22 @@ import { beltCount } from "./belt-collection-store";
 
 const KEY = "karate.sparkles";
 
-/// 帯を何本もらうごとに 1つ開くか。
+/// 何個ごとに ハードルが上がるか。
+export const SPARKLES_PER_STEP = 6;
+/// はじめのかたまりの「1つあたり何本」。かたまりが進むごとに これだけ増える。
 export const BELTS_PER_SPARKLE = 5;
+
+/// n個め（1から）の キラキラ 1つぶんに要る 帯の本数（5 → 10 → 15 …）。
+export function beltsForSparkle(n: number): number {
+  return BELTS_PER_SPARKLE * (Math.floor(Math.max(0, n - 1) / SPARKLES_PER_STEP) + 1);
+}
+
+/// n個めを開けるまでに要る、**のべ**の帯の本数。
+export function beltsNeededFor(n: number): number {
+  let total = 0;
+  for (let i = 1; i <= n; i++) total += beltsForSparkle(i);
+  return total;
+}
 
 /// このアプリ（空手／ピアノ）の キラキラ を、開く順に。
 export const MY_SPARKLES: SparkleDef[] = SPARKLES.filter(
@@ -48,7 +64,16 @@ function savedIds(storage: Storage): string[] {
 
 /// 帯の数だけで開いている数（最初から持っているものは数えない）。
 export function earnedCount(storage: Storage = localStorage): number {
-  return Math.min(EARNED.length, Math.floor(beltCount(storage) / BELTS_PER_SPARKLE));
+  const belts = beltCount(storage);
+  let n = 0;
+  while (n < EARNED.length && beltsNeededFor(n + 1) <= belts) n++;
+  return n;
+}
+
+/// この キラキラ を開けるのに要る、のべ帯の本数（最初から持っているものは null）。
+export function beltsToOwn(id: string): number | null {
+  const at = EARNED.findIndex((s) => s.id === id);
+  return at < 0 ? null : beltsNeededFor(at + 1);
 }
 
 /// 持っているキラキラの id。並びはカタログ順（画面もこの順に出す）。
@@ -72,7 +97,9 @@ export function nextToUnlock(
   const have = new Set(loadUnlocked(storage));
   const sparkle = EARNED.find((s) => !have.has(s.id));
   if (!sparkle) return null;
-  const remaining = BELTS_PER_SPARKLE - (beltCount(storage) % BELTS_PER_SPARKLE);
+  // その1つの のべ本数から、いま持っている帯を引く（かたまりで変わるので
+  // 「5で割ったあまり」では出せない）。
+  const remaining = Math.max(1, (beltsToOwn(sparkle.id) ?? 0) - beltCount(storage));
   return { sparkle, remaining };
 }
 

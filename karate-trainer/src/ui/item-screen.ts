@@ -1,7 +1,8 @@
 // 🎒 アイテム タブ — 集めたものが ぜんぶ ここに入る。
 //
-//   ✨ キラキラ … 帯を 5本もらうごとに 1つ。おすと **つける**（稽古中の画面にも、
-//                 保存した動画にも 同じものが出る）
+//   ✨ キラキラ … 帯をあつめると 1つずつ（はじめの6つは5本ごと、つぎの6つは
+//                 10本ごと… と ハードルが上がる）。おすと **つける**
+//                 （稽古中の画面にも、保存した動画にも 同じものが出る）
 //   🥋 帯       … メニューの帯が1つ上がるごとに 1本。**同じ色5本で その色の
 //                 トロフィーが1つ**（だから色ごとに 何本あつめたかを出す）
 //   🧊 ブロック … 稽古の回数で 1つずつ。ブロックの少ない絵から
@@ -10,7 +11,7 @@
 // 集める気持ちにならない。ただし **中身は見せない**（形は影だけ、名前は ？）。
 // どうやったら開くかだけ 書いておく。
 
-import { MY_SPARKLES, loadUnlocked, nextToUnlock, BELTS_PER_SPARKLE } from "../sparkle-store";
+import { MY_SPARKLES, loadUnlocked, nextToUnlock, beltsToOwn, BELTS_PER_SPARKLE } from "../sparkle-store";
 import type { SparkleDef } from "../sparkle-catalog";
 import { BELTS } from "../belt-store";
 import { createObi } from "./belt-card";
@@ -301,9 +302,11 @@ function sparkleSection(deps: ItemScreenDeps): HTMLElement[] {
 
     const tag = document.createElement("span");
     tag.className = "sparkle-tier";
+    // まだのものは「のべで何本の帯が要るか」。ハードルは 6つごとに上がるので、
+    // どれも同じ本数ではない。
     tag.textContent = owned
       ? (s.id === deps.selectedId ? "つけてるよ" : "")
-      : `${COPY.belt} ${BELTS_PER_SPARKLE}本`;
+      : `${COPY.belt} ${beltsToOwn(s.id) ?? BELTS_PER_SPARKLE}本`;
     cell.append(tag);
     grid.append(cell);
   });

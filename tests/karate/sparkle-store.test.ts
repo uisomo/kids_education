@@ -6,6 +6,7 @@
 import { it, expect, beforeEach } from "vitest";
 import {
   MY_SPARKLES, loadUnlocked, setUnlocked, nextToUnlock, earnedCount, BELTS_PER_SPARKLE,
+  SPARKLES_PER_STEP, beltsForSparkle, beltsNeededFor, beltsToOwn,
 } from "../../karate-trainer/src/sparkle-store";
 import { earnBelt, setEarnedBelts } from "../../karate-trainer/src/belt-collection-store";
 
@@ -47,6 +48,36 @@ it("帯 10本で 2つ、15本で 3つ —— 一気には開かない", () => {
   expect(earnedCount(store)).toBe(2);
   earn(5);
   expect(earnedCount(store)).toBe(3);
+});
+
+// --- ハードルは 6つごとに上がる（5本ずつ → 10本ずつ → 15本ずつ …）---
+
+it("はじめの6つは 5本ずつ、つぎの6つは 10本ずつ", () => {
+  expect(beltsForSparkle(1)).toBe(5);
+  expect(beltsForSparkle(SPARKLES_PER_STEP)).toBe(5);
+  expect(beltsForSparkle(SPARKLES_PER_STEP + 1)).toBe(10);
+  expect(beltsForSparkle(SPARKLES_PER_STEP * 2 + 1)).toBe(15);
+  // のべ: 6つめ=30本、7つめ=40本、12こめ=90本。
+  expect(beltsNeededFor(6)).toBe(30);
+  expect(beltsNeededFor(7)).toBe(40);
+  expect(beltsNeededFor(12)).toBe(90);
+});
+
+it("6つめのあとは 5本では開かない（つぎは10本）", () => {
+  earn(30);
+  expect(earnedCount(store)).toBe(6);
+  earn(5);
+  expect(earnedCount(store)).toBe(6);       // まだ足りない
+  expect(nextToUnlock(store)?.remaining).toBe(5);
+  earn(5);
+  expect(earnedCount(store)).toBe(7);
+});
+
+it("まだ持っていない1つに、のべ何本 要るかが分かる", () => {
+  const earned = MY_SPARKLES.filter((s) => s.tier !== "start");
+  expect(beltsToOwn(earned[0].id)).toBe(5);
+  expect(beltsToOwn(earned[6].id)).toBe(40);
+  expect(beltsToOwn(MY_SPARKLES.find((s) => s.tier === "start")!.id)).toBeNull();
 });
 
 it("開く順は カタログの順（start のつぎから）", () => {
