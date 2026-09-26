@@ -134,10 +134,13 @@ In Xcode: select the **App** target → **Signing & Capabilities** → check
 
 ## Notes
 
-- **BGM audio**: the runtime references the compressed **`.mp3`** master
-  (`karate-trainer/public/characters/君ならできる.mp3`, ~5MB). The 40MB `.wav`
-  master is gitignored and not shipped. No 25MB-per-file limit applies to the
-  App Store (that limit was Cloudflare Pages), but keep shipping the MP3.
+- **BGM audio**: the app ships one levelled **`.m4a`**
+  (`karate-trainer/public/characters/one-more-rounds.m4a`, ~8MB, 6:00, -27.5 dBFS).
+  It is produced from the mp3 master by `karate-trainer/tools/normalize-audio.py`,
+  which writes the m4a and deletes the mp3 again, so only the m4a is committed —
+  keep the mp3 master outside the repo. CoreAudio cannot write mp3, and the level
+  has to live in the file, which is why the shipped format is AAC.
+  The BGM only plays while イヤフォン are connected (`karate-trainer/src/bgm-gate.ts`).
 - **Web deploy** (unrelated to iOS) stays manual via Wrangler:
   `npx wrangler pages deploy karate-trainer/dist --project-name=karate-trainer --branch=main --commit-dirty=true`
 - The `ios/` folder, once generated, does not need to be committed — but you MAY

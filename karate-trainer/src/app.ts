@@ -37,6 +37,7 @@ import { type Decor, canRemoveDecor, effectiveDecor, loadDecor, setDecor } from 
 import { type Billing, type BillingInfo, type ProductId, planOfProduct, renewalText } from "./billing";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
+import type { GatedBgmPlayer } from "./bgm-gate";
 import { loadLetters, addLetter, markLetterRead, removeLetter } from "./letter-store";
 import { getShareAllowed, setShareAllowed } from "./share-setting-store";
 import { renderParentalGate } from "./parental-gate";
@@ -144,6 +145,14 @@ export interface RafLoop {
 }
 
 // Background music controller. Kept minimal so it's trivial to inject/mock.
+/// 練習BGM が イヤフォンのゲートを通してあるかどうか（main.ts はいつも通して
+/// いるが、テストや piano ビルドは素の player / 無しのことがある）。
+function bgmGate(bgm: BgmPlayer | undefined): GatedBgmPlayer | undefined {
+  return bgm && typeof (bgm as GatedBgmPlayer).mutedByHeadphones === "function"
+    ? (bgm as GatedBgmPlayer)
+    : undefined;
+}
+
 export interface BgmPlayer {
   // Prime the audio element inside a user-gesture handler (e.g. the Start tap)
   // so a later play() isn't blocked by the browser's autoplay policy. Without
@@ -564,7 +573,10 @@ export class KarateApp {
         }
         this.showSetup();
       },
-      bgmMuted: this.deps.bgm ? getBgmMuted(this.base()) : undefined,
+      // 鳴らない理由が「イヤフォンが無い」ことでも 🔇 に見えるように、
+      // 選んだ設定ではなく いま鳴るかどうかを渡す（bgm-gate.ts）。
+      bgmMuted: this.deps.bgm ? this.deps.bgm.isMuted() : undefined,
+      bgmNeedsHeadphones: bgmGate(this.deps.bgm)?.mutedByHeadphones(),
       onToggleBgm: this.deps.bgm
         ? () => {
             const next = !getBgmMuted(this.base());
@@ -1355,10 +1367,23 @@ export class KarateApp {
     view.onToggleBgm(() => {
       const next = !getBgmMuted(this.base());
       setBgmMuted(next, this.base());
-      view.setBgmMuted(next);
-      if (this.paused) return;   // stays silent until ▶ 再開
+      if (this.paused) {         // stays silent until ▶ 再開
+        view.setBgmMuted(next);
+        return;
+      }
       this.deps.bgm?.setMuted(next);
-      this.overlayLog?.logSound({ kind: "bgm", playing: !next });
+      // 「入」にしても イヤフォンが無ければ鳴らない。記録するのは *鳴ったか* —
+      // ここで next を使うと、鳴っていない音楽が保存する動画に入ってしまう。
+      const audible = !(this.deps.bgm?.isMuted() ?? true);
+      view.setBgmMuted(!audible);
+      this.overlayLog?.logSound({ kind: "bgm", playing: audible });
+    });
+    // 稽古のとちゅうで イヤフォンを抜いた/さした。音は gate が止めている（native の
+    // 一時停止）ので、ここでは 保存する動画の記録だけ合わせる。
+    this.bgmGateOff = bgmGate(this.deps.bgm)?.onHeadphoneChange((audible) => {
+      view.setBgmMuted(!audible);
+      if (this.paused) return;
+      this.overlayLog?.logSound({ kind: "bgm", playing: audible });
     });
 
     this.scheduler = scheduler;
@@ -1375,6 +1400,8 @@ export class KarateApp {
   }
 
   private scheduler: SessionScheduler | null = null;
+  /// イヤフォンの出入りの購読をやめる関数（稽古が終わるまで）。
+  private bgmGateOff?: () => void;
 
   private showCameraError(): void {
     // 撮影が始まらなかったので、ガイドは「開始をおす」ところまで巻きもどす。
@@ -1433,6 +1460,8 @@ export class KarateApp {
     this.deps.rafLoop.stop();
     this.stopRecTimer();
     this.deps.bgm?.stop();
+    this.bgmGateOff?.();
+    this.bgmGateOff = undefined;
     this.overlayLog?.logSound({ kind: "bgm", playing: false });
 
     try {

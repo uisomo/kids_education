@@ -32,13 +32,13 @@ enum SoundMixer {
     }
 
     /// Levels relative to the voice (1.0). Music sits far under the child so
-    /// what they say stays easy to hear (0.22 still drowned it out);
-    /// character voices are clear without drowning it.
+    /// what they say stays easy to hear (0.22 still drowned it out, and 0.45 was
+    /// still noticeable); character voices are clear without drowning it.
     /// One level covers every clip because the files themselves are levelled —
     /// karate-trainer/tools/normalize-audio.py holds the voice/effect targets.
     /// These two are the fallback, used when the child's voice cannot be
     /// measured; normally `levels(voiceDb:)` sets them per recording.
-    static let musicVolume: Float = 0.45
+    static let musicVolume: Float = 0.15
     static let clipVolume: Float = 0.6
 
     /// What the shipped files measure over their loudest 400 ms — the targets
@@ -48,12 +48,17 @@ enum SoundMixer {
     static let musicFileLevelDb = -27.5
     /// Where the mix puts each kind relative to the child's own voice. A quiet
     /// day used to leave the characters shouting over the child.
+    /// 2026-09-27: the music went from 20 dB to 28 dB under the child. The point
+    /// of it in the saved video is only that the room does not sound dead — it
+    /// should not be something you notice, and at 20 dB it still was.
     static let clipUnderVoiceDb = 3.0
-    static let musicUnderVoiceDb = 20.0
+    static let musicUnderVoiceDb = 28.0
     /// A whisper (or a silent take) must not send the other tracks through the
     /// roof, and a shout must not bury them.
     static let clipRange: ClosedRange<Float> = 0.12...1.0
-    static let musicRange: ClosedRange<Float> = 0.08...1.0
+    /// The floor came down with musicUnderVoiceDb: at 0.08 a quiet take hit the
+    /// floor and the music was louder than the 28 dB rule asked for.
+    static let musicRange: ClosedRange<Float> = 0.03...1.0
 
     /// The volumes for one recording, from the loudness of the child's voice.
     /// Pure and separate from the mix so it can be checked without a device.

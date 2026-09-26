@@ -9,6 +9,26 @@
 ///   engine, so the voice recorded here can stay clear of the speaker. Whether
 ///   it coexists with the camera's own capture session is logged, and the
 ///   export keeps using the capture microphone until that is confirmed.
+/// Whether the sound is going somewhere only the listener can hear it.
+///
+/// 練習BGM は「イヤフォンをつけているときだけ流す」。道場や家のスピーカーから
+/// 音楽が鳴ると、まわりの人の邪魔になるし、録音にも入ってしまう。
+/// AirPlay・HDMI・車のスピーカーは **数えない** — 個人で聴いているとは限らない。
+/// 判定そのものは route を受け取る純粋関数にしてあるので、端末なしで確かめられる。
+enum AudioRoute {
+    static let personalPorts: Set<AVAudioSession.Port> = [
+        .headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio,
+    ]
+
+    static func headphonesConnected(in route: AVAudioSessionRouteDescription) -> Bool {
+        route.outputs.contains { personalPorts.contains($0.portType) }
+    }
+
+    static func headphonesConnected() -> Bool {
+        headphonesConnected(in: AVAudioSession.sharedInstance().currentRoute)
+    }
+}
+
 final class AudioController {
     private let engine = AVAudioEngine()
     private let musicNode = AVAudioPlayerNode()

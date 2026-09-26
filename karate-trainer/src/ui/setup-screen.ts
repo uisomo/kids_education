@@ -88,7 +88,11 @@ export interface SetupDeps {
   onRenameKufu?(from: string, to: string): void;
   // Practice BGM on/off, shown next to the drill total. Omit bgmMuted/onToggleBgm
   // together to hide the button (e.g. no bgm player configured).
+  // bgmMuted is 「いま鳴らない」 — which includes イヤフォンが無いこと.
   bgmMuted?: boolean;
+  // 鳴らない理由が イヤフォンが無いことのとき true。ボタンに 🎧 を出して、
+  // 「押しても鳴らない」ではなく「つければ鳴る」と分かるようにする。
+  bgmNeedsHeadphones?: boolean;
   onToggleBgm?(): void;
   // 🪝 読み上げ hook: words the kid reads aloud once, before Ready → Go!!, so
   // the saved video opens with them. Raw textarea text (spaces / newlines).
@@ -487,12 +491,24 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   if (deps.onToggleBgm) {
     const BGM_ON_LABEL = "🎵 BGM";
     const BGM_OFF_LABEL = "🔇 BGM";
+    // イヤフォンをつけているあいだだけ BGM が流れる（まわりの人の邪魔をせず、
+    // 録音にも入らないように）。つけていないときは、押しても鳴らないのではなく
+    // 「つければ鳴る」ことが分かるように 🎧 にする。
+    const BGM_HEADPHONE_LABEL = "🎧 BGM";
+    const needsHeadphones = !!deps.bgmNeedsHeadphones;
     const bgmBtn = document.createElement("button");
     bgmBtn.type = "button";
     bgmBtn.dataset.bgmToggle = "";
+    if (needsHeadphones) bgmBtn.dataset.bgmNeedsHeadphones = "";
     bgmBtn.className = "bgm-toggle-btn" + (deps.bgmMuted ? " muted" : "");
-    bgmBtn.textContent = deps.bgmMuted ? BGM_OFF_LABEL : BGM_ON_LABEL;
-    bgmBtn.setAttribute("aria-label", "練習BGM on/off");
+    bgmBtn.textContent = needsHeadphones
+      ? BGM_HEADPHONE_LABEL
+      : deps.bgmMuted ? BGM_OFF_LABEL : BGM_ON_LABEL;
+    bgmBtn.setAttribute(
+      "aria-label",
+      needsHeadphones ? "練習BGM — イヤフォンをつけると流れます" : "練習BGM on/off",
+    );
+    if (needsHeadphones) bgmBtn.title = "イヤフォンをつけると BGM が流れます";
     bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
     controls.append(bgmBtn);
   }

@@ -33,15 +33,19 @@ PUBLIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public"
 
 VOICE_TARGET, VOICE_CEILING = -12.0, -1.5     # cheer clips (characters/cheer)
 EFFECT_TARGET, EFFECT_CEILING = -18.0, -9.0   # countdown tones, 🪝 の ドン
-MUSIC_TARGET, MUSIC_CEILING = -27.5, -12.0    # 君ならできる — plays under everything
+MUSIC_TARGET, MUSIC_CEILING = -27.5, -12.0    # 練習BGM — plays under everything
 WINDOW_SEC = 0.4
 SKIP_UNDER_DB = 1.0     # already level (and wide enough for the wobble an AAC
                         # round-trip adds to the peak): do not re-encode it again
 
-# The BGM arrived as a 192 kbps mp3. CoreAudio cannot write mp3, and the level
-# has to end up inside the file, so the normalised copy is AAC at the same rate.
-MUSIC_MP3 = "characters/君ならできる.mp3"
-MUSIC_M4A = "characters/君ならできる.m4a"
+# The BGM arrives as an mp3. CoreAudio cannot write mp3, and the level has to
+# end up inside the file, so the normalised copy is AAC at the same rate. Drop
+# the new mp3 in at MUSIC_MP3 and run this once: it writes the levelled m4a and
+# deletes the mp3 again, so only the m4a is committed.
+# 2026-09-27: 君ならできる -> One more rounds (the original mp3 is the user's own
+# file, kept outside the repo — ~/Downloads/One more rounds.mp3).
+MUSIC_MP3 = "characters/one-more-rounds.mp3"
+MUSIC_M4A = "characters/one-more-rounds.m4a"
 
 
 def targets(rel):

@@ -16,6 +16,8 @@ import UIKit
 /// Events: "recordingInterrupted" `{ reason }` when the system cuts a recording
 /// short (camera interrupted or failed, app sent to the background, a phone
 /// call). JS still calls stopRecording(), which saves what was captured.
+/// "audioRouteChanged" `{ headphones }` when the audio output changes, so the
+/// page can start or stop the 練習BGM as イヤフォン are plugged in or pulled out.
 @objc(KarateRecorderPlugin)
 public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "KarateRecorderPlugin"
@@ -36,6 +38,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setMusicPaused", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopMusic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playClip", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "audioRoute", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getSaveStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "markVideoSeen", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "motionEffectsInfo", returnType: CAPPluginReturnPromise),
@@ -80,6 +83,17 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             await self?.waitUntilActive()
             self?.resumePendingSaves()
         }
+        // イヤフォンを抜いた/さした瞬間に BGM を止める/流せるようにする。
+        // 抜けた瞬間にスピーカーから鳴り出すのを防ぐのが主目的なので、
+        // 起動時の状態は JS 側が audioRoute() で読む。
+        observers.append(NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance(), queue: .main
+        ) { [weak self] _ in
+            let headphones = AudioRoute.headphonesConnected()
+            print("⚡️  [KarateRecorder] audio route changed: headphones=\(headphones)")
+            self?.notifyListeners("audioRouteChanged", data: ["headphones": headphones])
+        })
         observers.append(NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -457,6 +471,11 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func stopMusic(_ call: CAPPluginCall) {
         audio.stopMusic()
         call.resolve()
+    }
+
+    /// `audioRoute()` — 練習BGM を流していいか（イヤフォンかどうか）。
+    @objc func audioRoute(_ call: CAPPluginCall) {
+        call.resolve(["headphones": AudioRoute.headphonesConnected()])
     }
 
     @objc func playClip(_ call: CAPPluginCall) {

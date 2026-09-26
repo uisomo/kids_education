@@ -4,6 +4,7 @@
 // voice paused the music — and ignored the page's volume. Both now play through
 // the native AudioController (ios/App/App/KarateRecorder/AudioController.swift).
 import type { BgmPlayer } from "./app";
+import type { HeadphoneWatcher } from "./bgm-gate";
 import { karateRecorderPlugin, type KarateRecorderPluginLike } from "./native-recorder";
 
 const warnOnFailure = (what: string) => (e: unknown) => console.warn(`native ${what} failed`, e);
@@ -44,6 +45,39 @@ export function makeNativeBgm(
     },
     isMuted() {
       return muted;
+    },
+  };
+}
+
+// イヤフォンかどうかを見張る。native の `audioRoute()` を一度読んでおき、
+// あとは "audioRouteChanged" で更新する（毎回 await していては、稽古が
+// 始まる瞬間に間に合わない）。
+//
+// 読めるまでは **つないでいない** とみなす: 分からないうちに スピーカーから
+// 音楽が鳴り出すほうが困る。古い native ビルドに audioRoute() が無いときは、
+// これまでどおり流す（イヤフォンの決まりが入る前の動き）。
+export function makeNativeHeadphoneWatcher(
+  plugin: KarateRecorderPluginLike = karateRecorderPlugin(),
+): HeadphoneWatcher {
+  const unsupported = typeof plugin.audioRoute !== "function";
+  let connected = unsupported;
+  const listeners = new Set<(connected: boolean) => void>();
+  const update = (next: boolean) => {
+    if (next === connected) return;
+    connected = next;
+    listeners.forEach((cb) => cb(next));
+  };
+  if (!unsupported) {
+    void plugin.audioRoute!()
+      .then((r) => update(r.headphones === true))
+      .catch(warnOnFailure("audio route"));
+    void plugin.addListener?.("audioRouteChanged", (data) => update(data.headphones === true));
+  }
+  return {
+    connected: () => connected,
+    onChange(cb) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
     },
   };
 }

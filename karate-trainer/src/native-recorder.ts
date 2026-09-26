@@ -105,6 +105,11 @@ export interface KarateRecorderPluginLike {
     eventName: "motionEffectsProgress",
     listener: (data: { phase?: string; progress?: number }) => void,
   ): Promise<PluginListenerHandle>;
+  // The audio output changed (イヤフォンを さした / 抜いた): { headphones }.
+  addListener?(
+    eventName: "audioRouteChanged",
+    listener: (data: { headphones?: boolean }) => void,
+  ): Promise<PluginListenerHandle>;
   getSaveStatus?(): Promise<SaveStatus>;
   // Writes a finished video into the phone's own 写真 library (no share sheet).
   saveToPhotos?(opts: { uri: string }): Promise<void>;
@@ -131,6 +136,9 @@ export interface KarateRecorderPluginLike {
   setMusicPaused(opts: { paused: boolean }): Promise<void>;
   stopMusic(): Promise<void>;
   playClip(opts: { src: string; volume: number }): Promise<void>;
+  // Whether the sound is going to イヤフォン right now — the 練習BGM only plays
+  // then. Optional so older native builds and the test fakes still type.
+  audioRoute?(): Promise<{ headphones?: boolean }>;
 }
 
 export interface NativeRecorderDeps {

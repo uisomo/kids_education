@@ -11,7 +11,8 @@ import {
   openAppSettings, requestAppReview,
 } from "./native-recorder";
 import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
-import { makeNativeBgm, playNativeClip } from "./native-audio";
+import { makeNativeBgm, makeNativeHeadphoneWatcher, playNativeClip } from "./native-audio";
+import { alwaysConnected, withHeadphoneGate } from "./bgm-gate";
 import { Capacitor } from "@capacitor/core";
 import { makeRevenueCatBilling } from "./revenuecat-billing";
 import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
@@ -33,8 +34,8 @@ const store = new VoiceStore(idbKv());
 // has already installed it.
 if (!isNative) mountInstallBanner(document.body, detectEnv());
 
-// Background music played during a session (loops from Go!! to session end).
-// The filename is Japanese, so encode it for the URL.
+// Background music played during a session (loops from Go!! to session end),
+// and only while イヤフォン are connected — see bgm-gate.ts.
 // Every sound the app ships is levelled in the asset itself by
 // tools/normalize-audio.py — voices to -12 dBFS, 効果音 to -18, the music to
 // -27.5 (measured over each file's loudest 400 ms). They used to arrive at
@@ -46,7 +47,7 @@ if (!isNative) mountInstallBanner(document.body, detectEnv());
 const BGM_GAIN = 1.0;
 const CHEER_VOICE_VOLUME = 0.9;
 const EFFECT_VOLUME = 0.8;
-const BGM_SRC = `/characters/${encodeURIComponent("君ならできる")}.m4a`;
+const BGM_SRC = "/characters/one-more-rounds.m4a";
 
 function makeBgm(): BgmPlayer {
   const src = BGM_SRC;
@@ -124,6 +125,14 @@ function makeBgm(): BgmPlayer {
   };
 }
 
+// 練習BGM は イヤフォンをつけているときだけ流す（bgm-gate.ts）。出口が読めるのは
+// native だけなので、ブラウザではこれまでどおり流す。
+function makeGatedBgm(): BgmPlayer {
+  return isNative
+    ? withHeadphoneGate(makeNativeBgm(BGM_SRC, BGM_GAIN), makeNativeHeadphoneWatcher())
+    : withHeadphoneGate(makeBgm(), alwaysConnected);
+}
+
 const tickLoop = makeTickLoop();
 
 await store.init();
@@ -192,7 +201,7 @@ const app = new KarateApp(root, {
   authenticateParent: isNative ? (reason: string) => authenticateParent(reason) : undefined,
   // The piano app never plays BGM: the piano itself is the music. With no
   // player the BGM buttons are not shown either.
-  bgm: IS_PIANO ? undefined : isNative ? makeNativeBgm(BGM_SRC, BGM_GAIN) : makeBgm(),
+  bgm: IS_PIANO ? undefined : makeGatedBgm(),
   playEffect: isNative
     ? (src) => playNativeClip(src, EFFECT_VOLUME)
     : (src) => { void new Audio(src).play().catch(() => { /* autoplay blocked */ }); },
