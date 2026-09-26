@@ -176,10 +176,20 @@ public enum SceneBuilder {
         // 同じものに見える（実際そう言われた）。炎は上へ立ちのぼり、氷は
         // まっすぐ角ばって生え、吹雪は流れ、風は通り過ぎる。
         if !reduceMotion {
-            let limbs = frame.limbs
+            let usable = frame.limbs
                 .filter { $0.energy > 0.05 && $0.root.inUnitSquare && $0.mid.inUnitSquare && $0.tip.inUnitSquare }
                 .sorted { $0.energy > $1.energy }
-                .prefix(preset.maxAnchors)
+            var chosen = Array(usable.prefix(preset.maxAnchors))
+            // **蹴りにも かざりを付ける。** エネルギー順に並べると、腕のほうが
+            // 速いので いつも腕が2本とも取ってしまう（脚は画面の下で、動く幅も
+            // 小さい）。動いている脚があれば、いちばん弱い腕と入れ替えて
+            // **必ず1本は脚に回す**（本数は増やさない ＝ 画面はうるさくならない）。
+            if !chosen.contains(where: { $0.kind == .leg }),
+               let leg = usable.first(where: { $0.kind == .leg && $0.energy > 0.12 }) {
+                if chosen.count >= preset.maxAnchors { chosen.removeLast() }
+                chosen.append(leg)
+            }
+            let limbs = chosen
             for (limbIndex, limb) in limbs.enumerated() {
                 guard !hidesBehindFace(limb.tip, pad: wrapAmplitude),
                       !hidesBehindFace(limb.mid, pad: wrapAmplitude),

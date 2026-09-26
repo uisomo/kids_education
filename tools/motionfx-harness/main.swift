@@ -63,6 +63,21 @@ Task {
     for f in frames { for a in f.anchors { if let b = a.lastBurst { bursts.insert((b*100).rounded()/100) } } }
     print("  distinct bursts: \(bursts.count)")
     print("  骨（腕/脚）が取れたコマ: \(frames.filter { !$0.limbs.isEmpty }.count)")
+    // 🦵 脚は出ているか。エンジンは足首を見ているが、かざりが描かれるのは
+    // 「エネルギーの高い順に maxAnchors 本」なので、腕に負けると出ない。
+    let armFrames = frames.filter { $0.limbs.contains { $0.kind == .arm } }.count
+    let legFrames = frames.filter { $0.limbs.contains { $0.kind == .leg } }.count
+    var legDrawn = 0, legEnergyMax = 0.0
+    for f in frames {
+        let usable = f.limbs.filter { $0.energy > 0.05 && $0.root.inUnitSquare && $0.mid.inUnitSquare && $0.tip.inUnitSquare }
+            .sorted { $0.energy > $1.energy }.prefix(2)
+        if usable.contains(where: { $0.kind == .leg }) { legDrawn += 1 }
+        legEnergyMax = max(legEnergyMax, f.limbs.filter { $0.kind == .leg }.map(\.energy).max() ?? 0)
+    }
+    print("  🦵 脚の骨が取れたコマ \(legFrames)（腕 \(armFrames)）/ 上位2本に入って **描かれた** コマ \(legDrawn)"
+          + String(format: "  脚のエネルギー最大 %.2f", legEnergyMax))
+    let ankles = frames.flatMap { $0.anchors.filter { $0.joint.isFoot } }
+    print("  🦵 足首のアンカー \(ankles.count) こ（うち 信頼度0.5以上 \(ankles.filter { $0.confidence >= 0.5 }.count)）")
     // FXDUMP=<秒> で、その前後 0.4 秒の骨とアンカーの座標を出す。
     // 「なぜ そこに かざりが出るのか」は、目で見ても分からない。
     if let at = ProcessInfo.processInfo.environment["FXDUMP"].flatMap(Double.init) {

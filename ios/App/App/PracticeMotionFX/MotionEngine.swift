@@ -7,6 +7,10 @@ public final class MotionEngine {
     private struct State {
         var raw: FXPoint; var smoothed: FXPoint; var relative: FXPoint; var time: Double
         var velocity: FXPoint = .zero; var lastBurst: Double?; var armed = true
+        /// 速さを測る基準にした関節（尻／肩が見えなければ 膝／肘）。
+        /// **入れ替わったコマは速さを測らない** — 相対位置が飛ぶので、
+        /// 何もしていないのに「技が決まった」ことになってしまう。
+        var baseJoint: FXJoint?
     }
     /// 支えの無い点（肩・肘／尻・膝 が取れていない関節）に求める信頼度。
     ///
@@ -73,10 +77,28 @@ public final class MotionEngine {
                 states.removeValue(forKey: joint)
                 continue
             }
-            let base = joint.isHandSlot ? FXPoint.zero : (point(root)?.point ?? sample.point)
+            // 速さは **体に対する動き** で測る（カメラが揺れても出ないように）。
+            // 尻や肩が取れないときは **手前の関節（膝・肘）**、それも無ければ
+            // 体のまん中を基準にする。ここを「自分自身」にしていたので、
+            // 尻の見えない脚は energy が いつも 0 だった ＝ **蹴りに かざりが
+            // 付かなかった**（合成した蹴りで確かめた）。
+            // **代わりの基準を使うのは 脚だけ。**
+            // 腕で肩の代わりに肘を使うと、前腕の長さは突いても伸びないので
+            // 「腕が伸びた」が取れなくなり、技の決まった瞬間が
+            // 実写で 19回 → 10回 に減った。腕は今までどおり肩から測る。
+            // 脚は尻が隠れやすい（焼き込んだ UI・画面の外）ので、
+            // 尻 → 膝 → 体のまん中 の順に使う。いちど選んだものは、
+            // 見えているあいだ 替えない（基準が飛ぶと速さが嘘になる）。
+            let candidates: [FXJoint] = joint.isHandSlot ? [] : (joint.isFoot ? [root, middle, .root] : [root])
+            let available = candidates.filter { point($0) != nil }
+            let baseJoint: FXJoint? = states[joint]?.baseJoint.flatMap { available.contains($0) ? $0 : nil }
+                ?? available.first
+            let base = joint.isHandSlot ? FXPoint.zero
+                : (baseJoint.flatMap { point($0)?.point } ?? sample.point)
             let relative = sample.point-base
             guard var state = states[joint] else {
-                states[joint] = State(raw: sample.point, smoothed: sample.point, relative: relative, time: pose.time)
+                states[joint] = State(raw: sample.point, smoothed: sample.point, relative: relative,
+                                      time: pose.time, baseJoint: baseJoint)
                 output.anchors.append(.init(joint: joint, point: sample.point, confidence: sample.confidence))
                 continue
             }
@@ -84,6 +106,16 @@ public final class MotionEngine {
             // Reject implausible landmark teleportation; re-acquire without a burst or a connecting trail.
             if dt <= 0 || dt > 0.25 || sample.point.distance(to: state.raw, aspect: aspect) > max(0.20, dt*3.5) {
                 states.removeValue(forKey: joint)
+                continue
+            }
+            // 基準の関節が入れ替わったコマは、速さを測らずに測り直しから始める
+            //（脚だけ。腕は基準が肩ひとつなので、今までの動きのまま）。
+            if joint.isFoot, state.baseJoint != baseJoint {
+                state.baseJoint = baseJoint; state.relative = relative
+                state.raw = sample.point; state.smoothed = sample.point; state.time = pose.time
+                states[joint] = state
+                output.anchors.append(.init(joint: joint, point: sample.point,
+                                            confidence: sample.confidence, lastBurst: state.lastBurst))
                 continue
             }
             let rawVelocity = (sample.point-state.raw)*(1/dt)
@@ -116,11 +148,21 @@ public final class MotionEngine {
             }
             output.anchors.append(.init(joint: joint, point: smooth, velocity: state.velocity,
                                         energy: energy, confidence: sample.confidence, lastBurst: state.lastBurst))
-            // 腕／脚の骨。肩と肘が取れたコマだけ。かざりを腕に巻きつけるのに使う。
-            if !joint.isHandSlot, let r = point(root)?.point, let m = point(middle)?.point,
-               r.inUnitSquare, m.inUnitSquare {
+            // 腕／脚の骨。かざりを巻きつけるのに使う。
+            //
+            // **膝（肘）だけでも骨にする。** 尻や肩は、UI の焼き込みや画面の外で
+            // 隠れやすい（蹴りでは とくに尻が出ない）。両方そろったときだけに
+            // していたので、脚のかざりが ほとんど出なかった。
+            // 手前の関節が取れていれば「すね」「前腕」として2点ぶん描く。
+            // となりの関節が裏づけている点しか通さない決まり
+            //（`unsupportedConfidence`）は そのまま。
+            if !joint.isHandSlot, let m = point(middle)?.point, m.inUnitSquare {
+                let r = point(root)?.point
+                let hasRoot = r?.inUnitSquare == true
                 output.limbs.append(.init(kind: joint.isFoot ? .leg : .arm, joint: joint,
-                                          root: r, mid: m, tip: smooth, energy: energy))
+                                          root: hasRoot ? r! : m,
+                                          mid: hasRoot ? m : m.mixed(with: smooth, amount: 0.5),
+                                          tip: smooth, energy: energy))
             }
             state.raw = sample.point; state.smoothed = smooth; state.relative = relative; state.time = pose.time
             states[joint] = state
