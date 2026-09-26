@@ -10,7 +10,7 @@ SRC="$ROOT/ios/App/App/PracticeMotionFX"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="${MOTIONFX_BUILD_DIR:-$(mktemp -d)}"
 mkdir -p "$OUT"
-for f in Models Geometry MotionEngine Scene Timeline Catalog VisionPoseDetector VideoAnalyzer EffectPainter; do
+for f in Models Geometry MotionEngine Scene MusicScene AudioAnalyzer AudioTrackAnalyzer Timeline Catalog VisionPoseDetector VideoAnalyzer EffectPainter; do
   sed -e 's/#if os(iOS)/#if true/' -e 's/^import UIKit$/import CoreGraphics/' "$SRC/$f.swift" > "$OUT/$f.swift"
 done
 cp "$SRC/Effects.json" "$HERE/main.swift" "$HERE/render.swift" "$OUT/"

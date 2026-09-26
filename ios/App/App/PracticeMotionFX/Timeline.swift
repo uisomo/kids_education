@@ -1,20 +1,54 @@
 import Foundation
 
 public struct EffectTimeline: Codable, Sendable {
-    public var schemaVersion: Int = 2
+    public var schemaVersion: Int = 3
     public let sourceID: String
     public let mode: PracticeMode
     public let duration: Double
     public let frames: [EffectFrame]
-    public init(sourceID: String, mode: PracticeMode, duration: Double, frames: [EffectFrame]) throws {
-        self.sourceID = sourceID; self.mode = mode; self.duration = duration; self.frames = frames
+    /// 🎹 音のコマ（ピアノ）。**空手では空**。
+    /// ピアノは体ではなく音を見るので、こちらだけが入り `frames` は空になる。
+    public let audio: [FXAudioFrame]
+    /// 動画の大きさ。音だけのときは `frames` が空で、そこから取れないので持つ。
+    public let sourceSize: FXSize
+    public init(sourceID: String, mode: PracticeMode, duration: Double,
+                frames: [EffectFrame], audio: [FXAudioFrame] = [],
+                sourceSize: FXSize = FXSize(1, 1)) throws {
+        self.sourceID = sourceID; self.mode = mode; self.duration = duration
+        self.frames = frames; self.audio = audio
+        self.sourceSize = frames.first?.sourceSize ?? sourceSize
+        try validate()
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        sourceID = try c.decode(String.self, forKey: .sourceID)
+        mode = try c.decode(PracticeMode.self, forKey: .mode)
+        duration = try c.decode(Double.self, forKey: .duration)
+        frames = try c.decodeIfPresent([EffectFrame].self, forKey: .frames) ?? []
+        audio = try c.decodeIfPresent([FXAudioFrame].self, forKey: .audio) ?? []
+        sourceSize = try c.decodeIfPresent(FXSize.self, forKey: .sourceSize)
+            ?? frames.first?.sourceSize ?? FXSize(1, 1)
         try validate()
     }
     public func validate() throws {
-        // 2 = 腕／脚の骨（limbs）が入っている。1 の解析結果は読まずに取り直す
-        // （骨が無いと、腕に巻きつくかざりが黙って出なくなる）。
-        guard schemaVersion == 2, duration.isFinite, duration > 0, duration <= 3600,
-              !sourceID.isEmpty, frames.count <= 108_001 else { throw FXError.invalidData("Invalid timeline metadata or size.") }
+        // 3 = 🎹 音のコマ（audio）が入る形。2 は腕／脚の骨（limbs）まで。
+        // 古い解析結果は読まずに取り直す（黙ってかざりが減るのを防ぐ）。
+        guard schemaVersion == 3, duration.isFinite, duration > 0, duration <= 3600,
+              !sourceID.isEmpty, frames.count <= 108_001, audio.count <= 108_001,
+              sourceSize.isValid else { throw FXError.invalidData("Invalid timeline metadata or size.") }
+        var lastAudio = -Double.infinity
+        for a in audio {
+            guard a.time.isFinite, a.time >= 0, a.time <= duration+0.5, a.time > lastAudio,
+                  (0...1).contains(a.level), (0...1).contains(a.brightness), a.notes.count <= 8 else {
+                throw FXError.invalidData("Invalid or unsorted audio frames.")
+            }
+            for n in a.notes {
+                guard (0...11).contains(n.pitchClass), (0...9).contains(n.octave),
+                      (0...1).contains(n.strength) else { throw FXError.invalidData("Invalid audio note.") }
+            }
+            lastAudio = a.time
+        }
         var last = -Double.infinity
         for f in frames {
             guard f.time.isFinite, f.time >= 0, f.time <= duration+0.1, f.time > last,
@@ -54,10 +88,31 @@ public struct EffectTimeline: Codable, Sendable {
         }
         return low-1
     }
+    /// 音のコマの二分探索（その時刻 以前の いちばん後ろ）。
+    public func precedingAudioIndex(at time: Double) -> Int? {
+        guard time.isFinite, !audio.isEmpty, time >= audio[0].time-0.2 else { return nil }
+        var low = 0, high = audio.count
+        while low < high {
+            let mid = (low+high)/2
+            if audio[mid].time <= time { low = mid+1 } else { high = mid }
+        }
+        return low > 0 ? low-1 : 0
+    }
+
     public func scene(at time: Double, preset: EffectPreset, intensity: Double = 1,
                       reduceMotion: Bool = false) -> EffectScene {
-        let size = frames.first?.sourceSize ?? FXSize(1,1)
-        guard preset.mode == mode, let i = precedingIndex(at: time) else { return .init(sourceSize: size) }
+        let size = sourceSize
+        guard preset.mode == mode else { return .init(sourceSize: size) }
+        // 🎹 音から作る道（ピアノ）。体は見ない。
+        if !audio.isEmpty {
+            // いままでのコマだけを渡す（川と花火は「さっき鳴った音」で決まる）。
+            // 1コマごとに頭から数えると、長い練習で書き出しが目に見えて遅くなる。
+            guard let i = precedingAudioIndex(at: time) else { return .init(sourceSize: size) }
+            let from = max(0, i-140)              // 140コマ ≒ 4.7秒ぶん
+            return SceneBuilder.music(frames: Array(audio[from...i]), at: time, sourceSize: size,
+                                      preset: preset, intensity: intensity, reduceMotion: reduceMotion)
+        }
+        guard let i = precedingIndex(at: time) else { return .init(sourceSize: size) }
         var current = frames[i]
         if i+1 < frames.count {
             let next = frames[i+1], gap = next.time-current.time

@@ -68,3 +68,4 @@ func renderClip(video: URL, timeline: EffectTimeline, preset: EffectPreset, cata
     }
     if CGImageDestinationFinalize(dest) { print("  clip \(url.lastPathComponent)") }
 }
+

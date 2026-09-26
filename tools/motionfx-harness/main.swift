@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import CoreGraphics
 
 let videoPath = CommandLine.arguments[1]
 // 解析は かざりに関係ないので、2つめ以降の引数をぜんぶ描く（1回の解析を使い回す）。
@@ -11,6 +12,47 @@ try! catalog.validate()
 let presets = presetIDs.map { catalog.preset($0)! }
 let config = TrackingConfiguration(mode: presets[0].mode)
 let sem = DispatchSemaphore(value: 0)
+
+// 🎹 ピアノのかざりは **音** から作る（アプリと同じ道: VideoMotionAnalyzer が
+// mode を見て、音だけを聞く）。ここには何もロジックを置かない。
+if presets[0].mode == .piano {
+  Task {
+    do {
+      let start = Date()
+      let timeline = try await VideoMotionAnalyzer.analyze(url: url, configuration: config)
+      let onsets = timeline.audio.flatMap { $0.notes.filter(\.onset) }
+      print(String(format: "🎹 音のコマ %d（%.1f秒ぶん・解析 %.1f秒） 鳴っているコマ %d  弾いた瞬間 %d 回",
+                   timeline.audio.count, timeline.duration, Date().timeIntervalSince(start),
+                   timeline.audio.filter { !$0.notes.isEmpty }.count, onsets.count))
+      for preset in presets {
+        var drawn = 0, total = 0, prims = 0
+        var scored: [(Double, Int)] = []
+        var t = 0.0
+        while t <= timeline.duration {
+          total += 1
+          let scene = timeline.scene(at: t, preset: preset, intensity: 1, reduceMotion: false)
+          if !scene.primitives.isEmpty { drawn += 1; prims += scene.primitives.count; scored.append((t, scene.primitives.count)) }
+          t += 1.0/30.0
+        }
+        print("\n\(preset.id) (\(preset.name)) style=\(preset.style)")
+        print("  何か出ているコマ \(drawn)/\(total) (\(Int(Double(drawn)/Double(max(1,total))*100))%)、\(prims) 本")
+        scored.sort { $0.1 > $1.1 }
+        var picks: [Double] = []
+        for s in scored where picks.allSatisfy({ abs($0-s.0) > 1.5 }) { picks.append(s.0); if picks.count == 4 { break } }
+        renderProof(video: url, timeline: timeline, preset: preset, catalog: catalog,
+                    times: picks.sorted(), outDir: URL(fileURLWithPath: "proof"), tag: preset.id+tag)
+        if let from = ProcessInfo.processInfo.environment["FXCLIP"].flatMap(Double.init) {
+          renderClip(video: url, timeline: timeline, preset: preset, catalog: catalog,
+                     start: from, seconds: 3, fps: 15, outDir: URL(fileURLWithPath: "proof"), tag: preset.id+tag)
+        }
+      }
+    } catch { print("FAILED: \(error)") }
+    sem.signal()
+  }
+  sem.wait()
+  exit(0)
+}
+
 Task {
   do {
     let timeline = try await VideoMotionAnalyzer.analyze(url: url, configuration: config)

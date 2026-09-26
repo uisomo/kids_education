@@ -58,7 +58,7 @@ public struct EffectScene: Codable, Sendable, Equatable {
 /// 計算は **display 空間**（x に aspect を掛けた空間）でやる。そうしないと縦長の
 /// 動画で「腕に巻きつく渦」が横につぶれた楕円になる。距離の単位は「縦の 1.0」で、
 /// 短辺に対する割合から直すときは `shortToY` を掛ける。
-private struct DisplayPath {
+struct DisplayPath {
     var pts: [FXPoint]
     var cum: [Double]
     var total: Double
@@ -192,212 +192,9 @@ public enum SceneBuilder {
                 let seed = limbIndex &* 9931
                 let colour = preset.color
 
-                switch style {
-
-                case "lightning":
-                    // パチパチさせるため、コマごとに引き直す。time を刻んだものを
-                    // 種にしているので、同じ時刻なら必ず同じ形（書き出しをやり直しても
-                    // 同じ絵になる）。
-                    let tick = Int((time*boltPerSecond).rounded(.down))
-                    for (index, spec) in [(0.0, 1.0, 1.7), (Double.pi, 0.62, 2.3)].enumerated() {
-                        let (phase, weight, turns) = spec
-                        let pts = wrap(path, aspect: aspect, samples: 26, amplitude: amp*weight,
-                                       turns: turns, phase: phase,
-                                       jitter: boltJitter*shortToY*weight, seed: tick &+ seed &+ index &* 7717)
-                        scene.primitives.append(.init(kind: .glow, points: pts,
-                                                      color: colour.opacity(lit*weight),
-                                                      lineWidth: boltWidth*weight))
-                    }
-                    // 枝分かれ。稲妻らしさの半分はこれ。
-                    for (index, at) in [0.52, 0.80].enumerated() {
-                        let (p, dir) = path.at(at)
-                        let n = FXPoint(-dir.y, dir.x)
-                        let side: Double = index == 0 ? 1 : -1
-                        var branch: [FXPoint] = []
-                        for step in 0...3 {
-                            let k = Double(step)/3
-                            let out = amp*1.5*k*side
-                            let drift = amp*0.5*(noise(tick &+ seed &+ index &* 131, step)-0.5)
-                            let d = FXPoint(p.x+n.x*out+dir.x*drift, p.y+n.y*out+dir.y*drift)
-                            branch.append(FXPoint(d.x/aspect, d.y))
-                        }
-                        scene.primitives.append(.init(kind: .glow, points: branch,
-                                                      color: colour.opacity(lit*0.75),
-                                                      lineWidth: boltWidth*0.6))
-                    }
-
-                case "flame":
-                    // 炎は **上へ立ちのぼる**。腕の向きに関係なく、いつも画面の上へ。
-                    // 舌を3本、根元は太く先はとがらせて、コマごとに揺らす。
-                    let tick = Int((time*flamePerSecond).rounded(.down))
-                    for tongue in tongues(path, aspect: aspect, count: 3,
-                                          length: amp*(2.3+1.2*energy), sway: amp*0.75,
-                                          seed: tick &+ seed) {
-                        scene.primitives.append(.init(kind: .ribbon, points: tongue,
-                                                      color: colour.opacity(lit),
-                                                      lineWidth: bandWidth*1.5, taper: 0))
-                    }
-                    // 芯。腕そのものが熱を持っているように見せる。
-                    scene.primitives.append(.init(kind: .glow,
-                        points: wrap(path, aspect: aspect, samples: 14, amplitude: amp*0.12,
-                                     turns: 1, phase: time*2.2, jitter: 0, seed: 0),
-                        color: colour.opacity(lit*0.9), lineWidth: bandWidth*0.9))
-                    // 火の粉。上へ流れて消える。
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 14, spread: amp*0.9,
-                                            drift: FXPoint(amp*0.5, -amp*3.4), speed: 1.4,
-                                            time: time, seed: seed &+ 55),
-                        color: colour.opacity(lit*0.85), radius: bandWidth*0.34, glyphID: "dot"))
-
-                case "ice":
-                    // 氷は **角ばって、まっすぐ生える**。ゆらさない（結晶は揺れない）。
-                    // 腕から左右交互に、とがった結晶が伸びる。
-                    // 根元を太く、先をとがらせる。細いと氷ではなく「ひっかき傷」に見える。
-                    for (index, shard) in shards(path, aspect: aspect, count: 5,
-                                                 length: amp*(1.5+1.1*energy), seed: seed).enumerated() {
-                        scene.primitives.append(.init(kind: .ribbon, points: shard,
-                                                      color: colour.opacity(lit*(index % 2 == 0 ? 1 : 0.7)),
-                                                      lineWidth: bandWidth*(index % 2 == 0 ? 2.3 : 1.5),
-                                                      taper: 0))
-                    }
-                    // 骨に沿った 硬い直線。丸みを出さないため うねらせない。
-                    scene.primitives.append(.init(kind: .glow,
-                        points: wrap(path, aspect: aspect, samples: 6, amplitude: 0,
-                                     turns: 0, phase: 0, jitter: 0, seed: 0),
-                        color: colour.opacity(lit*0.8), lineWidth: bandWidth*0.7))
-
-                case "blizzard":
-                    // 吹雪は **流れる**。腕に貼りつくのではなく、まわりを通り過ぎる。
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 26, spread: amp*2.2,
-                                            drift: FXPoint(-amp*4.5, amp*2.2), speed: 1.9,
-                                            time: time, seed: seed &+ 12),
-                        color: colour.opacity(lit), radius: bandWidth*0.30,
-                        glyphID: "dash", angle: 2.68))
-                    // 風すじ。2本だけ、速く。
-                    for index in 0..<2 {
-                        let at = ((time*1.7+Double(index)*0.5).truncatingRemainder(dividingBy: 1))
-                        scene.primitives.append(.init(kind: .ribbon,
-                            points: streak(path, aspect: aspect, at: at,
-                                           length: amp*3.4, drift: FXPoint(-amp*2.6, amp*1.3)),
-                            color: colour.opacity(lit*0.8), lineWidth: bandWidth*0.8, taper: 0))
-                    }
-
-                case "water":
-                    // なめらかに うねる。太くて やわらかい。
-                    let phase = time*spinPerSecond*2*Double.pi*0.8
-                    for (offset, weight) in [(0.0, 1.0), (Double.pi, 0.45)] {
-                        scene.primitives.append(.init(kind: .ribbon,
-                            points: wrap(path, aspect: aspect, samples: 30, amplitude: amp*1.1,
-                                         turns: 1.8, phase: phase+offset, jitter: 0, seed: 0),
-                            color: colour.opacity(lit*weight),
-                            lineWidth: bandWidth*1.7*(weight == 1 ? 1 : 0.6), taper: 0.25))
-                    }
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 10, spread: amp*1.3,
-                                            drift: FXPoint(amp*0.8, amp*2.6), speed: 1.1,
-                                            time: time, seed: seed &+ 71),
-                        color: colour.opacity(lit*0.8), radius: bandWidth*0.32, glyphID: "dot"))
-
-                case "wind":
-                    // 風は **通り過ぎる**。三日月が腕に沿って流れていく。
-                    for index in 0..<3 {
-                        let at = ((time*1.25+Double(index)/3).truncatingRemainder(dividingBy: 1))
-                        scene.primitives.append(.init(kind: .ribbon,
-                            points: crescent(path, aspect: aspect, at: at, span: amp*2.6, bow: amp*1.1),
-                            color: colour.opacity(lit*(1-abs(at-0.5)*0.7)),
-                            lineWidth: bandWidth*1.1, taper: 0))
-                    }
-
-                case "sparkle":
-                    // きらめき。粒が ちかちかして、腕のまわりで またたく。
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 16, spread: amp*1.6,
-                                            drift: FXPoint(0, -amp*1.1), speed: 0.7,
-                                            time: time, seed: seed &+ 903),
-                        color: colour.opacity(lit), radius: bandWidth*0.55, glyphID: "star"))
-                    scene.primitives.append(.init(kind: .glow,
-                        points: wrap(path, aspect: aspect, samples: 20, amplitude: amp*0.5,
-                                     turns: 1.6, phase: time*1.4, jitter: 0, seed: 0),
-                        color: colour.opacity(lit*0.45), lineWidth: bandWidth*0.55))
-
-                case "petal":
-                    // 花びらが 腕のまわりを 舞う。
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 14, spread: amp*1.8,
-                                            drift: FXPoint(amp*1.6, amp*2.2), speed: 0.85,
-                                            time: time, seed: seed &+ 421),
-                        color: colour.opacity(lit), radius: bandWidth*0.62,
-                        glyphID: "petal", angle: time*1.3))
-                    scene.primitives.append(.init(kind: .glow,
-                        points: wrap(path, aspect: aspect, samples: 24, amplitude: amp*0.7,
-                                     turns: 2.0, phase: time*1.0, jitter: 0, seed: 0),
-                        color: colour.opacity(lit*0.40), lineWidth: bandWidth*0.6))
-
-                case "shadow":
-                    // 影。太くて ふちがぎざぎざ。ゆっくり うねる。
-                    let tick = Int((time*6).rounded(.down))
-                    for (index, weight) in [1.0, 0.55].enumerated() {
-                        scene.primitives.append(.init(kind: .ribbon,
-                            points: wrap(path, aspect: aspect, samples: 22, amplitude: amp*0.9*weight,
-                                         turns: 1.3, phase: time*0.9+Double(index)*2.1,
-                                         jitter: amp*0.35, seed: tick &+ seed &+ index &* 311),
-                            color: colour.opacity(lit*weight),
-                            lineWidth: auraWidth*(index == 0 ? 1 : 0.55), taper: 0.3))
-                    }
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 10, spread: amp*1.7,
-                                            drift: FXPoint(0, -amp*1.6), speed: 0.9,
-                                            time: time, seed: seed &+ 77),
-                        color: colour.opacity(lit*0.7), radius: bandWidth*0.45, glyphID: "dot"))
-
-                case "dragon":
-                    // 長い胴が腕に巻きつき、**手首の先まで抜けて** 尾になる。
-                    scene.primitives.append(.init(kind: .ribbon,
-                        points: serpent(path, aspect: aspect, turns: 3.0, amplitude: amp*1.15,
-                                        phase: time*spinPerSecond*2*Double.pi, overshoot: 0.45),
-                        color: colour.opacity(lit), lineWidth: bandWidth*2.1, taper: 0))
-                    scene.primitives.append(.init(kind: .ribbon,
-                        points: serpent(path, aspect: aspect, turns: 3.0, amplitude: amp*1.15,
-                                        phase: time*spinPerSecond*2*Double.pi+Double.pi, overshoot: 0.2),
-                        color: colour.opacity(lit*0.45), lineWidth: bandWidth*1.1, taper: 0))
-                    scene.primitives.append(.init(kind: .spray,
-                        points: sprayPoints(path, aspect: aspect, count: 9, spread: amp*1.4,
-                                            drift: FXPoint(amp*1.2, -amp*1.8), speed: 1.3,
-                                            time: time, seed: seed &+ 313),
-                        color: colour.opacity(lit*0.8), radius: bandWidth*0.36, glyphID: "dot"))
-
-                case "rainbow":
-                    // 7色は多すぎるので3本。preset の色は使わない（虹だから）。
-                    let hues: [FXColor] = [.init(1, 0.30, 0.32), .init(0.35, 1, 0.55), .init(0.45, 0.62, 1)]
-                    for (index, hue) in hues.enumerated() {
-                        scene.primitives.append(.init(kind: .ribbon,
-                            points: wrap(path, aspect: aspect, samples: 28,
-                                         amplitude: amp*(0.75+0.25*Double(index)),
-                                         turns: 2.4, phase: time*spinPerSecond*2*Double.pi+Double(index)*0.7,
-                                         jitter: 0, seed: 0),
-                            color: hue.opacity(lit*0.9), lineWidth: bandWidth*1.15, taper: 0.4))
-                    }
-
-                case "aura":
-                    // 腕そのものが太く光る（気をまとっている感じ）。ゆっくり脈打つ。
-                    let pulse = 0.85+0.15*sin(time*5.5)
-                    scene.primitives.append(.init(kind: .glow,
-                        points: wrap(path, aspect: aspect, samples: 18, amplitude: amp*0.18,
-                                     turns: 1.0, phase: time*1.6, jitter: 0, seed: 0),
-                        color: colour.opacity(lit*0.85*pulse), lineWidth: auraWidth))
-
-                default: // "ribbon"
-                    // ぐるぐる回る帯。時間で位相が進むので、腕が止まっていても回り続ける。
-                    let phase = time*spinPerSecond*2*Double.pi
-                    for (offset, weight) in [(0.0, 1.0), (Double.pi, 0.42)] {
-                        scene.primitives.append(.init(kind: .ribbon,
-                            points: wrap(path, aspect: aspect, samples: 30, amplitude: amp,
-                                         turns: 2.6, phase: phase+offset, jitter: 0, seed: 0),
-                            color: colour.opacity(lit*weight),
-                            lineWidth: bandWidth*1.4*(weight == 1 ? 1 : 0.6), taper: 0.35))
-                    }
-                }
+                decorate(path, style: style, colour: preset.color, lit: lit, amp: amp,
+                         energy: energy, aspect: aspect, shortToY: shortToY,
+                         time: time, seed: seed, into: &scene)
             }
         }
 
@@ -478,13 +275,233 @@ public enum SceneBuilder {
         return scene
     }
 
+    // ── style ごとの 描きかた ─────────────────────────────────────────────
+
+    /// **1本の「骨」に沿って、その style のやりかたで描く。**
+    ///
+    /// 空手では骨＝腕（肩→肘→手首）。ピアノでは骨＝**音の柱**（鍵盤の高さから
+    /// 立ちのぼる線）。同じここを通すので、⚡️ も 🔥 も ❄️ も、空手でもピアノでも
+    /// 同じ「動きかた」になる —— 集めたキラキラが、どちらのアプリでも
+    /// 同じものに見える。
+    static func decorate(_ path: DisplayPath, style: String, colour: FXColor,
+                                 lit: Double, amp: Double, energy: Double, aspect: Double,
+                                 shortToY: Double, time: Double, seed: Int,
+                                 into scene: inout EffectScene) {
+        switch style {
+
+        case "lightning":
+            // パチパチさせるため、コマごとに引き直す。time を刻んだものを
+            // 種にしているので、同じ時刻なら必ず同じ形（書き出しをやり直しても
+            // 同じ絵になる）。
+            let tick = Int((time*boltPerSecond).rounded(.down))
+            for (index, spec) in [(0.0, 1.0, 1.7), (Double.pi, 0.62, 2.3)].enumerated() {
+                let (phase, weight, turns) = spec
+                let pts = wrap(path, aspect: aspect, samples: 26, amplitude: amp*weight,
+                               turns: turns, phase: phase,
+                               jitter: boltJitter*shortToY*weight, seed: tick &+ seed &+ index &* 7717)
+                scene.primitives.append(.init(kind: .glow, points: pts,
+                                              color: colour.opacity(lit*weight),
+                                              lineWidth: boltWidth*weight))
+            }
+            // 枝分かれ。稲妻らしさの半分はこれ。
+            for (index, at) in [0.52, 0.80].enumerated() {
+                let (p, dir) = path.at(at)
+                let n = FXPoint(-dir.y, dir.x)
+                let side: Double = index == 0 ? 1 : -1
+                var branch: [FXPoint] = []
+                for step in 0...3 {
+                    let k = Double(step)/3
+                    let out = amp*1.5*k*side
+                    let drift = amp*0.5*(noise(tick &+ seed &+ index &* 131, step)-0.5)
+                    let d = FXPoint(p.x+n.x*out+dir.x*drift, p.y+n.y*out+dir.y*drift)
+                    branch.append(FXPoint(d.x/aspect, d.y))
+                }
+                scene.primitives.append(.init(kind: .glow, points: branch,
+                                              color: colour.opacity(lit*0.75),
+                                              lineWidth: boltWidth*0.6))
+            }
+
+        case "flame":
+            // 炎は **上へ立ちのぼる**。腕の向きに関係なく、いつも画面の上へ。
+            // 舌を3本、根元は太く先はとがらせて、コマごとに揺らす。
+            let tick = Int((time*flamePerSecond).rounded(.down))
+            for tongue in tongues(path, aspect: aspect, count: 3,
+                                  length: amp*(2.3+1.2*energy), sway: amp*0.75,
+                                  seed: tick &+ seed) {
+                scene.primitives.append(.init(kind: .ribbon, points: tongue,
+                                              color: colour.opacity(lit),
+                                              lineWidth: bandWidth*1.5, taper: 0))
+            }
+            // 芯。腕そのものが熱を持っているように見せる。
+            scene.primitives.append(.init(kind: .glow,
+                points: wrap(path, aspect: aspect, samples: 14, amplitude: amp*0.12,
+                             turns: 1, phase: time*2.2, jitter: 0, seed: 0),
+                color: colour.opacity(lit*0.9), lineWidth: bandWidth*0.9))
+            // 火の粉。上へ流れて消える。
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 14, spread: amp*0.9,
+                                    drift: FXPoint(amp*0.5, -amp*3.4), speed: 1.4,
+                                    time: time, seed: seed &+ 55),
+                color: colour.opacity(lit*0.85), radius: bandWidth*0.34, glyphID: "dot"))
+
+        case "ice":
+            // 氷は **角ばって、まっすぐ生える**。ゆらさない（結晶は揺れない）。
+            // 腕から左右交互に、とがった結晶が伸びる。
+            // 根元を太く、先をとがらせる。細いと氷ではなく「ひっかき傷」に見える。
+            for (index, shard) in shards(path, aspect: aspect, count: 5,
+                                         length: amp*(1.5+1.1*energy), seed: seed).enumerated() {
+                scene.primitives.append(.init(kind: .ribbon, points: shard,
+                                              color: colour.opacity(lit*(index % 2 == 0 ? 1 : 0.7)),
+                                              lineWidth: bandWidth*(index % 2 == 0 ? 2.3 : 1.5),
+                                              taper: 0))
+            }
+            // 骨に沿った 硬い直線。丸みを出さないため うねらせない。
+            scene.primitives.append(.init(kind: .glow,
+                points: wrap(path, aspect: aspect, samples: 6, amplitude: 0,
+                             turns: 0, phase: 0, jitter: 0, seed: 0),
+                color: colour.opacity(lit*0.8), lineWidth: bandWidth*0.7))
+
+        case "blizzard":
+            // 吹雪は **流れる**。腕に貼りつくのではなく、まわりを通り過ぎる。
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 26, spread: amp*2.2,
+                                    drift: FXPoint(-amp*4.5, amp*2.2), speed: 1.9,
+                                    time: time, seed: seed &+ 12),
+                color: colour.opacity(lit), radius: bandWidth*0.30,
+                glyphID: "dash", angle: 2.68))
+            // 風すじ。2本だけ、速く。
+            for index in 0..<2 {
+                let at = ((time*1.7+Double(index)*0.5).truncatingRemainder(dividingBy: 1))
+                scene.primitives.append(.init(kind: .ribbon,
+                    points: streak(path, aspect: aspect, at: at,
+                                   length: amp*3.4, drift: FXPoint(-amp*2.6, amp*1.3)),
+                    color: colour.opacity(lit*0.8), lineWidth: bandWidth*0.8, taper: 0))
+            }
+
+        case "water":
+            // なめらかに うねる。太くて やわらかい。
+            let phase = time*spinPerSecond*2*Double.pi*0.8
+            for (offset, weight) in [(0.0, 1.0), (Double.pi, 0.45)] {
+                scene.primitives.append(.init(kind: .ribbon,
+                    points: wrap(path, aspect: aspect, samples: 30, amplitude: amp*1.1,
+                                 turns: 1.8, phase: phase+offset, jitter: 0, seed: 0),
+                    color: colour.opacity(lit*weight),
+                    lineWidth: bandWidth*1.7*(weight == 1 ? 1 : 0.6), taper: 0.25))
+            }
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 10, spread: amp*1.3,
+                                    drift: FXPoint(amp*0.8, amp*2.6), speed: 1.1,
+                                    time: time, seed: seed &+ 71),
+                color: colour.opacity(lit*0.8), radius: bandWidth*0.32, glyphID: "dot"))
+
+        case "wind":
+            // 風は **通り過ぎる**。三日月が腕に沿って流れていく。
+            for index in 0..<3 {
+                let at = ((time*1.25+Double(index)/3).truncatingRemainder(dividingBy: 1))
+                scene.primitives.append(.init(kind: .ribbon,
+                    points: crescent(path, aspect: aspect, at: at, span: amp*2.6, bow: amp*1.1),
+                    color: colour.opacity(lit*(1-abs(at-0.5)*0.7)),
+                    lineWidth: bandWidth*1.1, taper: 0))
+            }
+
+        case "sparkle":
+            // きらめき。粒が ちかちかして、腕のまわりで またたく。
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 16, spread: amp*1.6,
+                                    drift: FXPoint(0, -amp*1.1), speed: 0.7,
+                                    time: time, seed: seed &+ 903),
+                color: colour.opacity(lit), radius: bandWidth*0.55, glyphID: "star"))
+            scene.primitives.append(.init(kind: .glow,
+                points: wrap(path, aspect: aspect, samples: 20, amplitude: amp*0.5,
+                             turns: 1.6, phase: time*1.4, jitter: 0, seed: 0),
+                color: colour.opacity(lit*0.45), lineWidth: bandWidth*0.55))
+
+        case "petal":
+            // 花びらが 腕のまわりを 舞う。
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 14, spread: amp*1.8,
+                                    drift: FXPoint(amp*1.6, amp*2.2), speed: 0.85,
+                                    time: time, seed: seed &+ 421),
+                color: colour.opacity(lit), radius: bandWidth*0.62,
+                glyphID: "petal", angle: time*1.3))
+            scene.primitives.append(.init(kind: .glow,
+                points: wrap(path, aspect: aspect, samples: 24, amplitude: amp*0.7,
+                             turns: 2.0, phase: time*1.0, jitter: 0, seed: 0),
+                color: colour.opacity(lit*0.40), lineWidth: bandWidth*0.6))
+
+        case "shadow":
+            // 影。太くて ふちがぎざぎざ。ゆっくり うねる。
+            let tick = Int((time*6).rounded(.down))
+            for (index, weight) in [1.0, 0.55].enumerated() {
+                scene.primitives.append(.init(kind: .ribbon,
+                    points: wrap(path, aspect: aspect, samples: 22, amplitude: amp*0.9*weight,
+                                 turns: 1.3, phase: time*0.9+Double(index)*2.1,
+                                 jitter: amp*0.35, seed: tick &+ seed &+ index &* 311),
+                    color: colour.opacity(lit*weight),
+                    lineWidth: auraWidth*(index == 0 ? 1 : 0.55), taper: 0.3))
+            }
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 10, spread: amp*1.7,
+                                    drift: FXPoint(0, -amp*1.6), speed: 0.9,
+                                    time: time, seed: seed &+ 77),
+                color: colour.opacity(lit*0.7), radius: bandWidth*0.45, glyphID: "dot"))
+
+        case "dragon":
+            // 長い胴が腕に巻きつき、**手首の先まで抜けて** 尾になる。
+            scene.primitives.append(.init(kind: .ribbon,
+                points: serpent(path, aspect: aspect, turns: 3.0, amplitude: amp*1.15,
+                                phase: time*spinPerSecond*2*Double.pi, overshoot: 0.45),
+                color: colour.opacity(lit), lineWidth: bandWidth*2.1, taper: 0))
+            scene.primitives.append(.init(kind: .ribbon,
+                points: serpent(path, aspect: aspect, turns: 3.0, amplitude: amp*1.15,
+                                phase: time*spinPerSecond*2*Double.pi+Double.pi, overshoot: 0.2),
+                color: colour.opacity(lit*0.45), lineWidth: bandWidth*1.1, taper: 0))
+            scene.primitives.append(.init(kind: .spray,
+                points: sprayPoints(path, aspect: aspect, count: 9, spread: amp*1.4,
+                                    drift: FXPoint(amp*1.2, -amp*1.8), speed: 1.3,
+                                    time: time, seed: seed &+ 313),
+                color: colour.opacity(lit*0.8), radius: bandWidth*0.36, glyphID: "dot"))
+
+        case "rainbow":
+            // 7色は多すぎるので3本。preset の色は使わない（虹だから）。
+            let hues: [FXColor] = [.init(1, 0.30, 0.32), .init(0.35, 1, 0.55), .init(0.45, 0.62, 1)]
+            for (index, hue) in hues.enumerated() {
+                scene.primitives.append(.init(kind: .ribbon,
+                    points: wrap(path, aspect: aspect, samples: 28,
+                                 amplitude: amp*(0.75+0.25*Double(index)),
+                                 turns: 2.4, phase: time*spinPerSecond*2*Double.pi+Double(index)*0.7,
+                                 jitter: 0, seed: 0),
+                    color: hue.opacity(lit*0.9), lineWidth: bandWidth*1.15, taper: 0.4))
+            }
+
+        case "aura":
+            // 腕そのものが太く光る（気をまとっている感じ）。ゆっくり脈打つ。
+            let pulse = 0.85+0.15*sin(time*5.5)
+            scene.primitives.append(.init(kind: .glow,
+                points: wrap(path, aspect: aspect, samples: 18, amplitude: amp*0.18,
+                             turns: 1.0, phase: time*1.6, jitter: 0, seed: 0),
+                color: colour.opacity(lit*0.85*pulse), lineWidth: auraWidth))
+
+        default: // "ribbon"
+            // ぐるぐる回る帯。時間で位相が進むので、腕が止まっていても回り続ける。
+            let phase = time*spinPerSecond*2*Double.pi
+            for (offset, weight) in [(0.0, 1.0), (Double.pi, 0.42)] {
+                scene.primitives.append(.init(kind: .ribbon,
+                    points: wrap(path, aspect: aspect, samples: 30, amplitude: amp,
+                                 turns: 2.6, phase: phase+offset, jitter: 0, seed: 0),
+                    color: colour.opacity(lit*weight),
+                    lineWidth: bandWidth*1.4*(weight == 1 ? 1 : 0.6), taper: 0.35))
+            }
+        }
+    }
+
     // ── 背景（その場所の空気）を作るところ ────────────────────────────────
 
-    private enum AirEdge { case top, bottom, left, right }
+    enum AirEdge { case top, bottom, left, right }
 
     /// 画面のふちから内側へ、すうっと薄れる色の帯 ＝ 「その場所の明かり」。
     /// `depth` ぶん入ったところで完全に消えるので、**まん中には届かない**。
-    private static func veil(_ edge: AirEdge, depth: Double, color: FXColor, alpha: Double,
+    static func veil(_ edge: AirEdge, depth: Double, color: FXColor, alpha: Double,
                              blend: FXPrimitive.Blend = .add) -> FXPrimitive {
         let d = fxClamp(depth, 0.05, 0.90)
         let ends: [FXPoint]
@@ -499,7 +516,7 @@ public enum SceneBuilder {
 
     /// ふちだけが色づく（または暗くなる）輪。まん中は素通し —— 子どもの顔は
     /// たいてい まん中にあるので、そこには乗せない。
-    private static func vignette(color: FXColor, alpha: Double, reach: Double = 1.15,
+    static func vignette(color: FXColor, alpha: Double, reach: Double = 1.15,
                                  blend: FXPrimitive.Blend = .add) -> FXPrimitive {
         .init(kind: .halo, points: [FXPoint(0.5, 0.5)], color: color.opacity(alpha),
               radius: fxClamp(reach, 0.5, 1.6), blend: blend)
@@ -509,7 +526,7 @@ public enum SceneBuilder {
     /// 単位は「画面の高さ ＝ 1」。はしまで行ったら反対から出てくるので、短い稽古でも
     /// ずっと降りつづける。腕の `sprayPoints` と違って **骨を見ない**（空気は
     /// 追跡が外れたコマでも そこに在る）。
-    private static func dust(count: Int, seed: Int, drift: FXPoint, time: Double, aspect: Double,
+    static func dust(count: Int, seed: Int, drift: FXPoint, time: Double, aspect: Double,
                              color: FXColor, radius: Double, glyph: String = "dot",
                              angle: Double = 0, blend: FXPrimitive.Blend = .add) -> FXPrimitive {
         var pts: [FXPoint] = []
@@ -532,7 +549,7 @@ public enum SceneBuilder {
     /// 実写（白い壁の部屋）で確かめた: 光を足すやり方（`plusLighter`）だけだと、
     /// 白い壁はいくら足しても白いままで、雷雨も炎も **何も起きていないように
     /// 見えた**。唯一ちゃんと場所が変わって見えたのは、暗くしていた「かげ」だけ。
-    private static func ink(_ c: FXColor) -> FXColor {
+    static func ink(_ c: FXColor) -> FXColor {
         FXColor(c.red*0.22+0.02, c.green*0.18+0.02, c.blue*0.30+0.04)
     }
 
@@ -543,7 +560,7 @@ public enum SceneBuilder {
     ///   1. ふちを その色の暗いほうで沈める（子どもが明かりの中に立つ）
     ///   2. その場所の明かりを ふちから差す（炎は下から、雷は上から）
     ///   3. 空気の中のもの（雪・火の粉・花びら）を流す
-    private static func ambient(style: String, tint: FXColor, level: Double, flare: Double,
+    static func ambient(style: String, tint: FXColor, level: Double, flare: Double,
                                 time: Double, aspect: Double, reduceMotion: Bool) -> [FXPrimitive] {
         guard level > 0.004, time.isFinite, level.isFinite else { return [] }
         var out: [FXPrimitive] = []
@@ -708,7 +725,7 @@ public enum SceneBuilder {
     ///
     /// 両端は必ず骨の上に戻す（`sin(πu)` の包絡）。そうしないと、かざりが
     /// 腕から離れて宙に浮いて見える。
-    private static func wrap(_ path: DisplayPath, aspect: Double, samples: Int,
+    static func wrap(_ path: DisplayPath, aspect: Double, samples: Int,
                              amplitude: Double, turns: Double, phase: Double,
                              jitter: Double, seed: Int) -> [FXPoint] {
         var out: [FXPoint] = []
@@ -842,7 +859,7 @@ public enum SceneBuilder {
 
     /// 決まった答えを返す雑音（0...1）。乱数を使うと、書き出しをやり直すたびに
     /// 稲妻の形が変わってしまう（同じ動画から違う絵が出るのは避けたい）。
-    private static func noise(_ a: Int, _ b: Int) -> Double {
+    static func noise(_ a: Int, _ b: Int) -> Double {
         var h = UInt64(bitPattern: Int64(a &* 73856093 ^ b &* 19349663 ^ 0x5bf0_3635))
         h ^= h >> 33; h = h &* 0xff51_afd7_ed55_8ccd; h ^= h >> 33
         return Double(h % 10_007)/10_007

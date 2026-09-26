@@ -29,6 +29,9 @@
 		8BD5C3A9B58A67AA3BE55E87 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D939F7CFD9231435CEAE0881 /* Models.swift */; };
 		E771F3EBD8EFB3FE5EC1686C /* MotionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DF50322FF223E687BBEB8C /* MotionEngine.swift */; };
 		4939ED208DD242D5636E970E /* Scene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CC1656A7854CC84872C4074 /* Scene.swift */; };
+		807CC1199E9D612293F17ADF /* MusicScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E37576511D1CA0EB9C67A0 /* MusicScene.swift */; };
+		649804E7A0142699D29B268D /* AudioTrackAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9376B521908F6C7E4B4D397E /* AudioTrackAnalyzer.swift */; };
+		07D54054D3D94ABC5B767813 /* AudioAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1496C016B9F09066AE4782 /* AudioAnalyzer.swift */; };
 		981D5BB390063740F76154F2 /* Timeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40C353F61E62775FEAFCEA7 /* Timeline.swift */; };
 		A56DF3565AB0BACFE3F39DF0 /* VisionPoseDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B454D8AB473BEEED783A2380 /* VisionPoseDetector.swift */; };
 		9F4BF5990DE39B95CEACEB02 /* VideoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48348759883CAE6062302E31 /* VideoAnalyzer.swift */; };
@@ -68,6 +71,9 @@
 		D939F7CFD9231435CEAE0881 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		E3DF50322FF223E687BBEB8C /* MotionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionEngine.swift; sourceTree = "<group>"; };
 		3CC1656A7854CC84872C4074 /* Scene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scene.swift; sourceTree = "<group>"; };
+		14E37576511D1CA0EB9C67A0 /* MusicScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicScene.swift; sourceTree = "<group>"; };
+		9376B521908F6C7E4B4D397E /* AudioTrackAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioTrackAnalyzer.swift; sourceTree = "<group>"; };
+		FB1496C016B9F09066AE4782 /* AudioAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioAnalyzer.swift; sourceTree = "<group>"; };
 		C40C353F61E62775FEAFCEA7 /* Timeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Timeline.swift; sourceTree = "<group>"; };
 		B454D8AB473BEEED783A2380 /* VisionPoseDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionPoseDetector.swift; sourceTree = "<group>"; };
 		48348759883CAE6062302E31 /* VideoAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoAnalyzer.swift; sourceTree = "<group>"; };
@@ -117,6 +123,9 @@
 				D939F7CFD9231435CEAE0881 /* Models.swift */,
 				E3DF50322FF223E687BBEB8C /* MotionEngine.swift */,
 				3CC1656A7854CC84872C4074 /* Scene.swift */,
+				14E37576511D1CA0EB9C67A0 /* MusicScene.swift */,
+				9376B521908F6C7E4B4D397E /* AudioTrackAnalyzer.swift */,
+				FB1496C016B9F09066AE4782 /* AudioAnalyzer.swift */,
 				C40C353F61E62775FEAFCEA7 /* Timeline.swift */,
 				B454D8AB473BEEED783A2380 /* VisionPoseDetector.swift */,
 				48348759883CAE6062302E31 /* VideoAnalyzer.swift */,
@@ -290,6 +299,9 @@
 				8BD5C3A9B58A67AA3BE55E87 /* Models.swift in Sources */,
 				E771F3EBD8EFB3FE5EC1686C /* MotionEngine.swift in Sources */,
 				4939ED208DD242D5636E970E /* Scene.swift in Sources */,
+				807CC1199E9D612293F17ADF /* MusicScene.swift in Sources */,
+				649804E7A0142699D29B268D /* AudioTrackAnalyzer.swift in Sources */,
+				07D54054D3D94ABC5B767813 /* AudioAnalyzer.swift in Sources */,
 				981D5BB390063740F76154F2 /* Timeline.swift in Sources */,
 				A56DF3565AB0BACFE3F39DF0 /* VisionPoseDetector.swift in Sources */,
 				9F4BF5990DE39B95CEACEB02 /* VideoAnalyzer.swift in Sources */,

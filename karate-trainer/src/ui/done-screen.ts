@@ -1,6 +1,6 @@
 import type { CharacterId } from "../character-store";
 import { openKufuModal } from "./kufu-modal";
-import { COPY } from "../flavor";
+import { COPY, IS_PIANO } from "../flavor";
 
 export interface DoneKufuDrill {
   name: string;
@@ -369,9 +369,10 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       setSaveEnabled(false);
       void fx.apply((phase, fraction) => {
         const pct = Math.floor(fraction * 100);
+        // ピアノは **音** を聞いて作る（体は見ない）ので、言葉を変える。
         status.textContent = phase === "exporting"
           ? `✨ ${fx.name} を つけているよ… ${pct}%`
-          : "うごきを 見ているよ… " + String(pct) + "%";
+          : `${IS_PIANO ? "音を 聞いているよ" : "うごきを 見ているよ"}… ${pct}%`;
       }).then((result) => {
         made = result;
         showingFx = true;
