@@ -1,8 +1,8 @@
 // ✨キラキラ を あつめる。どれを持っているかは **もらった帯の数だけ** で決まる。
 //
 //   カタログの順に開いていくが、**ハードルは だんだん上がる**:
-//   はじめの6つは 5本ずつ、つぎの6つは 10本ずつ、そのつぎの6つは 15本ずつ…
-//   （のべでは 6つめ=30本、12こめ=90本、18こめ=180本、24こめ=300本）
+//   はじめの8つは 5本ずつ、つぎの8つは 8本ずつ、そのつぎの8つは 11本ずつ…
+//   （のべでは 8つめ=40本、16こめ=104本、24こめ=192本）
 //
 // 「最初から持っているもの」（tier が start）は、帯が 0本でも使える。
 //
@@ -21,13 +21,15 @@ import { beltCount } from "./belt-collection-store";
 const KEY = "karate.sparkles";
 
 /// 何個ごとに ハードルが上がるか。
-export const SPARKLES_PER_STEP = 6;
-/// はじめのかたまりの「1つあたり何本」。かたまりが進むごとに これだけ増える。
+export const SPARKLES_PER_STEP = 8;
+/// はじめのかたまりの「1つあたり何本」。
 export const BELTS_PER_SPARKLE = 5;
+/// かたまりが1つ進むごとに、1つあたり何本ふえるか。
+export const BELTS_STEP_UP = 3;
 
-/// n個め（1から）の キラキラ 1つぶんに要る 帯の本数（5 → 10 → 15 …）。
+/// n個め（1から）の キラキラ 1つぶんに要る 帯の本数（5 → 8 → 11 …）。
 export function beltsForSparkle(n: number): number {
-  return BELTS_PER_SPARKLE * (Math.floor(Math.max(0, n - 1) / SPARKLES_PER_STEP) + 1);
+  return BELTS_PER_SPARKLE + BELTS_STEP_UP * Math.floor(Math.max(0, n - 1) / SPARKLES_PER_STEP);
 }
 
 /// n個めを開けるまでに要る、**のべ**の帯の本数。

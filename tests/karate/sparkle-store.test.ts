@@ -6,7 +6,7 @@
 import { it, expect, beforeEach } from "vitest";
 import {
   MY_SPARKLES, loadUnlocked, setUnlocked, nextToUnlock, earnedCount, BELTS_PER_SPARKLE,
-  SPARKLES_PER_STEP, beltsForSparkle, beltsNeededFor, beltsToOwn,
+  SPARKLES_PER_STEP, BELTS_STEP_UP, beltsForSparkle, beltsNeededFor, beltsToOwn,
 } from "../../karate-trainer/src/sparkle-store";
 import { earnBelt, setEarnedBelts } from "../../karate-trainer/src/belt-collection-store";
 
@@ -50,33 +50,33 @@ it("帯 10本で 2つ、15本で 3つ —— 一気には開かない", () => {
   expect(earnedCount(store)).toBe(3);
 });
 
-// --- ハードルは 6つごとに上がる（5本ずつ → 10本ずつ → 15本ずつ …）---
+// --- ハードルは 8つごとに 3本ずつ上がる（5本ずつ → 8本ずつ → 11本ずつ …）---
 
-it("はじめの6つは 5本ずつ、つぎの6つは 10本ずつ", () => {
+it("はじめの8つは 5本ずつ、つぎの8つは 8本ずつ", () => {
   expect(beltsForSparkle(1)).toBe(5);
   expect(beltsForSparkle(SPARKLES_PER_STEP)).toBe(5);
-  expect(beltsForSparkle(SPARKLES_PER_STEP + 1)).toBe(10);
-  expect(beltsForSparkle(SPARKLES_PER_STEP * 2 + 1)).toBe(15);
-  // のべ: 6つめ=30本、7つめ=40本、12こめ=90本。
-  expect(beltsNeededFor(6)).toBe(30);
-  expect(beltsNeededFor(7)).toBe(40);
-  expect(beltsNeededFor(12)).toBe(90);
+  expect(beltsForSparkle(SPARKLES_PER_STEP + 1)).toBe(5 + BELTS_STEP_UP);
+  expect(beltsForSparkle(SPARKLES_PER_STEP * 2 + 1)).toBe(5 + BELTS_STEP_UP * 2);
+  // のべ: 8つめ=40本、9つめ=48本、16こめ=104本。
+  expect(beltsNeededFor(8)).toBe(40);
+  expect(beltsNeededFor(9)).toBe(48);
+  expect(beltsNeededFor(16)).toBe(104);
 });
 
-it("6つめのあとは 5本では開かない（つぎは10本）", () => {
-  earn(30);
-  expect(earnedCount(store)).toBe(6);
+it("8つめのあとは 5本では開かない（つぎは8本）", () => {
+  earn(40);
+  expect(earnedCount(store)).toBe(8);
   earn(5);
-  expect(earnedCount(store)).toBe(6);       // まだ足りない
-  expect(nextToUnlock(store)?.remaining).toBe(5);
-  earn(5);
-  expect(earnedCount(store)).toBe(7);
+  expect(earnedCount(store)).toBe(8);       // まだ足りない
+  expect(nextToUnlock(store)?.remaining).toBe(3);
+  earn(3);
+  expect(earnedCount(store)).toBe(9);
 });
 
 it("まだ持っていない1つに、のべ何本 要るかが分かる", () => {
   const earned = MY_SPARKLES.filter((s) => s.tier !== "start");
   expect(beltsToOwn(earned[0].id)).toBe(5);
-  expect(beltsToOwn(earned[6].id)).toBe(40);
+  expect(beltsToOwn(earned[8].id)).toBe(48);
   expect(beltsToOwn(MY_SPARKLES.find((s) => s.tier === "start")!.id)).toBeNull();
 });
 
