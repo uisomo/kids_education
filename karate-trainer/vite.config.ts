@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from "vite";
-import { cpSync, createReadStream, existsSync, statSync } from "node:fs";
+import { cpSync, createReadStream, existsSync, rmSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 
 // アランのピアノ: public-piano/ holds the piano pictures under the SAME paths as
@@ -28,11 +28,45 @@ function overlayPublic(dir: string): Plugin {
   };
 }
 
+// 空手だけが使うファイルを ピアノのビルドから外す。public/ は丸ごと dist に
+// 配られるので、このアプリが鳴らさない/映さないものまで付いてくる。
+//
+// **消すものは1つずつ名前で挙げること。** 拡張子でまとめて消してはいけない:
+// 応援の声（characters/cheer/*.m4a・19本）と 効果音（sounds/*.m4a）は
+// ピアノでも鳴るし、しかも `/characters/cheer/${id}-${n}.m4a` と実行時に
+// 組み立てているので、参照を grep しても出てこない。
+const KARATE_ONLY = [
+  // 練習BGM。ピアノは「ピアノそのものが音楽」なので BGM を鳴らさない
+  // （main.ts の bgm: IS_PIANO ? undefined）。7.95 MB ある。
+  "characters/one-more-rounds.m4a",
+];
+
+function omitFromBuild(paths: string[]): Plugin {
+  let outDir = "";
+  return {
+    name: "omit-from-build",
+    configResolved(config) { outDir = resolve(config.root, config.build.outDir); },
+    // overlayPublic の closeBundle より後に回す（あちらが上書きで置き直しても
+    // 消えるように）。プラグインの並び順そのまま。
+    closeBundle() {
+      for (const rel of paths) {
+        const file = join(outDir, rel);
+        if (existsSync(file)) {
+          rmSync(file);
+          console.log(`omit-from-build: ${rel} をピアノのビルドから外した`);
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   root: "karate-trainer",
   // strictPort so a stale instance can't silently move ports (Talk Quest convention).
   server: { port: 5273, strictPort: true, host: true }, // host:true → reachable from iPhone on LAN
   build: { outDir: "dist", emptyOutDir: true },
   // "piano" and "piano-test" — both are the piano app, so both get its art.
-  plugins: mode.startsWith("piano") ? [overlayPublic(resolve(__dirname, "public-piano"))] : [],
+  plugins: mode.startsWith("piano")
+    ? [overlayPublic(resolve(__dirname, "public-piano")), omitFromBuild(KARATE_ONLY)]
+    : [],
 }));
