@@ -1,0 +1,60 @@
+【アランのピアノ 1.1（ビルド 3）— このバージョンの新機能】
+
+App Store Connect のバージョン画面「このバージョンの新機能」にそのまま貼れる本文。
+絵文字は使わない（空手アプリで「無効な文字が含まれています」で弾かれたため）。
+1.0 からの初めての更新。
+
+―――――― ここから貼る ――――――
+
+「アイテム」タブが増えました。練習を続けてあつめる楽しみが加わります。
+
+■ キラキラ ― 鳴った音に反応して光るかざり（保存する動画）
+練習の動画に、弾いた音に合わせた光のかざりを乗せられます。鍵盤の位置から光の柱が立ちのぼり、
+同じ音はいつも同じ色なので、同じ曲を弾けば同じ色の並びが出ます。炎・氷・雷など全部で40種類。
+かざりを乗せた動画は元の動画とは別に作られるので、「なし」にいつでも戻せます。
+
+■ 音符をあつめる
+これまでの音符が「アイテム」タブに並びます。同じ色の音符が5本たまると、その色のトロフィー。
+キラキラは音符とひきかえに、ひとつずつ増えていきます。
+
+■ はじめての人へ「10びょうで やってみる？」
+初めて開いたときに、10秒だけのおためし練習をご案内します。むずかしい設定をしなくても、
+その日のうちに一度やってみることができます。
+
+■ 動画に日付が入ります
+保存した動画に練習した日が入るので、あとから見返したときに、いつの練習かがすぐ分かります。
+
+■ おうちの人のロック
+「家族」タブは、これまでのかけ算の問題に加えて、おうちの人が決めた4〜8桁の暗証番号でも
+開けるようになりました。おうちの人自身のiPhoneでは、Face IDや指紋も使えます。
+暗証番号を忘れても、かけ算の問題からいつでも入れます。
+
+■ 保存がかんたんに
+撮った動画の保存が、写真アプリへの1回のタップだけになりました。
+
+■ そのほか
+・読み上げ（フック）の自動読み上げ・言いかえ・文字の色を選べるようにしました。
+・「家族」タブの上のボタンが画面の外に隠れてしまうのを直しました。
+・「積み重ね」タブでメニューを変えると下のタブが消えてしまう不具合を直しました。
+・アプリ内のプライバシーポリシーとサポートのリンクを、ピアノ専用のページに変えました。
+
+―――――― ここまで ――――――
+
+【審査メモに足す一文（submission-notes.txt の HOW TO TEST の前に）】
+This update adds an Items tab (アイテム): the child collects note levels earned by practising
+and unlocks sparkles that react to the sound of the piano and are drawn over the saved
+practice video. The decorated video is written as a separate file, so the original recording is
+never altered. All of the analysis runs on the device; no video or audio ever leaves it. It also adds a first-run 10-second trial practice, the
+practice date on the saved video, and an optional parent-chosen 4-8 digit PIN (with Face ID /
+Touch ID only on the parent's own iPhone) as an alternative to the multiplication parental
+gate. No new SDKs, no new data collection, no new permissions.
+
+【このビルドで直ったこと（1.0 のときの申し送り）】
+・アプリ内のプライバシー・サポートのリンクが空手のページを指していた → ピアノ専用の
+  https://alan-piano.pages.dev/privacy ・ /support に変わった（IPA で確認ずみ）。
+  App Store Connect 側のプライバシーポリシーURL・サポートURLも同じものにそろえること。
+
+【まだ空手のままのもの（審査には通っている。急ぎではない）】
+・「使い方どうが」の動画そのものは空手の画面で撮ったもの（howto.karate-trainer.pages.dev）。
+  ピアノ版を撮り直すまでは、ピアノアプリでも空手の画面が映る。
+  1.0 も同じ状態で承認されているので、このバージョンの提出をとめる理由にはならない。

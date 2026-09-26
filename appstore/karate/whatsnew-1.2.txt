@@ -1,0 +1,56 @@
+【アランの空手 1.2（ビルド 8）— このバージョンの新機能】
+
+App Store Connect のバージョン画面「このバージョンの新機能」にそのまま貼れる本文。
+絵文字は使わない（過去に「無効な文字が含まれています」で弾かれたため）。
+
+―――――― ここから貼る ――――――
+
+「アイテム」タブが増えました。稽古を続けてあつめる楽しみが加わります。
+
+■ キラキラ ― 動きに合わせて光るかざり（保存する動画）
+稽古の動画に、手や足の動きに合わせた光のかざりを乗せられます。炎・氷・雷など全部で40種類。
+かざりを乗せた動画は元の動画とは別に作られるので、「なし」にいつでも戻せます。
+蹴りの動きにも付くようになりました。
+
+■ 帯をあつめる
+これまでの帯が「アイテム」タブに並びます。同じ色の帯が5本たまると、その色のトロフィー。
+キラキラは帯とひきかえに、ひとつずつ増えていきます。
+
+■ はじめての人へ「10びょうで やってみる？」
+初めて開いたときに、10秒だけのおためし稽古をご案内します。むずかしい設定をしなくても、
+その日のうちに一度やってみることができます。
+
+■ 動画に日付が入ります
+保存した動画に稽古した日が入るので、あとから見返したときに、いつの練習かがすぐ分かります。
+
+■ おうちの人のロック
+「家族」タブは、これまでのかけ算の問題に加えて、おうちの人が決めた4〜8桁の暗証番号でも
+開けるようになりました。おうちの人自身のiPhoneでは、Face IDや指紋も使えます。
+暗証番号を忘れても、かけ算の問題からいつでも入れます。
+
+■ 保存がかんたんに
+撮った動画の保存が、写真アプリへの1回のタップだけになりました。
+
+■ そのほか
+・使い方どうがを「特訓」タブからすぐ開けるようにしました。
+・読み上げ（フック）の自動読み上げ・言いかえ・文字の色を選べるようにしました。
+・「家族」タブの上のボタンが画面の外に隠れてしまうのを直しました。
+・「積み重ね」タブでメニューを変えると下のタブが消えてしまう不具合を直しました。
+
+―――――― ここまで ――――――
+
+【審査メモに足す一文（submission-notes.txt の HOW TO TEST の前に）】
+This update adds an Items tab (アイテム): the child collects belts earned by practising and
+unlocks motion sparkles that are drawn over the saved practice video, following the arms and
+legs. The decorated video is written as a separate file, so the original recording is never
+altered and the child can go back to 「なし」 (none) at any time. All of the analysis runs on
+the device; no video ever leaves it. It also adds a first-run 10-second trial practice, the practice date on the
+saved video, and an optional parent-chosen 4-8 digit PIN (with Face ID / Touch ID only on the
+parent's own iPhone) as an alternative to the multiplication parental gate. No new SDKs, no
+new data collection, no new permissions.
+
+【謳わないことにしたもの（社内メモ・貼らない）】
+・「稽古中の画面にライブでキラキラが出る」はリリースノートに入れていない。
+  仕組みは入っているが、実機では手首が取れずに実際には描かれない（既定オフ・
+  karate-trainer/MOTION_EFFECTS.md の「残っている宿題」）。出るようになってから書く。
+・★レビューのお願いが出るようになったことも、宣伝する内容ではないので書いていない。
