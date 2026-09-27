@@ -78,12 +78,26 @@ export interface Billing {
   refresh(): Promise<BillingInfo | null>;
   // Localized store prices ("¥980") per product. Missing = not for sale now.
   prices(): Promise<Partial<Record<ProductId, string>>>;
+  // Free-trial length per product ("1週間"), when the store offers one.
+  trials?(): Promise<Partial<Record<ProductId, string>>>;
   purchase(id: ProductId): Promise<PurchaseOutcome>;
   restore(): Promise<BillingInfo | null>;
   // Apple's page for changing or cancelling the subscription.
   manage(): Promise<void>;
   // Renewals, expiries and purchases made elsewhere (another device).
   onChange(cb: (info: BillingInfo) => void): void;
+}
+
+// A store trial period ("WEEK", 1) as 「1週間」; "" for a unit we don't name.
+export function trialLength(unit: string, count: number): string {
+  const n = Math.max(1, count);
+  switch (unit) {
+    case "DAY": return n % 7 === 0 ? `${n / 7}週間` : `${n}日間`;
+    case "WEEK": return `${n}週間`;
+    case "MONTH": return `${n}か月`;
+    case "YEAR": return `${n}年`;
+    default: return "";
+  }
 }
 
 // "2026/10/15 に自動更新" / "2026/10/15 まで（自動更新オフ）"; "" on Free.

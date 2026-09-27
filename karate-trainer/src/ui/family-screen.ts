@@ -109,6 +109,7 @@ export interface TestToolsView {
 
 export interface BillingView {
   prices: Partial<Record<ProductId, string>> | null;   // null while loading
+  trials?: Partial<Record<ProductId, string>>;          // free trial length ("1週間")
   currentProduct: string | null;   // the subscription the household has now
   renewal: string;                 // "2026/10/15 に自動更新" (or "")
   busy: boolean;                   // a purchase / restore is in progress
@@ -702,7 +703,17 @@ function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTM
     buy.dataset.buy = id;
     // null prices = still loading; a missing price = not for sale right now.
     buy.textContent = !billing.prices ? "…" : !price ? "—" : `${current ? "✓ " : ""}${price}/${unit}`;
-    buy.setAttribute("aria-label", `${PLAN_META[plan].label} ${unit}ごと${price ? ` ${price}` : ""}${current ? "（いまのプラン）" : ""}`);
+    // The price after the trial stays on the button, so the terms are clear.
+    const trial = price && !current ? billing.trials?.[id] : undefined;
+    if (trial) {
+      const tag = document.createElement("span");
+      tag.className = "family-plan-trial";
+      tag.dataset.trial = id;
+      tag.textContent = `${trial} 無料`;
+      buy.textContent = `そのあと ${price}/${unit}`;
+      buy.prepend(tag);
+    }
+    buy.setAttribute("aria-label", `${PLAN_META[plan].label} ${unit}ごと${trial ? ` ${trial}無料、そのあと` : ""}${price ? ` ${price}` : ""}${current ? "（いまのプラン）" : ""}`);
     buy.disabled = billing.busy || current || !price;
     buy.addEventListener("click", () => billing.onBuy(id));
     card.append(buy);

@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { planFromEntitlements, planOfProduct, productId, renewalText, toProductId } from "../../karate-trainer/src/billing";
+import { planFromEntitlements, planOfProduct, productId, renewalText, toProductId, trialLength } from "../../karate-trainer/src/billing";
 import { infoFromCustomer } from "../../karate-trainer/src/revenuecat-billing";
 import type { CustomerInfo } from "@revenuecat/purchases-capacitor";
 
@@ -91,4 +91,12 @@ it("reads the piano app's piano_-prefixed store ids as ours", () => {
   expect(planOfProduct("piano_family_monthly")).toBe("family");
   expect(planOfProduct("piano_premium_yearly")).toBe("premium");
   expect(toProductId("piano_weekly")).toBeNull();
+});
+
+it("trialLength names the store's trial period in Japanese", () => {
+  expect(trialLength("WEEK", 1)).toBe("1週間");
+  expect(trialLength("DAY", 7)).toBe("1週間");
+  expect(trialLength("DAY", 3)).toBe("3日間");
+  expect(trialLength("MONTH", 1)).toBe("1か月");
+  expect(trialLength("UNKNOWN", 1)).toBe("");
 });

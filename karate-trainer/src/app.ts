@@ -1001,6 +1001,7 @@ export class KarateApp {
 
   // --- App Store subscriptions (deps.billing) ---
   private prices: Partial<Record<ProductId, string>> | null = null;   // null = loading
+  private trials: Partial<Record<ProductId, string>> = {};
   private billingInfo: BillingInfo | null = null;
   private billingBusy = false;
   private billingStatus = "";
@@ -1010,8 +1011,11 @@ export class KarateApp {
 
   private async syncBilling(): Promise<void> {
     const billing = this.deps.billing!;
-    const [info, prices] = await Promise.all([billing.refresh(), billing.prices()]);
+    const [info, prices, trials] = await Promise.all([
+      billing.refresh(), billing.prices(), billing.trials?.() ?? Promise.resolve({}),
+    ]);
     this.prices = prices;
+    this.trials = trials;
     if (info) this.applyBilling(info);
     else this.refreshFamilyIfOpen();
   }
@@ -1034,6 +1038,8 @@ export class KarateApp {
   private billingView(billing: Billing): BillingView {
     return {
       prices: this.prices,
+      // Someone who already pays is past the trial; only Free sees it.
+      trials: this.billingInfo && this.billingInfo.plan !== "free" ? {} : this.trials,
       currentProduct: this.billingInfo?.plan === "free" ? null : this.billingInfo?.productId ?? null,
       renewal: renewalText(this.billingInfo),
       busy: this.billingBusy,

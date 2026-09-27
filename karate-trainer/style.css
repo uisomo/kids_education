@@ -3595,6 +3595,17 @@ input[data-label] {
   margin: 0.3rem 0;
 }
 
+.family-plan-trial {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 0.1rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: #1a162b;
+  color: #ffd166;
+  font-size: 0.9em;
+}
+
 .kufu-card-upgrade {
   display: block;
   margin: 0.2rem auto 0.3rem;

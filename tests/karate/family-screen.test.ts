@@ -524,3 +524,14 @@ it("つけているキラキラの名前を書き、動画には入ると言う"
   // 画面の設定と動画は別。オフにしても動画には入る、と言い切る。
   expect(note).toContain("つけているものが あとから入ります");
 });
+
+it("billing: a free trial shows its length and the price after it", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ billing: billingView({ trials: { premium_monthly: "1週間" } }) }));
+  const buy = root.querySelector<HTMLButtonElement>('[data-buy="premium_monthly"]')!;
+  expect(buy.querySelector("[data-trial]")!.textContent).toBe("1週間 無料");
+  expect(buy.textContent).toBe("1週間 無料そのあと ¥980/月");
+  expect(buy.getAttribute("aria-label")).toContain("1週間無料、そのあと ¥980");
+  // No trial on the others.
+  expect(root.querySelector('[data-buy="premium_yearly"] [data-trial]')).toBeNull();
+});

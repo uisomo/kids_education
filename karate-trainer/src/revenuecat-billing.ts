@@ -8,7 +8,7 @@
 import type { CustomerInfo, PurchasesPackage } from "@revenuecat/purchases-capacitor";
 import {
   type Billing, type BillingInfo, type ProductId,
-  MANAGE_URL, PRODUCT_IDS, planFromEntitlements, planOfProduct, toProductId,
+  MANAGE_URL, PRODUCT_IDS, planFromEntitlements, planOfProduct, toProductId, trialLength,
 } from "./billing";
 
 type Sdk = typeof import("@revenuecat/purchases-capacitor");
@@ -129,6 +129,24 @@ export function makeRevenueCatBilling(apiKey: string): Billing {
         }
       } catch {
         /* offline or not set up: nothing for sale */
+      }
+      return out;
+    },
+
+    // Only free intro offers count as a trial; Apple decides eligibility at
+    // purchase time, and its sheet shows the exact terms.
+    async trials() {
+      const out: Partial<Record<ProductId, string>> = {};
+      try {
+        const map = await loadPackages();
+        for (const id of PRODUCT_IDS) {
+          const intro = map.get(id)?.product.introPrice;
+          if (!intro || intro.price !== 0) continue;
+          const len = trialLength(intro.periodUnit, intro.periodNumberOfUnits * Math.max(1, intro.cycles));
+          if (len) out[id] = len;
+        }
+      } catch {
+        /* offline or not set up: no trial shown */
       }
       return out;
     },
