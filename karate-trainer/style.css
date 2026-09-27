@@ -3595,6 +3595,22 @@ input[data-label] {
   margin: 0.3rem 0;
 }
 
+.kufu-card-upgrade {
+  display: block;
+  margin: 0.2rem auto 0.3rem;
+  min-height: 40px;
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: #ffd166;
+  color: #1a162b;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  box-shadow: 0 3px 0 #c99a2e;
+}
+.kufu-card-upgrade:active { transform: translateY(3px); box-shadow: none; }
+
 .kufu-card-composer {
   display: flex;
   flex-direction: column;

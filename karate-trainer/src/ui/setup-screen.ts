@@ -76,6 +76,8 @@ export interface SetupDeps {
   // adds one more while canAddKufuFor allows. kufuEnabled false hides the 💡.
   kufuEnabled?: boolean;
   kufuPerDrill?: number;
+  // The 工夫 card is full because of the plan → open the plan cards.
+  onUpgradeKufu?: () => void;
   kufuFor?(drillName: string): string[];
   canAddKufuFor?(drillName: string): boolean;
   onAddKufu?(drillName: string, text: string): void;
@@ -420,6 +422,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
         openKufuModal(root, {
           drillName,
           perDrill: deps.kufuPerDrill,
+          onUpgrade: deps.onUpgradeKufu,
           notes: () => deps.kufuFor!(drillName),
           canAdd: () => deps.canAddKufuFor?.(drillName) ?? true,
           onAdd: (text) => deps.onAddKufu?.(drillName, text),

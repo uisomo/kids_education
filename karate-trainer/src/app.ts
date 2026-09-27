@@ -543,7 +543,8 @@ export class KarateApp {
         if (saved) setSelectedPreset(saved.id, this.mem());
         this.showSetup(saved ? undefined
           : atLimit ? "プランの上限です。上書き保存するか、アップグレードしてね"
-            : "保存できませんでした（端末の空き容量を確認してください）");
+            : "保存できませんでした（端末の空き容量を確認してください）",
+          !saved && atLimit ? { label: "プランを見る", run: () => this.openPlans() } : undefined);
       },
       onOverwritePreset: (id) => {
         if (id === BASIC_PRESET_ID) return;   // 基本 is read-only; 保存 makes a copy
@@ -635,6 +636,8 @@ export class KarateApp {
       // plan caps as the done screen, so they apply identically.
       kufuEnabled: this.kufuCaps().perDrill > 0,
       kufuPerDrill: this.kufuCaps().perDrill,
+      // Only Free has a smaller cap than a paid plan; paid plans have nowhere to go.
+      onUpgradeKufu: loadPlan(this.base()) === "free" ? () => this.openPlans() : undefined,
       kufuFor: (name) => kufuNotes(name, this.mem(), this.kufuCaps()),
       canAddKufuFor: (name) => canAddKufu(name, this.mem(), this.kufuCaps()),
       onAddKufu: (name, text) => { addKufu(name, text, this.mem(), this.kufuCaps()); },
@@ -771,6 +774,16 @@ export class KarateApp {
 
   private familyUnlocked = false;
 
+  // 家族 tab section to scroll to once it has rendered (after the gate).
+  private familyScrollTo: string | null = null;
+
+  // 「プランを見る」: the plan cards live in the 家族 tab, so go through its
+  // parental gate (Kids category: no purchase without it) and land on プラン.
+  private openPlans(): void {
+    this.familyScrollTo = "plan";
+    this.showFamily();
+  }
+
   // この端末で使える生体認証の名前（Face ID / 指紋（Touch ID））。start() で
   // 一度だけ聞く。使えない端末・ウェブ・テストでは null のまま。
   private biometryLabel: string | null = null;
@@ -803,12 +816,17 @@ export class KarateApp {
           if (this.deps.billing && this.prices && Object.keys(this.prices).length === 0) void this.syncBilling();
           this.showFamily();
         },
-        onCancel: () => this.showSetup(),
+        onCancel: () => { this.familyScrollTo = null; this.showSetup(); },
       });
       return;
     }
     this.renderFamily();
     this.mountTabNav("family");
+    const anchor = this.familyScrollTo;
+    this.familyScrollTo = null;
+    if (anchor) {
+      this.root.querySelector(`[data-family-anchor="${anchor}"]`)?.scrollIntoView?.({ block: "start" });
+    }
   }
 
   private renderFamily(): void {

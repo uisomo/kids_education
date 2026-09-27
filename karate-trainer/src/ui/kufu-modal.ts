@@ -15,6 +15,8 @@ export interface KufuModalDeps {
   onAdd(text: string): void;
   onRemove(index: number): void;
   perDrill?: number;     // for the "full" hint
+  // Full because of the plan: a button to the plan cards (behind the gate).
+  onUpgrade?(): void;
   // Done screen: a card in the page flow under the video (host is its slot),
   // with no dimmed backdrop, so the video stays visible while the child writes.
   sheet?: boolean;
@@ -145,6 +147,15 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
         ? `工夫は1種目${deps.perDrill}つまで。けすと また書けるよ`
         : "工夫がいっぱい。ほかの種目の工夫をけすと書けるよ";
       composer.append(full);
+      if (deps.onUpgrade) {
+        const upgrade = document.createElement("button");
+        upgrade.type = "button";
+        upgrade.className = "kufu-card-upgrade";
+        upgrade.dataset.kufuUpgrade = "";
+        upgrade.textContent = "もっと書くには（おうちの人へ）";
+        upgrade.addEventListener("click", () => { close(); deps.onUpgrade!(); });
+        composer.append(upgrade);
+      }
     }
     follow();
   };

@@ -307,3 +307,21 @@ it("Premium keeps 5 menus: the 6th save is refused with a message", async () => 
   expect(loadPresets(storage)).toHaveLength(5);
   expect(root.querySelector("[data-setup-status]")!.textContent).toContain("プランの上限");
 });
+
+it("Free at the menu cap: 「プランを見る」 goes through the parental gate to the plan cards", async () => {
+  const storage = memStorage();
+  let n = 0;
+  const { root } = await makeApp({ storage, promptName: () => `メニュー${++n}` });
+  for (let i = 0; i < 2; i++) {
+    const select = root.querySelector<HTMLSelectElement>("[data-preset-select]")!;
+    select.value = "";
+    select.dispatchEvent(new Event("change"));
+    root.querySelector<HTMLButtonElement>("[data-preset-save]")!.click();
+  }
+  const action = root.querySelector<HTMLButtonElement>("[data-setup-status-action]")!;
+  expect(action.textContent).toBe("プランを見る");
+  action.click();
+  // The gate comes first: no plan cards until a grown-up answers.
+  expect(root.querySelector('[data-family-anchor="plan"]')).toBeNull();
+  expect(root.querySelector("[data-preset-select]")).toBeNull();
+});

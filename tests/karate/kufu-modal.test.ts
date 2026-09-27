@@ -145,3 +145,17 @@ it("closes (onClose runs) when the host re-renders underneath the card", async (
   await new Promise((r) => setTimeout(r, 0));
   expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it("full because of the plan: the upgrade button closes the card and opens the plans", () => {
+  const onUpgrade = vi.fn();
+  const { root, onClose } = open(["こし"], { full: true, onUpgrade });
+  root.querySelector<HTMLButtonElement>("[data-kufu-upgrade]")!.click();
+  expect(onUpgrade).toHaveBeenCalledOnce();
+  expect(onClose).toHaveBeenCalled();
+  expect(overlay(root)).toBeNull();
+});
+
+it("full with no upgrade path (paid plan): no upgrade button", () => {
+  const { root } = open(["こし"], { full: true });
+  expect(root.querySelector("[data-kufu-upgrade]")).toBeNull();
+});
