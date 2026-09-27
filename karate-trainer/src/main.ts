@@ -148,7 +148,18 @@ if (isNative) {
   storage = mirroredStorage(localStorage, () => backup.schedule());
   void backup.flush();   // existing installs get a backup right away
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") void backup.flush();
+    if (document.visibilityState === "hidden") { void backup.flush(); return; }
+    // 前面に戻ってきたとき。WebKit 側のストレージが（OS のメモリ整理などで）
+    // アプリを終了しないまま空になることがあり、そのままだと次に完全に
+    // 終了して開き直すまで直らない — 子どもは終了せず開き直すだけなので、
+    // 「全部消えた」ように見え続けてしまう。バックアップの内容を読み直し、
+    // 空になっていたら戻す。戻したときだけ、いま動いている画面を作り直す
+    // （すでに空のまま組み立て終わった画面は、あとから storage だけ書いても
+    // 更新されないため）。
+    void (async () => {
+      const fresh = await file.read();
+      if (fresh && restoreIfEmpty(localStorage, fresh)) location.reload();
+    })();
   });
 }
 void navigator.storage?.persist?.().catch(() => { /* not supported */ });

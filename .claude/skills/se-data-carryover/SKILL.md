@@ -8,6 +8,14 @@ description: Install a karate app build (本番 or test) on the iPhone SE while 
 The user's rule: an update on the iPhone SE must keep the SE's data. Follow
 these steps in order; do not skip the backup even for a same-bundle-id update.
 
+**2026-09-27: a real child uses this app on the SE every day.** The user
+asked outright — back up the SE's data every single time something is
+installed there, no exceptions, because this is not test data anymore. Step 3
+(pull a dated backup to the Mac, BEFORE installing) and the verification pull
+in step 6 (AFTER installing) are both mandatory on every single SE install
+from now on, even a trivial rebuild, even when the bundle id is unchanged and
+the data "should" survive automatically. Do this without being asked again.
+
 ## Facts this relies on
 
 - iPhone SE (3rd gen): devicectl id `429A9E77-68EB-5406-93BA-02B4B5B9837E`,
@@ -29,6 +37,22 @@ these steps in order; do not skip the backup even for a same-bundle-id update.
 - Not in the backup: custom voice clips in IndexedDB (voice-store) and recorded
   videos. Tell the user if they relied on those.
 - devicectl needs the sandbox off (`dangerouslyDisableSandbox: true`).
+- **2026-09-27 incident**: the SE's karate.test app appeared to have lost all
+  records (all members, menus, levels gone) with no reinstall and no device
+  reboot in between (confirmed via the app container's unchanged creation
+  date and device uptime continuity — see [[karate-se-data-loss-2026-09-27]]
+  in memory for the full investigation). The likely cause is an in-place
+  WebKit storage hiccup (an iOS memory-pressure eviction or a Storage-process
+  crash) that emptied `localStorage` while the app stayed backgrounded rather
+  than being killed — `restoreIfEmpty` only ran once at the original cold
+  launch, so simply reopening the app from the app switcher never re-checked
+  it. **Fixed in `main.ts`**: the `visibilitychange` handler now also re-reads
+  the backup file and calls `restoreIfEmpty` whenever the app comes back to
+  the foreground, reloading the page if it restored something — so this class
+  of failure should now self-heal within a second of reopening the app,
+  without needing a full force-quit or a rebuild from this Mac. The
+  `Library/karate-backup.json` file itself was never affected — that is what
+  made the manual recovery possible.
 
 ## Steps
 
