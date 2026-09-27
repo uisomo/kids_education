@@ -8,7 +8,8 @@
     { "file": "02.png", "src": "source/rec-icon.png",  "title": ["キャラクターが", "となりで応援"], "sub": "ひとりの練習も、声かけで楽しく続く" },
     { "file": "03.png", "src": "source/strength.png",  "title": ["曲ごとにレベルアップ", "音符が上がる！"], "sub": "がんばりが虹色のメーターで見える" },
     { "file": "04.png", "src": "source/menu.png",      "title": ["時間を気にせず", "「次へ ▶」で進むだけ"], "sub": "連続記録＋はじめての人向け「基本」メニュー" },
-    { "file": "05.png", "src": "source/rec-frame.png", "title": ["レッスンで先生に", "見せられる動画に"], "sub": "フレーム付きで保存。家族みんなで使える" },
-    { "file": "06.png", "src": "source/gate.png",      "title": ["広告なし。", "親も子も安心"], "sub": "おうちの人の設定は保護者ゲートの先に", "chips": ["広告なし", "登録不要", "動画は端末の中だけ"] }
+    { "file": "05.png", "src": "source/items.png",     "title": ["集めて、つけて、", "動画にも映る"], "sub": "キラキラを集めて、音符をコレクション" },
+    { "file": "06.png", "src": "source/rec-frame.png", "title": ["レッスンで先生に", "見せられる動画に"], "sub": "フレーム付きで保存。家族みんなで使える" },
+    { "file": "07.png", "src": "source/gate.png",      "title": ["広告なし。", "親も子も安心"], "sub": "おうちの人の設定は保護者ゲートの先に", "chips": ["広告なし", "登録不要", "動画は端末の中だけ"] }
   ]
 }

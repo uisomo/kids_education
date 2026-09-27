@@ -21,7 +21,7 @@ appstore/
 │   ├── submission-notes.txt   審査メモ（DATA & KIDS CATEGORY）・過去に指摘されたこと・TODO
 │   ├── review/               審査用スクリーンショット（サブスクリプション）
 │   └── screenshots/
-│       ├── 6.9inch/          ← App Store Connect に上げるもの（1320×2868・v2のまま、要差替）
+│       ├── 6.9inch/          ← App Store Connect に上げるもの（1320×2868・01〜07・v3）
 │       ├── 6.5inch/          ← 同じく（1284×2778・同上）
 │       ├── source/           元になったアプリの画面
 │       ├── slides.json       見出しの文言 → 作り直し用
@@ -32,7 +32,7 @@ appstore/
     ├── app-info.txt           アプリ情報・年齢制限・プライバシー
     ├── submission-notes.txt   審査メモ・過去の指摘への対策・TODO
     ├── review/               審査用スクリーンショット（subscriptions-review-1320x2868.jpg）
-    └── screenshots/          6.9inch / 6.5inch / source / slides.json（空手と同じ・v1のまま、要差替）
+    └── screenshots/          6.9inch / 6.5inch / source / slides.json（空手と同じ・01〜07・v2）
 
 【作り直すとき（リポジトリのフォルダで）】
 - スクリーンショット
