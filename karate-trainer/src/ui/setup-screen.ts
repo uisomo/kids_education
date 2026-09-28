@@ -12,6 +12,7 @@ import { openHookModal } from "./hook-modal";
 import { openLetterModal } from "./letter-modal";
 import { openHowtoMenu } from "./howto";
 import type { Letter } from "../letter-store";
+import { glossyIcon, icon } from "../alan/alan-icons.js";
 
 export interface SetupMember {
   id: string;
@@ -27,9 +28,6 @@ export interface SetupDeps {
   // the iOS IME composition (かな入力 drops out after one character).
   onEdit(menu: Menu): void;
   onStart(): void;
-  // Voice recording entry & partner selection were removed from this screen.
-  // Props kept optional so existing callers/tests stay compatible.
-  onOpenVoice?(): void;
   // Saved named menus (presets), shown as a closed-by-default dropdown.
   presets: Preset[];
   onSavePreset(): void;      // 「保存」: name + snapshot the current menu as a new saved menu
@@ -145,7 +143,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   howto.className = "setup-howto-chip";
   howto.dataset.howtoChip = "";
   howto.setAttribute("aria-label", "使い方どうが");
-  howto.textContent = "🎬";
+  howto.append(glossyIcon("help", "s"));
   howto.addEventListener("click", () => openHowtoMenu(root));
   headerLeft.append(howto);
 
@@ -163,7 +161,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     chip.setAttribute("aria-label", "おうちの人からのおたより");
     const icon = document.createElement("span");
     icon.className = "setup-letter-icon";
-    icon.textContent = "✉️";
+    icon.append(glossyIcon("letter", "s"));
     chip.append(icon);
 
     const badge = document.createElement("span");
@@ -200,7 +198,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     const streak = document.createElement("div");
     streak.className = "setup-streak";
     streak.dataset.streak = "";
-    streak.textContent = `🔥 ${deps.streakDays}日継続中`;
+    streak.classList.add("with-icon");
+    streak.append(glossyIcon("flame", "s"), `${deps.streakDays}日継続中`);
     header.append(streak);
   }
 
@@ -309,7 +308,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     const del = document.createElement("button");
     del.className = "preset-del";
     del.dataset.presetDel = editable.id;
-    del.textContent = "✕";
+    del.append(icon("trash"));
     del.title = `${editable.name} を削除`;
     del.setAttribute("aria-label", `${editable.name} を削除`);
     del.addEventListener("click", () => {
@@ -390,7 +389,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     }
 
     const del = document.createElement("button");
-    del.textContent = "✕"; del.className = "row-del";
+    del.className = "row-del";
+    del.append(icon("trash"));
+    del.setAttribute("aria-label", `${drill.name} を削除`);
     del.addEventListener("click", () => {
       const gone = menu[i].name;
       if (!confirmDelete(gone)) return;
@@ -408,7 +409,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       const kufu = document.createElement("button");
       kufu.className = "row-kufu";
       kufu.dataset.kufuOpen = drill.name;
-      kufu.textContent = "💡";
+      kufu.append(glossyIcon("idea", "s"));
       kufu.setAttribute("aria-label", `${drill.name} の工夫`);
       // Read the CURRENT name: the kid may have renamed the drill since render.
       const paint = () => {
@@ -474,7 +475,10 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       : `${menu.length}種目 · ${formatMMSS(secs)}${over ? `（${limit}まで）` : ""}`;
     total.classList.toggle("is-over", over);
     start.disabled = menu.length === 0 || over;
-    start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : `${COPY.practice} 開始 ▶`;
+    const ready = menu.length > 0 && !over;
+    start.textContent = menu.length === 0 ? "種目を追加してね" : over ? `${limit}までにしてね` : `${COPY.practice} 開始`;
+    start.classList.toggle("with-icon", ready);
+    if (ready) start.prepend(icon("play"));
   }
   updateTotal();
   totalRow.append(total);
@@ -492,21 +496,18 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   controls.dataset.startControls = "";
 
   if (deps.onToggleBgm) {
-    const BGM_ON_LABEL = "🎵 BGM";
-    const BGM_OFF_LABEL = "🔇 BGM";
+    const BGM_LABEL = "BGM";
     // イヤフォンをつけているあいだだけ BGM が流れる（まわりの人の邪魔をせず、
     // 録音にも入らないように）。つけていないときは、押しても鳴らないのではなく
     // 「つければ鳴る」ことが分かるように 🎧 にする。
-    const BGM_HEADPHONE_LABEL = "🎧 BGM";
     const needsHeadphones = !!deps.bgmNeedsHeadphones;
     const bgmBtn = document.createElement("button");
     bgmBtn.type = "button";
     bgmBtn.dataset.bgmToggle = "";
     if (needsHeadphones) bgmBtn.dataset.bgmNeedsHeadphones = "";
     bgmBtn.className = "bgm-toggle-btn" + (deps.bgmMuted ? " muted" : "");
-    bgmBtn.textContent = needsHeadphones
-      ? BGM_HEADPHONE_LABEL
-      : deps.bgmMuted ? BGM_OFF_LABEL : BGM_ON_LABEL;
+    bgmBtn.classList.add("with-icon");
+    bgmBtn.append(glossyIcon(needsHeadphones ? "headphones" : deps.bgmMuted ? "mute" : "sound", "s"), BGM_LABEL);
     bgmBtn.setAttribute(
       "aria-label",
       needsHeadphones ? "練習BGM — イヤフォンをつけると流れます" : "練習BGM on/off",
@@ -525,7 +526,8 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     hookBtn.dataset.hookToggle = "";
     hookBtn.className = "hook-toggle-btn" + (deps.hookOn ? " is-on" : "");
     // Labelled: a bare 🪝 next to a bare 🎵 gave no clue which was which.
-    hookBtn.textContent = "🪝 よみあげ";
+    hookBtn.classList.add("with-icon");
+    hookBtn.append(glossyIcon("sound", "s"), "よみあげ");
     hookBtn.setAttribute("aria-label", "さいしょに読み上げる ことば on/off");
     hookBtn.addEventListener("click", () => {
       // Off → turn it on and go straight to the words; already on → just edit

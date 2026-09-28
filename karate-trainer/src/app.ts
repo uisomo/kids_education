@@ -7,7 +7,6 @@ import type { VoiceStore } from "./voice-store";
 import { renderSetupScreen } from "./ui/setup-screen";
 import { renderTrainingScreen, type TrainingView } from "./ui/training-screen";
 import { renderDoneScreen, type BeltMissReason, type DoneBeltResult } from "./ui/done-screen";
-import { renderVoiceScreen } from "./ui/voice-screen";
 import { COUNTDOWN_SOUNDS, playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
 import {
@@ -259,12 +258,15 @@ export class KarateApp {
   private recElapsedMs = 0;
   private cueCount = 0;
   // Drills (not 休憩) that ran down to 0 this session, in order, and their menu
-  // rows. Only these raise 積み重ね (and so the menu's belt); skipped drills don't.
+  // rows. Only these raise 積み重ね (and so the menu's belt).
   private finishedDrills: string[] = [];
   private finishedRows = new Set<number>();
   private currentRow = -1;
   private recTimerHandle: ReturnType<typeof setInterval> | null = null;
-  private paused = false;
+  // Why the practice is held still (timer and music stopped, camera still
+  // recording): the app is in the background, or the 「やめる？」 sheet is open.
+  private holds = new Set<"hidden" | "ask">();
+  private get paused(): boolean { return this.holds.size > 0; }
   private characterState: CharacterState;
   private overlayLog: OverlayEventLog | null = null;
   private diagnostics: DiagnosticsLog | null = null;
@@ -529,7 +531,6 @@ export class KarateApp {
         if (this.guideStep === "start") { clearGuideSpot(this.root); this.guideStep = "save"; }
         void this.beginTraining();
       },
-      onOpenVoice: () => this.showVoice(),
       // Presets = classes, family-shared → base storage.
       presets: this.usablePresets(),
       selectedPresetId: linked?.id,
@@ -677,7 +678,7 @@ export class KarateApp {
   private paintSetupGuide(hasMessage: boolean): void {
     if (this.guideStep === "start") {
       attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-start]"),
-                      `${COPY.practice} 開始 ▶ をおしてね`,
+                      `${COPY.practice} 開始 をおしてね`,
                       // BGM / 🪝 の列ごと上に出す（ボタンの真上だとその列を隠す）。
                       this.root.querySelector<HTMLElement>("[data-start-row]"));
       return;
@@ -723,13 +724,17 @@ export class KarateApp {
         if (tab === this.activeTab) return;
         // The gate covers one visit: leaving 家族 locks it again.
         if (this.activeTab === "family") { this.familyUnlocked = false; this.billingStatus = ""; }
-        if (tab === "train") this.showSetup();
-        else if (tab === "sparkle") this.showSparkle();
-        else if (tab === "strength") this.showStrength();
-        else this.showFamily();
+        this.showTab(tab);
       },
     });
     this.root.append(nav);
+  }
+
+  private showTab(tab: NavTab): void {
+    if (tab === "train") this.showSetup();
+    else if (tab === "sparkle") this.showSparkle();
+    else if (tab === "strength") this.showStrength();
+    else this.showFamily();
   }
 
   // 🎒 アイテム タブ: 集めた キラキラ・帯・ブロック。キラキラを押すと
@@ -816,7 +821,12 @@ export class KarateApp {
           if (this.deps.billing && this.prices && Object.keys(this.prices).length === 0) void this.syncBilling();
           this.showFamily();
         },
-        onCancel: () => { this.familyScrollTo = null; this.showSetup(); },
+        // × on the gate: back to the tab the child came from (the gate is drawn
+        // over it without moving activeTab), not always to 特訓.
+        onCancel: () => {
+          this.familyScrollTo = null;
+          this.showTab(this.activeTab === "family" ? "train" : this.activeTab);
+        },
       });
       return;
     }
@@ -1138,15 +1148,6 @@ export class KarateApp {
     this.characterState = loadCharacterState(this.mem());
   }
 
-  private showVoice(): void {
-    renderVoiceScreen(this.root, {
-      store: this.deps.voiceStore,
-      makeRecorder: () => this.deps.makeVoiceRecorder(),
-      onBack: () => this.showSetup(),
-      exportFile: this.deps.exportFile,
-    });
-  }
-
   private async beginTraining(): Promise<void> {
     // Past the limit the video gets too big to save and share (the setup
     // screen already disables 開始; this guards any other way in).
@@ -1248,10 +1249,10 @@ export class KarateApp {
       this.diagnostics.watchVideoElement(view.videoEl);
     }
 
-    // ピアノのガイド: 種目が時間で終わらないので、「つぎへ ▶」を光らせる。
+    // ピアノのガイド: 種目が時間で終わらないので、「次へ」を光らせる。
     // 空手はこのあと 10びょうで勝手に終わるので、何も出さない。
     if (this.guideStep === "save" && IS_PIANO) {
-      attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-skip]"), "ひけたら つぎへ ▶");
+      attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-piece-done]"), "ひけたら つぎへ ▶");
     }
 
     this.recElapsedMs = 0;
@@ -1259,9 +1260,8 @@ export class KarateApp {
     this.finishedDrills = [];
     this.finishedRows = new Set();
     this.currentRow = -1;
-    this.paused = false;
+    this.holds = new Set();
     this.sessionEnding = false;
-    view.setPaused(false);
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
     view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
 
@@ -1347,9 +1347,9 @@ export class KarateApp {
         this.cueCount++;
         void cuePlayer.countdown(n);
       },
-      // A skipped drill just doesn't level up; 休憩 never does.
-      onDrillEnd: (drill: Drill, finished: boolean) => {
-        if (drill.kind === "rest" || !finished) return;
+      // 休憩 never levels up.
+      onDrillEnd: (drill: Drill) => {
+        if (drill.kind === "rest") return;
         this.finishedDrills.push(drill.name);
         this.finishedRows.add(this.currentRow);
       },
@@ -1359,10 +1359,15 @@ export class KarateApp {
     // Piano: a drill has no clock; it ends when the child taps 次へ.
     const scheduler = new SessionScheduler(this.menu, handlers, { untimed: IS_PIANO });
 
-    // ⏸ stops the drill timer and the music; the camera keeps recording.
-    const setPaused = (paused: boolean) => {
-      if (this.paused === paused || this.sessionEnding) return;
-      this.paused = paused;
+    // A hold stops the drill timer and the music; the camera keeps recording.
+    // The practice runs again once every hold is gone.
+    const setHold = (why: "hidden" | "ask", on: boolean) => {
+      if (this.holds.has(why) === on || this.sessionEnding) return;
+      const was = this.paused;
+      if (on) this.holds.add(why);
+      else this.holds.delete(why);
+      const paused = this.paused;
+      if (paused === was) return;
       if (paused) {
         scheduler.pause();
         this.stopRecTimer();
@@ -1373,25 +1378,27 @@ export class KarateApp {
       const musicOn = !paused && !getBgmMuted(this.base());
       this.deps.bgm?.setMuted(!musicOn);
       if (this.deps.bgm) this.overlayLog?.logSound({ kind: "bgm", playing: musicOn });
-      view.setPaused(paused);
     };
-    view.onPause(() => setPaused(!this.paused));
-    // Leaving the app mid-practice pauses it, so the timer doesn't run on
-    // without the child (native also reports the recording interruption).
+    // Leaving the app mid-practice holds it, so the timer doesn't run on
+    // without the child, and coming back carries on (native also reports the
+    // recording interruption, which ends the practice).
     if (typeof document !== "undefined") {
-      const onVisibility = () => { if (document.visibilityState === "hidden") setPaused(true); };
+      const onVisibility = () => setHold("hidden", document.visibilityState === "hidden");
       document.addEventListener("visibilitychange", onVisibility);
       this.detachVisibility = () => document.removeEventListener("visibilitychange", onVisibility);
     }
     recorder.onInterrupted?.(() => { void this.finishSession(false, true); });
-    // Piano's 次へ finishes the drill (it counts); karate's ⏭ skips it.
-    view.onSkip(() => (IS_PIANO ? scheduler.next() : scheduler.skip()));
-    // 終了 partway: the video is still saved, but nothing counts toward progress.
+    // Piano's 次へ finishes the piece (it counts).
+    view.onPieceDone(() => scheduler.next());
+    // × → 「やめる？」: the practice waits while the sheet is open.
+    view.onStopAsk(() => setHold("ask", true));
+    view.onStopCancel(() => setHold("ask", false));
+    // やめる partway: the video is still saved, but nothing counts toward progress.
     view.onStop(() => { void this.finishSession(false); });
     view.onToggleBgm(() => {
       const next = !getBgmMuted(this.base());
       setBgmMuted(next, this.base());
-      if (this.paused) {         // stays silent until ▶ 再開
+      if (this.paused) {         // stays silent until the hold is over
         view.setBgmMuted(next);
         return;
       }
@@ -1472,7 +1479,7 @@ export class KarateApp {
 
   private sessionEnding = false;
 
-  // completed: the menu ran to its end (true) or was stopped with 終了 (false).
+  // completed: the menu ran to its end (true) or was stopped with × → やめる (false).
   // interrupted: the phone stopped the recording (call, app switch).
   private async finishSession(completed: boolean, interrupted = false): Promise<void> {
     if (this.sessionEnding) return;
@@ -1724,7 +1731,7 @@ export class KarateApp {
       // 初回ガイドの最後: 「⬇ 動画を保存」を光らせる。
       if (this.guideStep === "save") {
         attachGuideSpot(this.root, this.root.querySelector<HTMLElement>("[data-download]"),
-                        "⬇ 動画を保存 をおしてね");
+                        "動画を保存 をおしてね");
       }
     } catch (e) {
       // Without this, a thrown/rejected step above (e.g. recorder.stop()

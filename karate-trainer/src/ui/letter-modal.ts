@@ -3,11 +3,12 @@
 // reads like something written to the kid rather than a status bar; older ones
 // are behind 「‹ まえのおたより」.
 //
-// Same manners as kufu-modal: only 「とじる」 (or Escape) closes it, a stray tap
-// beside the card does nothing, and it cleans up if the screen re-renders
-// underneath it.
+// Closes with the × at its top left (SERIES_GUIDE 5.15), Escape, or a tap on
+// the dimmed backdrop — it is read-only, so nothing is lost. It cleans up if
+// the screen re-renders underneath it.
 
 import type { Letter } from "../letter-store";
+import { modalHead } from "./modal-head";
 
 export interface LetterModalDeps {
   letters: Letter[];          // newest first; must not be empty
@@ -64,14 +65,10 @@ export function openLetterModal(host: HTMLElement, deps: LetterModalDeps): () =>
   next.dataset.letterNext = "";
   next.textContent = "つぎ ›";
 
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "letter-card-close";
-  closeBtn.dataset.letterClose = "";
-  closeBtn.textContent = "とじる";
+  const { head } = modalHead(day, () => close(), "letterClose");
 
   nav.append(prev, next);
-  card.append(day, body, by, nav, closeBtn);
+  card.append(head, body, by, nav);
   overlay.append(card);
   host.append(overlay);
 
@@ -108,7 +105,7 @@ export function openLetterModal(host: HTMLElement, deps: LetterModalDeps): () =>
     overlay.remove();
     deps.onClose?.();
   };
-  closeBtn.addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 
   const wasConnected = overlay.isConnected;
   const detached = (): boolean => wasConnected && !overlay.isConnected;

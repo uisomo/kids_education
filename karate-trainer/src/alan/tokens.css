@@ -1,0 +1,220 @@
+/* =====================================================================
+   アランの シリーズ 共通の 骨組み（SERIES_GUIDE 5.1 / 5.2 / 5.2c / 5.15）
+   - 正本は ここ。アプリへは `python3 brand/sync_brand.py <アプリ>` で コピー（手で直さない）
+   - アプリが 変えるのは 下の「アプリの色」だけ（:root で 上書き）
+   - グロッシーの 色（.g-*）・大きさ・丸み・影は シリーズで 1つ
+   - 見本：brand/preview.html（ブラウザで ひらく）
+   ===================================================================== */
+
+@font-face { font-family: "M PLUS Rounded 1c"; font-weight: 500; font-display: swap;
+  src: local("M PLUS Rounded 1c Medium"), url("/fonts/MPLUSRounded1c-Medium.ttf") format("truetype"); }
+@font-face { font-family: "M PLUS Rounded 1c"; font-weight: 800 900; font-display: swap;
+  src: local("M PLUS Rounded 1c ExtraBold"), url("/fonts/MPLUSRounded1c-ExtraBold.ttf") format("truetype"); }
+
+:root {
+  /* ---- アプリの色（アプリごとに 上書きするのは ここだけ） ---- */
+  --brand: #e5243b;        /* 大事な ボタン（はじめる）の 地 */
+  --brand-hi: #f2536a;     /* 地の 上がわ（あかるい） */
+  --brand-dark: #b81530;   /* 押しこみの 影・ふち */
+  --on-brand: #fff;        /* 地の 上の 文字 */
+  --bg: #fbfaf6;           /* 画面の 地 */
+  --ink: #1d1b18;          /* 文字 */
+  --ink-soft: #6b6257;     /* うすい 文字（説明） */
+  --card: #fff;            /* カードの 地 */
+  --line: #e6e1d6;         /* しきり線 */
+
+  /* ---- シリーズ共通（変えない） ---- */
+  --a-font: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", system-ui, sans-serif;
+  --a-r-pill: 999px;
+  --a-r-card: 20px;        /* カード 18〜22 */
+  --a-r-tile: 14px;
+  --a-tap: 48px;           /* 押せる ものの 最小（Apple は 44pt。子どもなので 48） */
+  --a-tap-big: 64px;       /* 「はじめる」など 画面で 1つの 大きな ボタン */
+  --a-gap: 12px;
+  --a-gutter: 16px;
+  --a-drop: 0 6px 12px rgba(20, 20, 20, .16);
+  --a-press: 3px;          /* 押すと しずむ 量 */
+  --a-dur: 160ms;
+  --a-ease: cubic-bezier(.3, 1.4, .5, 1); /* ぷにっと もどる */
+}
+
+/* ---------------------------------------------------------------------
+   グロッシーの 色（5.2c の 色の 意味）
+   grey=ロック・設定・もどる / cyan・blue=再生・きろく / green=できた・はじめる
+   pink=あたらしい / orange=おまかせ・つづけた日数 / yellow=ほし・ごほうび
+   purple=ひと・家族 / red=録画・だいじ
+   それぞれ hi（上）・lo（下）・sh（押しこみの 影）の 3つで 1組
+   --------------------------------------------------------------------- */
+.g-grey   { --g-hi:#c3c7ca; --g-lo:#9aa0a4; --g-sh:#6b7075; }
+.g-cyan   { --g-hi:#7cd9f5; --g-lo:#3fc6ec; --g-sh:#1f93b8; }
+.g-blue   { --g-hi:#6bb2ea; --g-lo:#3f8fd6; --g-sh:#2b6fae; }
+.g-green  { --g-hi:#7ed85f; --g-lo:#4fa83f; --g-sh:#3a7d2f; }
+.g-pink   { --g-hi:#ff8fb8; --g-lo:#e94f80; --g-sh:#b03249; }
+.g-orange { --g-hi:#f5975a; --g-lo:#e0762e; --g-sh:#b2561b; }
+.g-yellow { --g-hi:#f0c463; --g-lo:#dfab35; --g-sh:#b8862a; }
+.g-purple { --g-hi:#a084e0; --g-lo:#7b5fd0; --g-sh:#5a45a8; }
+.g-red    { --g-hi:#f2536a; --g-lo:#e5243b; --g-sh:#b81530; }
+.g-white  { --g-hi:#ffffff; --g-lo:#eeece4; --g-sh:#b9b4a8; }
+.g-brand  { --g-hi:var(--brand-hi); --g-lo:var(--brand); --g-sh:var(--brand-dark); }
+
+/* ---------------------------------------------------------------------
+   丸い アイコン（.gicon）— brand/icons/alan-icons.js の glossyIcon() が つくる
+   --------------------------------------------------------------------- */
+.gicon {
+  position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center;
+  border-radius: 999px; color: #fff;
+  background: linear-gradient(180deg, var(--g-hi, #ccc), var(--g-lo, #999));
+  box-shadow: inset 0 -3px 4px rgba(0,0,0,.16), 0 3px 0 var(--g-sh, #777), 0 5px 9px rgba(20,20,20,.18);
+}
+.gicon::before { /* 左上の つや */
+  content: ""; position: absolute; left: 17%; top: 13%; width: 40%; height: 30%;
+  border-radius: 50%; background: rgba(255,255,255,.55); pointer-events: none;
+}
+.gicon > .ic { position: relative; z-index: 1; filter: drop-shadow(0 1px 0 rgba(0,0,0,.18)); }
+.gicon.g-white { color: var(--ink); }
+.gicon-s  { width: 26px; height: 26px; }  .gicon-s  > .ic { width: 15px; height: 15px; }
+.gicon-m  { width: 40px; height: 40px; }  .gicon-m  > .ic { width: 22px; height: 22px; }
+.gicon-l  { width: 52px; height: 52px; }  .gicon-l  > .ic { width: 28px; height: 28px; }
+.gicon-xl { width: 76px; height: 76px; }  .gicon-xl > .ic { width: 40px; height: 40px; }
+.ic { width: 1.2em; height: 1.2em; flex: 0 0 auto; }
+/* 絵（PNG）の アイコン（alan-icons.js）。つや・ふちは 絵に 入っている ので CSS では かかない */
+.gicon.gicon-img { background: none; box-shadow: none; }
+.gicon.gicon-img::before { display: none; }
+.gicon-img > .gicon-pic { width: 100%; height: 100%; display: block; filter: drop-shadow(0 3px 4px rgba(20,20,20,.22)); }
+.gicon-img > .gicon-glyph { position: absolute; left: 23%; top: 23%; width: 54%; height: 54%; object-fit: contain; }
+img.ic { object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
+.ic-plain { display: inline-block; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(20,20,20,.18)); }
+.a-tab:not([aria-current="page"]) .gicon-img { filter: grayscale(1) opacity(.55); }
+
+/* ---------------------------------------------------------------------
+   ボタン（.a-btn）— 押すと 3px しずむ グロッシーの 3D
+   .a-btn            白い ふつうの ボタン
+   .a-btn.primary    アプリの色。画面に 1つだけ（「はじめる」「つぎへ」）
+   .a-btn.big        大きい（高さ 64px。ホームの「はじめる」）
+   .a-btn.g-green など グロッシーの色で ぬる
+   .a-btn.quiet      地なし（「あとで」「やめる」など 弱い 道）
+   --------------------------------------------------------------------- */
+/* ふだんの 地は 白。:where で 弱く して .g-* で 上書き できるように する */
+:where(.a-btn) { --g-hi: #fff; --g-lo: #eeece4; --g-sh: #b9b4a8; }
+.a-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--a-tap); padding: 12px 22px; border: 0; border-radius: var(--a-r-pill);
+  font: inherit; font-family: var(--a-font); font-weight: 800; font-size: 17px; line-height: 1.2; color: var(--ink);
+  background: linear-gradient(180deg, var(--g-hi), var(--g-lo));
+  box-shadow: inset 0 -3px 4px rgba(0,0,0,.08), 0 4px 0 var(--g-sh), var(--a-drop);
+  cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  transition: transform var(--a-dur) var(--a-ease), box-shadow var(--a-dur);
+}
+.a-btn::before {
+  content: ""; position: absolute; left: 10%; top: 12%; width: 38%; height: 26%;
+  border-radius: 999px; background: rgba(255,255,255,.38); pointer-events: none;
+}
+.a-btn > * { position: relative; z-index: 1; }
+.a-btn > .ic { width: 1.25em; height: 1.25em; filter: drop-shadow(0 1px 0 rgba(0,0,0,.2)); }
+.a-btn:active { transform: translateY(var(--a-press)); box-shadow: inset 0 -1px 2px rgba(0,0,0,.1), 0 1px 0 var(--g-sh); transition-duration: 40ms; }
+.a-btn:disabled, .a-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.a-btn:focus-visible { outline: 3px solid var(--g-sh); outline-offset: 3px; }
+.a-btn.primary { --g-hi: var(--brand-hi); --g-lo: var(--brand); --g-sh: var(--brand-dark); color: var(--on-brand); }
+.a-btn[class*="g-"]:not(.g-white) { color: #fff; }
+.a-btn.big { min-height: var(--a-tap-big); padding: 16px 32px; font-size: 22px; }
+.a-btn.wide { width: 100%; }
+.a-btn.quiet { background: none; box-shadow: none; color: var(--ink-soft); font-weight: 700; }
+.a-btn.quiet::before { display: none; }
+/* 色の ある ボタンの 中は 絵だけ（icon()。地が 明るく 文字が 黒い ときは icon(name, "ic", "dark")）。白い ボタンの 中は グロッシーの 丸（glossyIcon()） */
+.a-btn > .gicon { margin-left: -10px; }
+
+/* アイコンだけの 丸い ボタン（もどる・とじる・せってい）。押せる 大きさは 48px */
+.a-iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--a-tap); height: var(--a-tap); padding: 0; border: 0; background: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: transform var(--a-dur) var(--a-ease);
+}
+.a-iconbtn:active { transform: translateY(2px) scale(.96); transition-duration: 40ms; }
+
+/* ---------------------------------------------------------------------
+   わく（カード・動画）— 5.2 のグロッシーの わく
+   --------------------------------------------------------------------- */
+.a-card {
+  position: relative; background: var(--card); border-radius: var(--a-r-card); padding: 16px;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,.05), 0 3px 0 var(--line), var(--a-drop);
+}
+.a-card.glossy { background: linear-gradient(180deg, var(--g-hi), var(--g-lo)); box-shadow: inset 0 -2px 3px rgba(0,0,0,.1), 0 3px 0 var(--g-sh), var(--a-drop); }
+.a-card.tap { cursor: pointer; transition: transform var(--a-dur) var(--a-ease); }
+.a-card.tap:active { transform: translateY(2px); }
+.a-video { /* 録画は 9:16（5.2） */
+  aspect-ratio: 9 / 16; object-fit: cover; border-radius: 18px; background: #000;
+  box-shadow: 0 0 0 5px #2e2b27, inset 0 0 0 6px rgba(255,255,255,.06), 0 12px 28px rgba(0,0,0,.32);
+}
+
+/* ---------------------------------------------------------------------
+   上の バー（5.15）：左＝もどる、まんなか＝いまの 画面の 名前、右＝いまの 子（ピル）
+   --------------------------------------------------------------------- */
+.a-topbar {
+  display: grid; grid-template-columns: var(--a-tap) 1fr var(--a-tap); align-items: center; gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 6px) var(--a-gutter) 6px;
+}
+.a-topbar > .a-title { text-align: center; font: 800 18px/1.2 var(--a-font); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-topbar > :last-child { justify-self: end; }
+.a-topbar.wide-right { grid-template-columns: var(--a-tap) 1fr auto; }
+
+/* いまの 子の 名前（5.12：いつも 見えるところに） */
+.a-member {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 40vw; min-height: 36px;
+  padding: 4px 12px 4px 4px; border-radius: var(--a-r-pill); background: var(--card);
+  font: 800 15px/1 var(--a-font); color: var(--ink); box-shadow: 0 2px 0 var(--line), 0 3px 8px rgba(0,0,0,.08);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------------
+   下の タブ（5.15）：3つまで。えらんでいる タブは アイコンが グロッシー、ほかは グレー
+   --------------------------------------------------------------------- */
+.a-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  display: flex; justify-content: space-around; align-items: flex-start;
+  padding: 8px var(--a-gutter) calc(env(safe-area-inset-bottom) + 6px);
+  background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 -1px 0 var(--line);
+}
+.a-tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px;
+  border: 0; background: none; cursor: pointer; font: 800 12px/1 var(--a-font); color: var(--ink-soft);
+  -webkit-tap-highlight-color: transparent;
+}
+.a-tab .gicon { transition: transform var(--a-dur) var(--a-ease); }
+.a-tab:not([aria-current="page"]) .gicon { --g-hi:#dcdfe1; --g-lo:#c3c7ca; --g-sh:#9aa0a4; }
+.a-tab[aria-current="page"] { color: var(--ink); }
+.a-tab[aria-current="page"] .gicon { transform: translateY(-2px) scale(1.06); }
+
+/* ---------------------------------------------------------------------
+   下から 出る シート（せつめい・えらぶ・たからもの など）。とじるは 左上の ×
+   --------------------------------------------------------------------- */
+.a-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(20,18,15,.42); animation: a-fade var(--a-dur) ease-out; }
+.a-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; max-height: 88vh; overflow: auto;
+  background: var(--bg); border-radius: 26px 26px 0 0;
+  padding: 10px var(--a-gutter) calc(env(safe-area-inset-bottom) + 16px);
+  box-shadow: 0 -12px 30px rgba(20,18,15,.25); animation: a-up 260ms var(--a-ease);
+}
+.a-sheet::before { content: ""; display: block; width: 44px; height: 5px; margin: 0 auto 8px; border-radius: 3px; background: var(--line); }
+.a-sheet-head { display: grid; grid-template-columns: var(--a-tap) 1fr var(--a-tap); align-items: center; }
+.a-sheet-head > .a-iconbtn { grid-column: 1; grid-row: 1; } /* × は 左上（5.15） */
+.a-sheet-head > .a-title { grid-column: 2; grid-row: 1; text-align: center; font: 800 19px/1.2 var(--a-font); }
+
+/* 文字 */
+.a-h1 { font: 900 28px/1.25 var(--a-font); color: var(--ink); margin: 0; }
+.a-h2 { font: 800 20px/1.3 var(--a-font); color: var(--ink); margin: 0; }
+.a-sub { font: 500 15px/1.6 var(--a-font); color: var(--ink-soft); margin: 0; }
+
+/* 新しい しるし（5.2c：1つの 意味に 1つ。ピンクの てん） */
+.a-dot-new { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%;
+  background: linear-gradient(180deg, #ff8fb8, #e94f80); box-shadow: 0 0 0 2px var(--card); }
+
+@keyframes a-fade { from { opacity: 0; } }
+@keyframes a-up { from { transform: translateY(100%); } }
+@keyframes a-pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.a-pop { animation: a-pop 320ms var(--a-ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .a-btn, .a-iconbtn, .a-card.tap, .a-tab .gicon { transition: none; }
+  .a-sheet, .a-scrim, .a-pop { animation: none; }
+}

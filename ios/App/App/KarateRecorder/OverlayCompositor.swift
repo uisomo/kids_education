@@ -284,34 +284,76 @@ enum OverlayCompositor {
 
     // MARK: - Layer construction
 
-    /// One overlay box: a vertical gradient, an optional hairline and a soft
-    /// drop shadow. The shadow is painted by a first flat fill — a gradient
-    /// needs a clip, and clipping throws the shadow away.
+    /// One overlay box in the series' glossy style (SERIES_GUIDE 5.2d): a
+    /// vertical gradient, a light-top / dark-bottom sheen with a soft white
+    /// highlight at the top left, a slightly darker rim, an optional hairline,
+    /// an optional darker "press" lip under it and a soft drop shadow. The
+    /// shadow is painted by a first flat fill — a gradient needs a clip, and
+    /// clipping throws the shadow away. overlay-frame-render.ts draws the same
+    /// recipe (drawGlossyBox).
+    ///
+    /// `gloss` scales the sheen and highlight (the see-through panels use
+    /// less); `lip` is the press lip's depth in pixels (0 = none) and needs
+    /// that much room below `rect`.
     private static func drawBox(
         _ rect: CGRect, radius: CGFloat, top: UIColor, bottom: UIColor?,
-        stroke: UIColor? = nil, strokeWidth: CGFloat = 0, shadow: CGFloat = 0, in ctx: CGContext
+        stroke: UIColor? = nil, strokeWidth: CGFloat = 0, shadow: CGFloat = 0,
+        gloss: CGFloat = 1, lip: CGFloat = 0, in ctx: CGContext
     ) {
         let path = UIBezierPath(roundedRect: rect, cornerRadius: radius)
         ctx.saveGState()
         if shadow > 0 {
             ctx.setShadow(offset: CGSize(width: 0, height: shadow * 0.3), blur: shadow,
-                          color: UIColor(white: 0, alpha: 0.5).cgColor)
+                          color: UIColor(white: 0, alpha: lip > 0 ? 0.4 : 0.5).cgColor)
+        }
+        if lip > 0 {
+            UIColor(red: 10 / 255, green: 8 / 255, blue: 22 / 255, alpha: 0.55).setFill()
+            UIBezierPath(roundedRect: rect.offsetBy(dx: 0, dy: lip), cornerRadius: radius).fill()
+            ctx.restoreGState()
+            ctx.saveGState()
         }
         top.setFill()
         path.fill()
         ctx.restoreGState()
 
+        let space = CGColorSpaceCreateDeviceRGB()
+        let vertical = (CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.minX, y: rect.maxY))
         if let bottom {
             ctx.saveGState()
             path.addClip()
             let colors = [top.cgColor, bottom.cgColor] as CFArray
-            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                         colors: colors, locations: [0, 1]) {
-                ctx.drawLinearGradient(gradient,
-                                       start: CGPoint(x: rect.minX, y: rect.minY),
-                                       end: CGPoint(x: rect.minX, y: rect.maxY), options: [])
+            if let gradient = CGGradient(colorsSpace: space, colors: colors, locations: [0, 1]) {
+                ctx.drawLinearGradient(gradient, start: vertical.0, end: vertical.1, options: [])
             }
             ctx.restoreGState()
+        }
+
+        if gloss > 0 {
+            ctx.saveGState()
+            path.addClip()
+            let sheen = [
+                UIColor(white: 1, alpha: 0.24 * gloss).cgColor,
+                UIColor(white: 1, alpha: 0).cgColor,
+                UIColor(white: 0, alpha: 0.22 * gloss).cgColor,
+            ] as CFArray
+            if let gradient = CGGradient(colorsSpace: space, colors: sheen, locations: [0, 0.48, 1]) {
+                ctx.drawLinearGradient(gradient, start: vertical.0, end: vertical.1, options: [])
+            }
+            // The highlight is sized from the pill's height; a tall panel keeps
+            // a pill-sized one in its top-left corner.
+            let h = min(rect.height, radius * 5)
+            let spot = CGRect(x: rect.minX + h * 0.28, y: rect.minY + h * 0.12,
+                              width: max(0, min(rect.width * 0.42, rect.width - h * 0.56)), height: h * 0.24)
+            UIColor(white: 1, alpha: 0.3 * gloss).setFill()
+            UIBezierPath(roundedRect: spot, cornerRadius: h * 0.12).fill()
+            ctx.restoreGState()
+
+            let rim = max(1.5, h * 0.035)
+            let rimPath = UIBezierPath(roundedRect: rect.insetBy(dx: rim / 2, dy: rim / 2),
+                                       cornerRadius: max(1, radius - rim / 2))
+            UIColor(white: 0, alpha: 0.3 * min(1, gloss)).setStroke()
+            rimPath.lineWidth = rim
+            rimPath.stroke()
         }
 
         if let stroke, strokeWidth > 0 {
@@ -386,7 +428,7 @@ enum OverlayCompositor {
                         radius: fontSize * 0.34,
                         top: style.background, bottom: style.backgroundEnd,
                         stroke: style.stroke, strokeWidth: max(1, 2 * fontScale),
-                        shadow: margin, in: ctx.cgContext)
+                        shadow: margin, lip: max(2, boxH * 0.07), in: ctx.cgContext)
             }
             let origin = CGPoint(
                 x: margin + (boxW - textSize.width) / 2,
@@ -426,15 +468,17 @@ enum OverlayCompositor {
         let padY = 6 * scale
         let w = ceil(textSize.width + padX * 2)
         let h = ceil(textSize.height + padY * 2)
+        // Room under the pill for its glossy press lip.
+        let lip = ceil(max(2, h * 0.08))
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = false
-        let image = UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: format).image { ctx in
+        let image = UIGraphicsImageRenderer(size: CGSize(width: w, height: h + lip), format: format).image { ctx in
             drawBox(CGRect(x: 0, y: 0, width: w, height: h), radius: h / 2,
                     top: boxTop, bottom: boxBottom,
                     stroke: gold.withAlphaComponent(0.5), strokeWidth: max(1, 1.5 * scale),
-                    in: ctx.cgContext)
+                    lip: lip, in: ctx.cgContext)
             attributed.draw(at: CGPoint(x: padX, y: padY))
         }
 
@@ -443,7 +487,7 @@ enum OverlayCompositor {
         let left = alignRight ? renderSize.width - margin - w : margin
         let top = (12 + topInset) * renderSize.height / designHeight
         let layer = CALayer()
-        layer.frame = CGRect(x: left, y: renderSize.height - top - h, width: w, height: h)
+        layer.frame = CGRect(x: left, y: renderSize.height - top - h - lip, width: w, height: h + lip)
         layer.contents = image.cgImage
         layer.contentsGravity = .resize
         return layer
@@ -546,7 +590,7 @@ enum OverlayCompositor {
             drawBox(CGRect(x: 0, y: 0, width: width, height: height), radius: 18 * scale,
                     top: panelFillTop, bottom: panelFillBottom,
                     stroke: gold.withAlphaComponent(0.45), strokeWidth: max(1, 1.5 * scale),
-                    in: ctx.cgContext)
+                    gloss: 0.6, in: ctx.cgContext)
 
             NSAttributedString(string: title, attributes: titleAttrs).draw(
                 with: CGRect(x: pad, y: pad, width: titleW, height: titleFont.lineHeight * titleLines),
@@ -691,7 +735,7 @@ enum OverlayCompositor {
             drawBox(CGRect(x: 0, y: 0, width: width, height: height), radius: 18 * scale,
                     top: panelFillTop, bottom: panelFillBottom,
                     stroke: gold.withAlphaComponent(0.45), strokeWidth: max(1, 1.5 * scale),
-                    in: ctx.cgContext)
+                    gloss: 0.6, in: ctx.cgContext)
             if !inline {
                 title.draw(in: CGRect(x: pad, y: pad, width: textWidth, height: titleH))
             }

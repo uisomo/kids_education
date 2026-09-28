@@ -9,6 +9,8 @@ function fakeCtx() {
     clearRect: vi.fn(),
     measureText: vi.fn(() => ({ width: 100 })),
     beginPath: vi.fn(), moveTo: vi.fn(), arcTo: vi.fn(), closePath: vi.fn(), fill: vi.fn(),
+    save: vi.fn(), restore: vi.fn(), clip: vi.fn(), stroke: vi.fn(),
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     fillText(this: { texts: string[] }, t: string) { this.texts.push(t); },
   };
 }

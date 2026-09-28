@@ -153,23 +153,32 @@ it("an interrupted recording ends the practice with no credit", async () => {
   expect(loadBelt(mem())).toEqual({ index: 0, bars: 0 });
 });
 
-// --- pause ---
-it("⏸ pauses the music and ▶ brings it back; hiding the app pauses", async () => {
+// --- holds (no pause button: the app going away, or 「やめる？」) ---
+it("「やめる？」 and hiding the app hold the drill and the music; both must end before it runs again", async () => {
   const bgm = { unlock: vi.fn(), play: vi.fn(), stop: vi.fn(), setMuted: vi.fn(), isMuted: vi.fn(() => false) };
   const { root, startSession, pump, mem } = await makeApp({ bgm, menuOverride: [{ id: "a", name: "前蹴り", seconds: 5, kind: "drill" }] });
   await startSession();
-  root.querySelector<HTMLButtonElement>("[data-pause]")!.click();
+  const setVisibility = (v: string) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => v });
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+  root.querySelector<HTMLButtonElement>("[data-training-close]")!.click();
   expect(bgm.setMuted).toHaveBeenLastCalledWith(true);
-  pump(10000);   // paused: the drill must not finish
+  pump(10000);   // held: the drill must not finish
   expect(root.querySelector("[data-belt-result]")).toBeNull();
-  root.querySelector<HTMLButtonElement>("[data-pause]")!.click();
-  expect(bgm.setMuted).toHaveBeenLastCalledWith(false);
 
-  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
-  document.dispatchEvent(new Event("visibilitychange"));
-  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
-  expect(root.querySelector("[data-pause]")!.textContent).toContain("再開");
+  setVisibility("hidden");
+  root.querySelector<HTMLButtonElement>("[data-stop-cancel]")!.click();
+  pump(10000);   // still in the background: still held
+  expect(root.querySelector("[data-belt-result]")).toBeNull();
+  expect(bgm.setMuted).toHaveBeenLastCalledWith(true);
+
+  setVisibility("visible");   // back: the practice carries on by itself
+  expect(bgm.setMuted).toHaveBeenLastCalledWith(false);
   expect(loadBelt(mem())).toEqual({ index: 0, bars: 0 });
+  pump(6000);
+  await settle();
+  expect(root.querySelector("[data-belt-result]")).not.toBeNull();   // ran to the end
 });
 
 // --- setup screen guards ---

@@ -1,7 +1,7 @@
 // Renders a single overlay state (種目名/countdown/掛け声/工夫メモ) as a
 // transparent PNG, for later compositing onto the raw recorded video via
-// ffmpeg.wasm. Reuses the same pill-background + text look as the old live
-// CanvasCompositor, but draws no camera frame — overlay only.
+// ffmpeg.wasm. Reuses the same pill + text layout as the old live
+// CanvasCompositor, with the series' glossy pill; no camera frame — overlay only.
 import type { CompositorState } from "./overlay-event-log";
 
 const CANVAS_W = 720;
@@ -95,11 +95,54 @@ function drawLabel(
   const padY = fontPx * 0.35;
   const boxW = metrics.width + padX * 2;
   const boxH = fontPx + padY * 2;
-  ctx.fillStyle = bg;
-  roundRect(ctx, cx - boxW / 2, cy - boxH / 2, boxW, boxH, fontPx * 0.3);
-  ctx.fill();
+  drawGlossyBox(ctx, cx - boxW / 2, cy - boxH / 2, boxW, boxH, fontPx * 0.3, bg);
   ctx.fillStyle = color;
   ctx.fillText(text, cx, cy);
+}
+
+// The series' glossy pill (SERIES_GUIDE 5.2d), the same recipe as
+// OverlayCompositor.drawBox: a darker "press" lip under the pill with a soft
+// drop shadow, the fill, a light-top / dark-bottom sheen, a soft white
+// highlight at the top left and a slightly darker rim.
+function drawGlossyBox(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+  bg: string,
+): void {
+  const lip = Math.max(2, h * 0.07);
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = h * 0.28;
+  ctx.shadowOffsetY = h * 0.08;
+  ctx.fillStyle = "rgba(10,8,22,0.55)";
+  roundRect(ctx, x, y + lip, w, h, r);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = bg;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+  const sheen = ctx.createLinearGradient(0, y, 0, y + h);
+  sheen.addColorStop(0, "rgba(255,255,255,0.24)");
+  sheen.addColorStop(0.48, "rgba(255,255,255,0)");
+  sheen.addColorStop(1, "rgba(0,0,0,0.22)");
+  ctx.fillStyle = sheen;
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  roundRect(ctx, x + h * 0.28, y + h * 0.12, Math.max(0, Math.min(w * 0.42, w - h * 0.56)), h * 0.24, h * 0.12);
+  ctx.fill();
+  ctx.restore();
+
+  const rim = Math.max(1.5, h * 0.035);
+  ctx.lineWidth = rim;
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+  roundRect(ctx, x + rim / 2, y + rim / 2, w - rim, h - rim, Math.max(1, r - rim / 2));
+  ctx.stroke();
 }
 
 function roundRect(

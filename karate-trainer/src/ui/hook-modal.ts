@@ -10,6 +10,8 @@
 
 import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 import { HOOK_PRESETS, nextPresetIndex } from "../hook-presets";
+import { glossyIcon, icon } from "../alan/alan-icons.js";
+import { modalHead } from "./modal-head";
 
 export interface HookModalDeps {
   // Raw stored text: one line per row, newline separated.
@@ -29,9 +31,9 @@ export interface HookModalDeps {
 // anywhere and split 「なににする？」 across the wrap.
 const TITLE_LINES = ["さいしょに出てくる言葉だよ。", "なににする？"];
 
-const AUTO_LABEL = "🎲 じどうでえらぶ";
+const AUTO_LABEL = "じどうでえらぶ";
 const AUTO_NOTE = "毎回ちがう言葉が じどうで入ります";
-const CHANGE_LABEL = "🔁 チェンジ";
+const CHANGE_LABEL = "チェンジ";
 
 // Renders the card into `host` and returns a close() that is safe to call more
 // than once. Opening a second card replaces the first.
@@ -72,7 +74,8 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   autoBox.dataset.hookAuto = "";
   autoBox.checked = auto;
   const autoText = document.createElement("span");
-  autoText.textContent = AUTO_LABEL;
+  autoText.className = "with-icon";
+  autoText.append(icon("random"), AUTO_LABEL);
   autoRow.append(autoBox, autoText);
 
   const autoNote = document.createElement("div");
@@ -122,7 +125,8 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   changeBtn.type = "button";
   changeBtn.className = "hook-modal-change";
   changeBtn.dataset.hookChange = "";
-  changeBtn.textContent = CHANGE_LABEL;
+  changeBtn.classList.add("with-icon");
+  changeBtn.append(glossyIcon("again", "s"), CHANGE_LABEL);
   let shown: number | null = HOOK_PRESETS.findIndex(
     (preset) => preset.join("\n") === (deps.text ?? "").trim(),
   );
@@ -164,7 +168,10 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   okBtn.textContent = "これでOK";
 
   actions.append(offBtn, okBtn);
-  card.append(title, autoRow, autoNote, rows, changeBtn, actions);
+  // × top left (SERIES_GUIDE 5.15). Closing keeps the words: they are saved as
+  // they are typed, so the × and a tap on the backdrop are as safe as これでOK.
+  const { head } = modalHead(title, () => close(), "hookClose");
+  card.append(head, autoRow, autoNote, rows, changeBtn, actions);
   overlay.append(card);
   host.append(overlay);
 
@@ -197,6 +204,7 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   }
 
   okBtn.addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   // Turning the hook off re-renders the setup screen, which detaches this card;
   // close first so the observer has nothing to do.
   offBtn.addEventListener("click", () => { close(); deps.onTurnOff(); });

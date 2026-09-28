@@ -13,13 +13,37 @@ it("mirrors the video and updates the timer", () => {
   expect(root.querySelector("[data-timer]")!.textContent).toContain("18");
 });
 
-it("fires stop handler", () => {
+it("× asks 「やめる？」 once: つづける goes back, やめる fires the stop handler", () => {
   const root = document.createElement("div");
   const view = renderTrainingScreen(root);
-  const onStop = vi.fn();
+  const onAsk = vi.fn(), onCancel = vi.fn(), onStop = vi.fn();
+  view.onStopAsk(onAsk);
+  view.onStopCancel(onCancel);
   view.onStop(onStop);
+  // No pause / skip / bottom 終了 on the karate screen (SERIES_GUIDE 5.15).
+  expect(root.querySelector("[data-pause]")).toBeNull();
+  expect(root.querySelector("[data-skip]")).toBeNull();
+  expect(root.querySelector("[data-piece-done]")).toBeNull();
+  expect(root.querySelector("[data-stop]")).toBeNull();
+
+  const close = root.querySelector<HTMLButtonElement>("[data-training-close]")!;
+  expect(close.classList.contains("a-iconbtn")).toBe(true);
+  expect(close.parentElement!.firstElementChild).toBe(close);   // top-left of the bar
+  close.click();
+  expect(onAsk).toHaveBeenCalledOnce();
+  expect(root.querySelector("[data-stop-sheet]")!.textContent).toContain("やめる？");
+  close.click();   // already asking: no second sheet
+  expect(root.querySelectorAll("[data-stop-sheet]")).toHaveLength(1);
+
+  root.querySelector<HTMLButtonElement>("[data-stop-cancel]")!.click();
+  expect(onCancel).toHaveBeenCalledOnce();
+  expect(root.querySelector("[data-stop-sheet]")).toBeNull();
+  expect(onStop).not.toHaveBeenCalled();
+
+  close.click();
   root.querySelector<HTMLButtonElement>("[data-stop]")!.click();
   expect(onStop).toHaveBeenCalledOnce();
+  expect(root.querySelector("[data-stop-sheet]")).toBeNull();
 });
 
 it("renders the Dojo backdrop and a hidden companion cheer video", () => {

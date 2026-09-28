@@ -1,3 +1,5 @@
+import { iconButton } from "./alan/alan-icons.js";
+
 export interface GateChallenge { a: number; b: number; answer: number }
 
 // 大人向けのかけ算（2けた × 1けた）。a は 12..49、b は 3..9。rand は [0,1) を返す。
@@ -92,10 +94,12 @@ export function renderParentalGate(root: HTMLElement, deps: ParentalGateDeps): v
   submit.className = "btn-gate-submit";
   submit.textContent = "OK";
 
-  const cancel = document.createElement("button");
+  // やめる＝左上の ×（SERIES_GUIDE 5.15）。
+  const head = document.createElement("div");
+  head.className = "gate-head";
+  const cancel = iconButton("close", () => { stopTick(); deps.onCancel(); });
   cancel.dataset.gateCancel = "";
-  cancel.className = "btn-gate-cancel";
-  cancel.textContent = "もどる";
+  head.append(cancel);
 
   // 暗証番号をわすれたとき用。かけ算に切り替える（ここを残さないと、忘れた親は
   // アプリを消して入れ直す＝記録が全部消える、しか道がなくなる）。
@@ -187,7 +191,6 @@ export function renderParentalGate(root: HTMLElement, deps: ParentalGateDeps): v
 
   submit.addEventListener("click", attempt);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") attempt(); });
-  cancel.addEventListener("click", () => { stopTick(); deps.onCancel(); });
   forgot.addEventListener("click", () => {
     askingPin = false;
     forgot.hidden = true;
@@ -200,7 +203,7 @@ export function renderParentalGate(root: HTMLElement, deps: ParentalGateDeps): v
   });
 
   showQuestion();
-  root.append(note, q, input, err, submit, cancel, bio, forgot);
+  root.append(head, note, q, input, err, submit, bio, forgot);
   const locked = syncLock();
 
   // 近道は暗証番号を聞いている間だけ（かけ算に落ちたあとは出さない）。

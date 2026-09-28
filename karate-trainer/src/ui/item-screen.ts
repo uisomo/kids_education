@@ -20,7 +20,8 @@ import {
 } from "../belt-collection-store";
 import { BLOCKS } from "../block-catalog";
 import { unlockedBlocks, nextBlock, practiceCount } from "../block-store";
-import { COPY, IS_PIANO } from "../flavor";
+import { COPY } from "../flavor";
+import { glossyIcon, type IconName } from "../alan/alan-icons.js";
 
 export type ItemSection = "sparkle" | "belt" | "block";
 
@@ -35,10 +36,12 @@ export interface ItemScreenDeps {
   onSection?(section: ItemSection): void;
 }
 
-const SECTIONS: { id: ItemSection; label: string }[] = [
-  { id: "sparkle", label: "✨ キラキラ" },
-  { id: "belt", label: `${IS_PIANO ? "🎼" : "🥋"} ${COPY.belt}` },
-  { id: "block", label: "🧊 ブロック" },
+// Series icons (alan-icons): キラキラ = sparkle, 帯 = star (N回ごとの ごほうび),
+// ブロック = gift (あつめる たからもの).
+const SECTIONS: { id: ItemSection; label: string; icon: IconName }[] = [
+  { id: "sparkle", label: "キラキラ", icon: "sparkle" },
+  { id: "belt", label: COPY.belt, icon: "star" },
+  { id: "block", label: "ブロック", icon: "gift" },
 ];
 
 const NS = "http://www.w3.org/2000/svg";
@@ -458,7 +461,7 @@ export function renderItemScreen(root: HTMLElement, deps: ItemScreenDeps = {}): 
     button.type = "button";
     button.className = `item-tab${s.id === shown ? " is-on" : ""}`;
     button.dataset.itemTab = s.id;
-    button.textContent = s.label;
+    button.append(glossyIcon(s.icon, "s"), s.label);
     button.addEventListener("click", () => deps.onSection?.(s.id));
     tabs.append(button);
   });

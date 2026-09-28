@@ -1,5 +1,6 @@
 import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
+import { glossyIcon, icon, iconButton, type IconName } from "../alan/alan-icons.js";
 import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
 import type { Decor } from "../decor-store";
 import { hookPalette, hookFill, HOOK_COLOR_MODE } from "../hook-style";
@@ -27,10 +28,13 @@ export interface TrainingView {
   setNext(text: string | null): void;
   setCaption(text: string): void;   // 工夫 reminder at the bottom (text only; the video labels it)
   setRecElapsed(text: string): void;
-  setPaused(paused: boolean): void;
   setBgmMuted(muted: boolean): void;
-  onPause(cb: () => void): void;
-  onSkip(cb: () => void): void;
+  // Piano only: the child taps 次へ / おわり when the piece is done.
+  onPieceDone(cb: () => void): void;
+  // 左上の × → 「やめる？」: onStopAsk when it opens, onStopCancel on つづける,
+  // onStop on やめる (the session ends and the video is still saved).
+  onStopAsk(cb: () => void): void;
+  onStopCancel(cb: () => void): void;
   onStop(cb: () => void): void;
   onToggleBgm(cb: () => void): void;
 }
@@ -40,12 +44,12 @@ export function renderTrainingScreen(
   characterId: CharacterId = "alan",
   decor: Decor = "none",
   showBgm = true,
-  // The piano app: no countdown on screen, and ⏭ スキップ becomes 次へ ▶ —
-  // the child moves on when the piece is done (おわり ✓ on the last one).
+  // The piano app: no countdown on screen, and a 次へ button — the child
+  // moves on when the piece is done (おわり on the last one).
   untimed = false,
 ): TrainingView {
   root.textContent = "";
-  root.className = "screen training";
+  root.className = untimed ? "screen training untimed" : "screen training";
 
   // Dojo backdrop behind the camera feed (shows around/behind the mirrored video).
   const dojoBg = document.createElement("div");
@@ -72,17 +76,29 @@ export function renderTrainingScreen(
   progEl.className = "prog";
   progEl.textContent = "";
 
-  const BGM_ON_LABEL = "🎵 BGM";
-  const BGM_OFF_LABEL = "🔇 BGM";
+  // A button's words with a series icon (alan-icons) in front.
+  // 色の こい ボタン（赤・緑）は 白い 絵（icon）、明るい 地（金・黄）は グロッシーの 丸（glossyIcon）。
+  const label = (btn: HTMLElement, name: IconName | null, text: string, glossy = false): void => {
+    btn.textContent = "";
+    btn.classList.toggle("with-icon", !!name);
+    if (name) btn.append(glossy ? glossyIcon(name, "s") : icon(name));
+    btn.append(text);
+  };
+
   const bgmBtn = document.createElement("button");
   bgmBtn.dataset.bgmToggle = "";
   bgmBtn.className = "bgm-toggle-btn";
-  bgmBtn.textContent = BGM_ON_LABEL;
+  label(bgmBtn, "sound", "BGM", true);
   bgmBtn.setAttribute("aria-label", "練習BGM on/off");
   // No BGM player (the piano app): the button would switch nothing.
   bgmBtn.hidden = !showBgm;
 
-  topBar.append(recEl, bgmBtn, progEl);
+  // やめる＝左上の ×（SERIES_GUIDE 5.15）。1回「やめる？」と きいてから おわる。
+  const closeBtn = iconButton("close", () => askStop());
+  closeBtn.dataset.trainingClose = "";
+  closeBtn.classList.add("training-close");
+
+  topBar.append(closeBtn, recEl, bgmBtn, progEl);
 
   // Companion cheer overlay: a transparent (green-screen removed) character
   // video that pops up beside the countdown on each cue, then hides. A random
@@ -167,31 +183,61 @@ export function renderTrainingScreen(
   captionEl.className = "kufu-caption";
   captionEl.textContent = "";
 
-  // Control buttons (thumb-zone)
+  // Piano only: 次へ (おわり on the last piece) — an untimed piece has no
+  // other way to end. Karate drills end by time, so it has no button here.
+  const NEXT_LABEL = "次へ";
+  const LAST_LABEL = "おわり";
+  const pieceBtn = document.createElement("button");
+  pieceBtn.dataset.pieceDone = "";
+  pieceBtn.className = "piece-done-btn";
+  label(pieceBtn, "next", NEXT_LABEL);
   const controls = document.createElement("div");
   controls.className = "training-controls";
+  controls.append(pieceBtn);
 
-  const PAUSE_LABEL = "⏸ 一時停止";
-  const RESUME_LABEL = "▶ 再開";
-  const pauseBtn = document.createElement("button");
-  pauseBtn.dataset.pause = "";
-  pauseBtn.className = "ctrl-btn pause-btn";
-  pauseBtn.textContent = PAUSE_LABEL;
-
-  const skipBtn = document.createElement("button");
-  skipBtn.dataset.skip = "";
-  skipBtn.className = "ctrl-btn skip-btn";
-  const NEXT_LABEL = "次へ ▶";
-  const LAST_LABEL = "おわり ✓";
-  skipBtn.textContent = untimed ? NEXT_LABEL : "⏭ スキップ";
-  if (untimed) skipBtn.classList.add("next-btn");
-
-  const stopBtn = document.createElement("button");
-  stopBtn.dataset.stop = "";
-  stopBtn.className = "ctrl-btn stop-btn";
-  stopBtn.textContent = "⏹ 終了";
-
-  controls.append(pauseBtn, skipBtn, stopBtn);
+  // 「やめる？」 sheet, built when × is tapped.
+  const stopAsk: Array<() => void> = [];
+  const stopCancel: Array<() => void> = [];
+  const stopDone: Array<() => void> = [];
+  let asking: HTMLElement[] | null = null;
+  const closeAsk = () => { asking?.forEach((el) => el.remove()); asking = null; };
+  const askStop = () => {
+    if (asking) return;
+    const scrim = document.createElement("div");
+    scrim.className = "a-scrim";
+    const sheet = document.createElement("div");
+    sheet.className = "a-sheet training-stop-sheet";
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.dataset.stopSheet = "";
+    const title = document.createElement("h2");
+    title.className = "a-h2";
+    title.textContent = "やめる？";
+    const sub = document.createElement("p");
+    sub.className = "a-sub";
+    sub.textContent = "ここまでの どうがは ほぞんするよ";
+    const row = document.createElement("div");
+    row.className = "training-stop-row";
+    const stop = document.createElement("button");
+    stop.type = "button";
+    stop.dataset.stop = "";
+    stop.className = "a-btn g-red";
+    label(stop, "close", "やめる");
+    const keep = document.createElement("button");
+    keep.type = "button";
+    keep.dataset.stopCancel = "";
+    keep.className = "a-btn primary";
+    label(keep, "play", "つづける", true);
+    row.append(stop, keep);
+    sheet.append(title, sub, row);
+    const cancel = () => { if (!asking) return; closeAsk(); stopCancel.forEach((cb) => cb()); };
+    scrim.addEventListener("click", cancel);
+    keep.addEventListener("click", cancel);
+    stop.addEventListener("click", () => { closeAsk(); stopDone.forEach((cb) => cb()); });
+    asking = [scrim, sheet];
+    root.append(scrim, sheet);
+    stopAsk.forEach((cb) => cb());
+  };
 
   // Assemble the screen
   // The hook rows sit inside centerContent, right below the drill name/timer.
@@ -211,7 +257,7 @@ export function renderTrainingScreen(
   bottomRow.append(captionEl, nextEl);
 
   root.append(dojoBg, videoEl, topBar, centerContent, cueEl, bottomRow,
-              ...(decor === "none" ? [] : [decorEl]), controls);
+              ...(decor === "none" ? [] : [decorEl]), ...(untimed ? [controls] : []));
 
   // One line when it can: step the font down a little before letting it wrap.
   // The 1px slack keeps WebKit's sub-pixel rounding from shrinking text that fits.
@@ -348,7 +394,10 @@ export function renderTrainingScreen(
     setNext(text: string | null) {
       nextName.textContent = text ?? "";
       nextEl.hidden = !text;
-      if (untimed) skipBtn.textContent = text ? NEXT_LABEL : LAST_LABEL;
+      if (untimed) {
+        if (text) label(pieceBtn, "next", NEXT_LABEL);
+        else label(pieceBtn, "check", LAST_LABEL);
+      }
     },
     setCaption(text: string) {
       // No 「工夫:」 prefix on screen: the pill is narrow beside Next and the
@@ -360,22 +409,16 @@ export function renderTrainingScreen(
     setRecElapsed(text: string) {
       recEl.textContent = text;
     },
-    setPaused(paused: boolean) {
-      pauseBtn.textContent = paused ? RESUME_LABEL : PAUSE_LABEL;
-    },
     setBgmMuted(muted: boolean) {
-      bgmBtn.textContent = muted ? BGM_OFF_LABEL : BGM_ON_LABEL;
+      label(bgmBtn, muted ? "mute" : "sound", "BGM", true);
       bgmBtn.classList.toggle("muted", muted);
     },
-    onPause(cb: () => void) {
-      pauseBtn.addEventListener("click", cb);
+    onPieceDone(cb: () => void) {
+      pieceBtn.addEventListener("click", cb);
     },
-    onSkip(cb: () => void) {
-      skipBtn.addEventListener("click", cb);
-    },
-    onStop(cb: () => void) {
-      stopBtn.addEventListener("click", cb);
-    },
+    onStopAsk(cb: () => void) { stopAsk.push(cb); },
+    onStopCancel(cb: () => void) { stopCancel.push(cb); },
+    onStop(cb: () => void) { stopDone.push(cb); },
     onToggleBgm(cb: () => void) {
       bgmBtn.addEventListener("click", cb);
     },

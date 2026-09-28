@@ -82,10 +82,10 @@ describe("SessionScheduler", () => {
     expect(h.onCountdown.mock.calls.map((c) => c[0])).toEqual([1]);
   });
 
-  it("skip before start does not fire onDrillEnd and does not crash", () => {
+  it("next() before start does not fire onDrillEnd and does not crash", () => {
     const h = handlers();
-    const s = new SessionScheduler(menu, h);
-    s.skip();
+    const s = new SessionScheduler(menu, h, { untimed: true });
+    s.next();
     expect(h.onDrillEnd).not.toHaveBeenCalled();
   });
 
@@ -114,7 +114,7 @@ describe("SessionScheduler", () => {
       const s = new SessionScheduler(menu, h, { untimed: true });
       s.start();
       s.next();
-      expect(h.onDrillEnd).toHaveBeenCalledWith(menu[0], true);
+      expect(h.onDrillEnd).toHaveBeenCalledWith(menu[0]);
       expect(h.onDrillStart).toHaveBeenLastCalledWith(menu[1], 1, 2);
       s.next();
       expect(h.onSessionEnd).toHaveBeenCalledTimes(1);

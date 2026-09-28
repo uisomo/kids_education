@@ -10,6 +10,7 @@
 
 import type { Menu } from "../types";
 import { COPY, IS_PIANO } from "../flavor";
+import { icon } from "../alan/alan-icons.js";
 
 // おためしの1種目。組み込みの 基本 メニューとは別もので、保存もしない
 // （app.ts がメモリの上だけで差しかえ、ガイドが終わると元のメニューに戻す）。
@@ -62,7 +63,8 @@ export function renderGuideOffer(host: HTMLElement, deps: GuideOfferDeps): () =>
   go.type = "button";
   go.className = "guide-card-go";
   go.dataset.guideStart = "";
-  go.textContent = "やってみる ▶";
+  go.classList.add("with-icon");
+  go.append("やってみる", icon("next"));
   go.addEventListener("click", () => { close(); deps.onStart(); });
 
   actions.append(later, go);
@@ -140,7 +142,7 @@ export function renderGuideFinish(host: HTMLElement, onClose: () => void): () =>
   list.className = "guide-card-steps";
   [
     "メニューをえらぶ",
-    `${COPY.practice} 開始 ▶ をおす`,
+    `${COPY.practice} 開始 をおす`,
     "おわったら 動画を保存",
   ].forEach((line) => {
     const li = document.createElement("li");

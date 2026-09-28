@@ -145,7 +145,7 @@ it("使い方どうが は 特訓タブの 🎬 から開く", () => {
   });
 
   const chip = root.querySelector<HTMLButtonElement>("[data-howto-chip]")!;
-  expect(chip.textContent).toBe("🎬");
+  expect(chip.querySelector('.gicon img[data-icon="help"]')).not.toBeNull();   // series help icon (alan-icons)
   expect(chip.closest(".toybox-header")).not.toBeNull();
 
   chip.click();

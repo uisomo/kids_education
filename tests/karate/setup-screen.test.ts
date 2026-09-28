@@ -9,7 +9,6 @@ function deps(over: Record<string, unknown> = {}) {
     onChange: vi.fn(),
     onEdit: vi.fn(),
     onStart: vi.fn(),
-    onOpenVoice: vi.fn(),
     presets: [],
     onSavePreset: vi.fn(),
     onLoadPreset: vi.fn(),
@@ -183,7 +182,7 @@ it("a new menu offers only 作る; a saved menu offers 上書き保存 and an �
   expect(picked.querySelector("[data-preset-save]")).toBeNull();
   expect(picked.querySelector("[data-preset-overwrite]")!.textContent).toBe("上書き保存");
   const del = picked.querySelector<HTMLButtonElement>("[data-preset-del]")!;
-  expect(del.textContent).toBe("✕");
+  expect(del.querySelector('img.ic[data-icon="trash"]')).not.toBeNull();   // series trash icon (alan-icons)
   expect(del.getAttribute("aria-label")).toBe("基本稽古 を削除");
   // ✕ sits inside the dropdown's own pill 「強くなるため ✕」, not in a row of its own.
   const wrap = picked.querySelector(".preset-select-wrap")!;
@@ -477,7 +476,8 @@ it("a menu over 10 minutes turns the total red and can't start; shortening it re
   secs.value = "600";
   secs.dispatchEvent(new Event("input"));
   expect(start.disabled).toBe(false);
-  expect(start.textContent).toBe("稽古 開始 ▶");
+  expect(start.textContent).toBe("稽古 開始");
+  expect(start.querySelector('img.ic[data-icon="play"]')).not.toBeNull();   // series play icon (alan-icons)
   expect(root.querySelector(".total .is-over")).toBeNull();
 });
 
@@ -551,7 +551,7 @@ it("a full 種目's 💡 still opens so a 工夫 can be erased", () => {
 it("shows 🔥 N日継続中 at the top right when there is a streak, nothing at 0", () => {
   const root = document.createElement("div");
   renderSetupScreen(root, deps({ streakDays: 3 }));
-  expect(root.querySelector(".toybox-header [data-streak]")!.textContent).toBe("🔥 3日継続中");
+  expect(root.querySelector(".toybox-header [data-streak]")!.textContent).toBe("3日継続中");
   renderSetupScreen(root, deps({ streakDays: 0 }));
   expect(root.querySelector("[data-streak]")).toBeNull();
 });

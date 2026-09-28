@@ -1,4 +1,5 @@
 import type { CueRole } from "../cue-player";
+import { iconButton } from "../alan/alan-icons.js";
 import type { StoredClip, VoiceStore } from "../voice-store";
 
 export interface VoiceScreenDeps {
@@ -237,12 +238,10 @@ export function renderVoiceScreen(root: HTMLElement, deps: VoiceScreenDeps): voi
   caveat.className = "caveat";
   caveat.textContent = "この端末にのみ保存されます";
 
-  // Back button
-  const backBtn = document.createElement("button");
+  // Back button (top left)
+  // もどる＝左上の グロッシーの ‹（SERIES_GUIDE 5.15）。
+  const backBtn = iconButton("back", () => deps.onBack());
   backBtn.dataset.back = "";
-  backBtn.className = "btn-back";
-  backBtn.textContent = "← 戻る";
-  backBtn.addEventListener("click", () => deps.onBack());
 
   // Assemble
   root.append(backBtn, roleSelect, labelInput, recordBtn, status, clipList, exportBtn, importInput, caveat);

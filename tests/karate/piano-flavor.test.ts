@@ -26,7 +26,6 @@ function setupDeps(over: Record<string, unknown> = {}) {
     onChange: vi.fn(),
     onEdit: vi.fn(),
     onStart: vi.fn(),
-    onOpenVoice: vi.fn(),
     presets: [],
     onSavePreset: vi.fn(),
     onLoadPreset: vi.fn(),
@@ -145,17 +144,17 @@ it("piano build: a row has no seconds box and the total is just the 種目 count
   expect(karateRoot.querySelectorAll(".drill-secs")).toHaveLength(1);
 });
 
-it("untimed training screen: no countdown, 次へ ▶ instead of スキップ, おわり ✓ on the last one", async () => {
+it("untimed training screen: no countdown, 次へ, おわり on the last one", async () => {
   const { training } = await load("piano");
   const root = document.createElement("div");
   const view = training.renderTrainingScreen(root, "alan", "none", false, true);
   const timer = root.querySelector<HTMLElement>("[data-timer]")!;
-  const btn = root.querySelector<HTMLButtonElement>("[data-skip]")!;
+  const btn = root.querySelector<HTMLButtonElement>("[data-piece-done]")!;
   expect(timer.hidden).toBe(true);
   view.setNext("右手の練習");
-  expect(btn.textContent).toBe("次へ ▶");
+  expect(btn.textContent).toBe("次へ");
   view.setNext(null);
-  expect(btn.textContent).toBe("おわり ✓");
+  expect(btn.textContent).toBe("おわり");
   // The 🪝 hook ending must not bring the countdown back.
   view.setTexts([["ド"]]);
   view.setTexts(null);
@@ -163,6 +162,7 @@ it("untimed training screen: no countdown, 次へ ▶ instead of スキップ, �
 
   const karateRoot = document.createElement("div");
   training.renderTrainingScreen(karateRoot, "alan", "none", true);
-  expect(karateRoot.querySelector("[data-skip]")!.textContent).toBe("⏭ スキップ");
+  expect(karateRoot.querySelector("[data-piece-done]")).toBeNull();   // karate drills end by time
+  expect(karateRoot.querySelector("[data-pause]")).toBeNull();
   expect(karateRoot.querySelector<HTMLElement>("[data-timer]")!.hidden).toBe(false);
 });

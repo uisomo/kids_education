@@ -11,20 +11,23 @@
 const HOWTO_BASE = "https://howto.karate-trainer.pages.dev/howto";
 
 import { COPY, IS_PIANO } from "../flavor";
+import { modalHead } from "./modal-head";
+import { glossyIcon, type IconName } from "../alan/alan-icons.js";
 
 export interface HowtoVideo {
   id: string;
   label: string;
+  icon?: IconName;   // series icon (alan-icons); none where no meaning fits
   src: string;
 }
 
 export const HOWTO_VIDEOS: HowtoVideo[] = [
-  { id: "menu", label: "📝 メニューを作る", src: `${HOWTO_BASE}/howto-menu.mp4` },
-  { id: "kufu", label: "💡 工夫を入れる", src: `${HOWTO_BASE}/howto-kufu.mp4` },
-  { id: "order", label: "↕️ 順番を入れかえる", src: `${HOWTO_BASE}/howto-order.mp4` },
-  { id: "delete", label: "🗑 メニューを消す", src: `${HOWTO_BASE}/howto-delete.mp4` },
-  { id: "member", label: "👤 使う人をかえる", src: `${HOWTO_BASE}/howto-member.mp4` },
-  { id: "hook", label: "🪝 フックを作る", src: `${HOWTO_BASE}/howto-hook.mp4` },
+  { id: "menu", label: "メニューを作る", icon: "add", src: `${HOWTO_BASE}/howto-menu.mp4` },
+  { id: "kufu", label: "工夫を入れる", icon: "idea", src: `${HOWTO_BASE}/howto-kufu.mp4` },
+  { id: "order", label: "順番を入れかえる", src: `${HOWTO_BASE}/howto-order.mp4` },
+  { id: "delete", label: "メニューを消す", icon: "trash", src: `${HOWTO_BASE}/howto-delete.mp4` },
+  { id: "member", label: "使う人をかえる", icon: "child", src: `${HOWTO_BASE}/howto-member.mp4` },
+  { id: "hook", label: "フックを作る", icon: "sound", src: `${HOWTO_BASE}/howto-hook.mp4` },
 ];
 
 export const PARENT_NOTE_LINES = [
@@ -72,7 +75,9 @@ function buildHowtoList(host: HTMLElement): HTMLElement {
     btn.type = "button";
     btn.className = "howto-btn";
     btn.dataset.howto = v.id;
-    btn.textContent = v.label;
+    btn.classList.add("with-icon");
+    if (v.icon) btn.append(glossyIcon(v.icon, "s"));
+    btn.append(v.label);
     btn.addEventListener("click", () => openHowtoVideo(host, v));
     grid.append(btn);
   }
@@ -94,33 +99,27 @@ export function openHowtoMenu(host: HTMLElement): () => void {
 
   const title = document.createElement("div");
   title.className = "kufu-card-title";
-  title.textContent = "🎬 使い方どうが";
+  title.textContent = "使い方どうが";
 
   const hint = document.createElement("div");
   hint.className = "kufu-card-hint";
   hint.textContent = "見たいものを おしてね";
-
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "kufu-card-cancel";
-  close.dataset.howtoMenuClose = "";
-  close.textContent = "とじる";
 
   const dispose = () => {
     // 上に動画が開いていたら いっしょに閉じる。
     host.querySelectorAll("[data-howto-modal]").forEach((el) => el.remove());
     overlay.remove();
   };
-  close.addEventListener("click", dispose);
+  const { head } = modalHead(title, dispose, "howtoMenuClose");
   overlay.addEventListener("click", (e) => { if (e.target === overlay) dispose(); });
 
-  card.append(title, hint, buildHowtoList(host), close);
+  card.append(head, hint, buildHowtoList(host));
   overlay.append(card);
   host.append(overlay);
   return dispose;
 }
 
-// Plays one clip in the 工夫 card look; tapping outside or 「とじる」 closes it.
+// Plays one clip in the 工夫 card look; tapping outside or the × closes it.
 export function openHowtoVideo(host: HTMLElement, v: HowtoVideo): () => void {
   host.querySelectorAll("[data-howto-modal]").forEach((el) => el.remove());
 
@@ -152,20 +151,14 @@ export function openHowtoVideo(host: HTMLElement, v: HowtoVideo): () => void {
   offline.hidden = true;
   video.addEventListener("error", () => { offline.hidden = false; });
 
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "kufu-card-cancel";
-  close.dataset.howtoClose = "";
-  close.textContent = "とじる";
-
   const dispose = () => {
     try { video.pause(); } catch { /* jsdom */ }
     overlay.remove();
   };
-  close.addEventListener("click", dispose);
+  const { head } = modalHead(title, dispose, "howtoClose");
   overlay.addEventListener("click", (e) => { if (e.target === overlay) dispose(); });
 
-  card.append(title, video, offline, close);
+  card.append(head, video, offline);
   overlay.append(card);
   host.append(overlay);
   try {

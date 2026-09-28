@@ -4,6 +4,7 @@
 
 import type { Member } from "../member-store";
 import { buildParentNote } from "./howto";
+import { glossyIcon, icon } from "../alan/alan-icons.js";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
@@ -182,7 +183,8 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     if (locked || !deps.onRenameMember) {
       name = document.createElement("span");
       name.className = "family-member-name";
-      name.textContent = locked ? `🔒 ${m.name}` : m.name;
+      name.textContent = m.name;
+      if (locked) { name.classList.add("with-icon"); name.prepend(glossyIcon("lock", "s")); }
     } else {
       const onRename = deps.onRenameMember;
       const input = document.createElement("input");
@@ -207,7 +209,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     const del = document.createElement("button");
     del.className = "family-member-del";
     del.dataset.memberDel = m.id;
-    del.textContent = "✕";
+    del.append(icon("trash"));
     del.setAttribute("aria-label", `${m.name} を削除`);
     del.disabled = deps.members.length <= 1;   // can't remove the last member
     del.addEventListener("click", () => deps.onRemoveMember(m.id));
@@ -248,7 +250,8 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   memberHint.className = "family-member-hint";
   memberHint.dataset.memberHint = "";
   if (deps.members.length > cap) {
-    memberHint.textContent = "🔒 のメンバーは、プランを上げるか ほかの人を削除すると使えます";
+    memberHint.classList.add("with-icon");
+    memberHint.append(glossyIcon("lock", "s"), "のメンバーは、プランを上げるか ほかの人を削除すると使えます");
   } else if (deps.members.length >= cap) {
     memberHint.textContent = cap === 1
       ? "2人目からはファミリープランで追加できます"
@@ -567,7 +570,8 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
 
     const name = document.createElement("span");
     name.className = "decor-option-name";
-    name.textContent = locked ? `🔒 ${meta.label}` : meta.label;
+    name.textContent = meta.label;
+    if (locked) { name.classList.add("with-icon"); name.prepend(glossyIcon("lock", "s")); }
     const hint = document.createElement("span");
     hint.className = "decor-option-hint";
     hint.textContent = locked ? "プレミアムでえらべます" : meta.hint;

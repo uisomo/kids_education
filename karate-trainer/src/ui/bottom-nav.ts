@@ -1,8 +1,11 @@
 // Bottom tab bar: 特訓 / アイテム / 積み重ね / 家族. Rendered as a standalone element that the
 // app appends after a tab screen so it survives the screen's root.textContent
 // reset. Hidden during training / loading / intro / done (full-screen capture).
+//
+// アイコンは シリーズ共通の グロッシー（src/alan/alan-icons.js、SERIES_GUIDE 5.2c）。
+// えらんでいる タブだけ 意味の 色、ほかは グレー（tokens.css の .a-tab と おなじ 考え）。
 
-import { COPY } from "../flavor";
+import { glossyIcon, type IconName } from "../alan/alan-icons.js";
 
 export type NavTab = "train" | "sparkle" | "strength" | "family";
 
@@ -11,17 +14,13 @@ export interface BottomNavDeps {
   onSelect(tab: NavTab): void;
 }
 
-// 積み重ね carries drawn artwork (the rainbow stairs) rather than an emoji —
-// 💪 read as "muscle / strength", which is the name the screen no longer uses.
-const STRENGTH_ICON_SRC = "/images/nav-strength.png";
-
-const TABS: { id: NavTab; label: string; icon: string; iconSrc?: string }[] = [
-  { id: "train", label: "特訓", icon: COPY.drillIcon },
+const TABS: { id: NavTab; label: string; icon: IconName }[] = [
+  { id: "train", label: "特訓", icon: "play" },
   // 「アイテム」の中に キラキラ・帯・ブロックが入る（tab の id は sparkle のまま:
   // 保存や test アプリの入口が この名前で通っている）。
-  { id: "sparkle", label: "アイテム", icon: "🎒" },
-  { id: "strength", label: "積み重ね", icon: "🪜", iconSrc: STRENGTH_ICON_SRC },
-  { id: "family", label: "家族", icon: "👨‍👩‍👧" },
+  { id: "sparkle", label: "アイテム", icon: "gift" },
+  { id: "strength", label: "積み重ね", icon: "chart" },
+  { id: "family", label: "家族", icon: "family" },
 ];
 
 export function createBottomNav(deps: BottomNavDeps): HTMLElement {
@@ -30,24 +29,14 @@ export function createBottomNav(deps: BottomNavDeps): HTMLElement {
   nav.dataset.bottomNav = "";
 
   TABS.forEach((t) => {
+    const active = t.id === deps.active;
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `bottom-nav-btn${t.id === deps.active ? " active" : ""}`;
+    btn.className = `bottom-nav-btn${active ? " active" : ""}`;
     btn.dataset.navtab = t.id;
-    const icon = document.createElement("span");
-    icon.className = "bottom-nav-icon";
-    if (t.iconSrc) {
-      // Decoration only — the label under it names the tab. If the artwork
-      // can't be loaded the emoji takes its place rather than an empty gap.
-      const img = document.createElement("img");
-      img.className = "bottom-nav-icon-img";
-      img.src = t.iconSrc;
-      img.alt = "";
-      img.addEventListener("error", () => { icon.textContent = t.icon; });
-      icon.append(img);
-    } else {
-      icon.textContent = t.icon;
-    }
+    if (active) btn.setAttribute("aria-current", "page");
+    const icon = glossyIcon(t.icon, "m");
+    icon.classList.add("bottom-nav-icon");
     const label = document.createElement("span");
     label.className = "bottom-nav-label";
     label.textContent = t.label;

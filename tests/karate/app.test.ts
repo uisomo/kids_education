@@ -98,7 +98,7 @@ it("returns to setup with a message when the camera is denied", async () => {
   // Back on setup, NOT stuck on a broken training screen.
   expect(root.querySelector("[data-start]")).not.toBeNull();
   expect(root.querySelector("[data-rows]")).not.toBeNull();
-  expect(root.querySelector("[data-stop]")).toBeNull();       // no training controls
+  expect(root.querySelector("[data-training-close]")).toBeNull();       // no training controls
   expect(root.querySelector("[data-setup-status]")).not.toBeNull(); // message surfaced
 
   // Loop never started; a half-acquired wake lock is never left dangling.
@@ -109,7 +109,7 @@ it("returns to setup with a message when the camera is denied", async () => {
   process.off("unhandledRejection", unhandled);
 });
 
-it("pause freezes the countdown and a second click resumes it", async () => {
+it("× freezes the countdown while 「やめる？」 is open; つづける carries on", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -131,7 +131,7 @@ it("pause freezes the countdown and a second click resumes it", async () => {
     rafLoop: { start: (cb) => { loopCb = cb; }, stop: vi.fn() },
     shareRecording: vi.fn().mockResolvedValue(undefined),
     introStepMs: 0,   // skip the Ready→Go intro delay in tests
-    // a longer drill so we can pause mid-way without ending the session
+    // a longer drill so we can ask mid-way without ending the session
     menuOverride: [{ id: "a", name: "前蹴り", seconds: 10, kind: "drill" }],
   });
   await app.start();
@@ -141,25 +141,25 @@ it("pause freezes the countdown and a second click resumes it", async () => {
   await new Promise((r) => setTimeout(r, 0));   // intro promise
 
   const timer = () => root.querySelector<HTMLElement>("[data-timer]")!.textContent;
-  const pauseBtn = () => root.querySelector<HTMLButtonElement>("[data-pause]")!;
+  expect(root.querySelector("[data-pause]")).toBeNull();
+  expect(root.querySelector("[data-skip]")).toBeNull();
 
   // pump 3s → 10 - 3 = 7 left
   for (let t = 0; t < 3000; t += 250) loopCb!(250);
   expect(timer()).toBe("7");
-  expect(pauseBtn().textContent).toContain("一時停止");
 
-  // pause → label flips, countdown frozen
-  pauseBtn().click();
-  expect(pauseBtn().textContent).toContain("再開");
+  // × → 「やめる？」: countdown frozen while the child decides
+  root.querySelector<HTMLButtonElement>("[data-training-close]")!.click();
   const frozen = timer();
   for (let t = 0; t < 2000; t += 250) loopCb!(250);
   expect(timer()).toBe(frozen);   // scheduler.pause() held it
 
-  // resume → label flips back, countdown advances again
-  pauseBtn().click();
-  expect(pauseBtn().textContent).toContain("一時停止");
+  // つづける → sheet gone, countdown advances again, still practising
+  root.querySelector<HTMLButtonElement>("[data-stop-cancel]")!.click();
+  expect(root.querySelector("[data-stop-sheet]")).toBeNull();
   for (let t = 0; t < 2000; t += 250) loopCb!(250);
   expect(Number(timer())).toBeLessThan(Number(frozen));  // scheduler.resume() path exercised
+  expect(root.querySelector("[data-training-close]")).not.toBeNull();
 });
 
 it("🪝 hook: words from the start-row box play once instead of Ready → Go!! and are logged for burn-in", async () => {
@@ -439,8 +439,8 @@ it("a finished practice on a saved menu levels its drills up and the 積み重�
   expect(beltStateFor(loadMenuBelt(preset.id, mem), kihon)).toEqual({ index: 0, bars: 1 });
 });
 
-// Stopping with 終了 keeps the video but must not count toward 積み重ね or the belt.
-it("stopping partway with 終了 adds no 積み重ね count and no belt bar", async () => {
+// Stopping with × → やめる keeps the video but must not count toward 積み重ね or the belt.
+it("stopping partway with × → やめる adds no 積み重ね count and no belt bar", async () => {
   const root = document.createElement("div");
   document.body.append(root);
   const storage = memStorage();
@@ -473,6 +473,7 @@ it("stopping partway with 終了 adds no 積み重ね count and no belt bar", as
   await new Promise((r) => setTimeout(r, 0));
   for (let t = 0; t < 3000; t += 250) loopCb!(250);   // partway through the 30s drill
 
+  root.querySelector<HTMLButtonElement>("[data-training-close]")!.click();
   root.querySelector<HTMLButtonElement>("[data-stop]")!.click();
   for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
 
@@ -483,7 +484,7 @@ it("stopping partway with 終了 adds no 積み重ね count and no belt bar", as
   expect(loadBelt(mem)).toEqual({ index: 0, bars: 0 });
 });
 
-it("recovers to a visible screen instead of hanging when 終了 hits a recorder error", async () => {
+it("recovers to a visible screen instead of hanging when やめる hits a recorder error", async () => {
   const root = document.createElement("div");
   document.body.append(root);
 
@@ -522,12 +523,13 @@ it("recovers to a visible screen instead of hanging when 終了 hits a recorder 
 
   for (let t = 0; t < 3000; t += 250) loopCb!(250);   // some active recording time
 
+  root.querySelector<HTMLButtonElement>("[data-training-close]")!.click();
   root.querySelector<HTMLButtonElement>("[data-stop]")!.click();
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
 
   // Not stuck on the training screen — recovered to a visible screen.
-  expect(root.querySelector("[data-stop]")).toBeNull();
+  expect(root.querySelector("[data-training-close]")).toBeNull();
   expect(root.querySelector("[data-setup-status]")).not.toBeNull();
 
   await new Promise((r) => setTimeout(r, 0));

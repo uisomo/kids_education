@@ -1,5 +1,6 @@
 import type { CharacterId } from "../character-store";
 import { openKufuModal } from "./kufu-modal";
+import { glossyIcon, icon } from "../alan/alan-icons.js";
 import { COPY, IS_PIANO } from "../flavor";
 
 export interface DoneKufuDrill {
@@ -252,7 +253,8 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
         label.dataset.kufuJump = String(at);
         const jump = document.createElement("span");
         jump.className = "kufu-jump";
-        jump.textContent = `▶${formatAt(at)}`;
+        jump.classList.add("with-icon");
+        jump.append(icon("play"), formatAt(at));
         label.append(jump);
         label.addEventListener("click", () => {
           try { video.currentTime = at; } catch { /* not seekable yet */ }
@@ -276,7 +278,9 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
         const list = notes();
         latest.textContent = list[0] ?? "まだないよ";
         latest.classList.toggle("is-empty", !list.length);
-        open.textContent = list.length ? `💡 ${list.length}` : "💡 かく";
+        open.textContent = "";
+        open.classList.add("with-icon");
+        open.append(glossyIcon("idea", "s"), list.length ? String(list.length) : "かく");
       };
       paint();
       open.addEventListener("click", () => {
@@ -349,7 +353,11 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     toggle.hidden = true;
     let made: { playbackUrl: string; fileUri: string } | null = null;
     let showingFx = false;
-    const paintToggle = () => { toggle.textContent = showingFx ? "↩︎ もとの動画" : "✨ キラキラ"; };
+    const paintToggle = () => {
+      toggle.textContent = "";
+      toggle.classList.add("with-icon");
+      toggle.append(icon(showingFx ? "film" : "sparkle"), showingFx ? "もとの動画" : "キラキラ");
+    };
     toggle.addEventListener("click", () => {
       if (!made) return;
       showingFx = !showingFx;
@@ -405,7 +413,13 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   dlFill.className = "btn-dl-fill";
   const dlText = document.createElement("span");
   dlText.className = "btn-dl-text";
-  dlText.textContent = "⬇ 動画を保存";
+  // 「動画を保存」 with the series save icon (alan-icons) in front.
+  const paintSaveLabel = () => {
+    dlText.textContent = "";
+    dlText.append(icon("save"), "動画を保存");
+  };
+  dlText.classList.add("with-icon");
+  paintSaveLabel();
   dl.append(dlFill, dlText);
   let shareTapped = false;
   const saveButtons: HTMLButtonElement[] = [dl];
@@ -470,7 +484,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       dl.classList.remove("is-finishing");
       delete dl.dataset.finishStatus;
       dlFill.style.width = "";
-      dlText.textContent = "⬇ 動画を保存";
+      paintSaveLabel();
       setSaveEnabled(true);
     };
     paint(0);

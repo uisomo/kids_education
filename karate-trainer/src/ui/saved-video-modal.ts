@@ -4,7 +4,11 @@
 // is still running. Reuses the 工夫 card's look.
 //
 // Only reports actions: sharing, the parental gate and "seen" stay with the
-// caller.
+// caller. Closes with the × at its top left (SERIES_GUIDE 5.15) only — no
+// backdrop close, so a stray tap does not lose the 保存 button.
+
+import { icon } from "../alan/alan-icons.js";
+import { modalHead } from "./modal-head";
 
 export interface SavedVideoModalDeps {
   // A finished video (ready now) or a save still running.
@@ -16,7 +20,7 @@ export interface SavedVideoModalDeps {
   };
   // A parent allowed this kid to send videos (家族 tab).
   shareAllowed: boolean;
-  // 「⬇ 動画を保存」: saves onto this phone (写真), so no parental gate. Return
+  // 「動画を保存」: saves onto this phone (写真), so no parental gate. Return
   // a promise and the card reports 保存したよ / できなかった when it settles.
   onSave(): void | Promise<void>;
   onSend(): void;
@@ -57,7 +61,8 @@ export function openSavedVideoModal(host: HTMLElement, deps: SavedVideoModalDeps
   const save = document.createElement("button");
   save.className = "btn-dl";
   save.dataset.savedVideoSave = "";
-  save.textContent = "⬇ 動画を保存";
+  save.classList.add("with-icon");
+  save.append(icon("save"), "動画を保存");
   save.addEventListener("click", () => {
     const saving = deps.onSave();
     if (!saving) return;
@@ -80,12 +85,9 @@ export function openSavedVideoModal(host: HTMLElement, deps: SavedVideoModalDeps
     actions.append(send);
   }
 
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "kufu-card-cancel";
-  closeBtn.dataset.savedVideoClose = "";
-  closeBtn.textContent = "とじる";
+  const { head } = modalHead(title, () => { close(); deps.onClose(); }, "savedVideoClose");
 
-  card.append(title, status, video, actions, closeBtn);
+  card.append(head, status, video, actions);
   overlay.append(card);
   host.append(overlay);
 
@@ -96,10 +98,6 @@ export function openSavedVideoModal(host: HTMLElement, deps: SavedVideoModalDeps
     video.pause();
     overlay.remove();
   };
-  closeBtn.addEventListener("click", () => {
-    close();
-    deps.onClose();
-  });
 
   const showReady = (playbackUrl: string) => {
     title.textContent = "前回の動画ができたよ！";

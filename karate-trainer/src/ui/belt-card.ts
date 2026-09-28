@@ -1,6 +1,7 @@
 // Belt card for the practice screen: the member's 帯 drawn as a small obi, its
 // name, the rainbow 10-bar meter (the menu's lowest drill level) and what comes next.
-// RPG belts (ほのお and up) get a gold frame and a light CSS shimmer.
+// RPG belts (ほのお and up) get a gold frame and a looping CSS shimmer; every
+// belt is drawn glossy (SERIES_GUIDE 5.2d) and gets one sheen as it appears.
 
 import { BELTS, BARS_PER_BELT, type BeltState } from "../belt-store";
 import { RAINBOW, rainbowGhost } from "./strength-screen";
@@ -59,8 +60,9 @@ export function renderBeltCard(state: BeltState): HTMLElement {
     const lit = i < state.bars;
     bar.className = `belt-bar${lit ? " lit" : ""}`;
     // Unlit steps keep their own colour at a whisper (the card is white here,
-    // so it needs a touch more than the dark 積み重ね rows).
-    bar.style.background = lit ? RAINBOW[i] : rainbowGhost(i, 0.16);
+    // so it needs a touch more than the dark 積み重ね rows). backgroundColor,
+    // not background: the CSS lays a glossy highlight gradient over it.
+    bar.style.backgroundColor = lit ? RAINBOW[i] : rainbowGhost(i, 0.16);
     bars.append(bar);
   }
 

@@ -5,8 +5,8 @@ export interface SchedulerHandlers {
   onTick(secondsLeft: number): void;
   onEncourage(): void;
   onCountdown(n: number): void;
-  // finished: the drill ran down to 0 (true) or was cut short with skip() (false).
-  onDrillEnd(drill: Drill, finished: boolean): void;
+  // The drill ran down to 0 (or, untimed, the child tapped 次へ).
+  onDrillEnd(drill: Drill): void;
   onSessionEnd(): void;
 }
 export interface SchedulerOpts {
@@ -43,9 +43,8 @@ export class SessionScheduler {
   pause(): void { this.paused = true; }
   resume(): void { this.paused = false; }
   stop(): void { this.done = true; }
-  skip(): void { if (!this.done && this.idx >= 0) this.finishDrill(false); }
   // Untimed: the drill is done because the child said so, so it counts.
-  next(): void { if (!this.done && this.idx >= 0) this.finishDrill(true); }
+  next(): void { if (!this.done && this.idx >= 0) this.finishDrill(); }
 
   private scheduleEncourage(): void {
     this.nextEncourageMs = this.everyMs + (this.rng() * 2 - 1) * this.jitterMs;
@@ -69,9 +68,9 @@ export class SessionScheduler {
     this.h.onTick(drill.seconds);
   }
 
-  private finishDrill(finished: boolean): void {
+  private finishDrill(): void {
     const drill = this.menu[this.idx];
-    this.h.onDrillEnd(drill, finished);
+    this.h.onDrillEnd(drill);
     this.enter(this.idx + 1);
   }
 
@@ -118,6 +117,6 @@ export class SessionScheduler {
       }
     }
 
-    if (this.remainingMs <= 0) this.finishDrill(true);
+    if (this.remainingMs <= 0) this.finishDrill();
   }
 }

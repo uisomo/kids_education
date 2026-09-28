@@ -110,6 +110,7 @@ it("とちゅうで終了した稽古は 回数に数えない", async () => {
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
   for (let t = 0; t < 3000; t += 250) loopCb!(250);
+  root.querySelector<HTMLButtonElement>("[data-training-close]")!.click();
   root.querySelector<HTMLButtonElement>("[data-stop]")!.click();
   for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
 

@@ -12,7 +12,7 @@ it("shows stats and a save button", () => {
   });
   expect(root.querySelector("video")!.getAttribute("src")).toBe("blob:v");
   const dl = root.querySelector<HTMLButtonElement>("[data-download]")!;
-  expect(dl.textContent).toBe("⬇ 動画を保存");
+  expect(dl.textContent).toBe("動画を保存");
 });
 
 it("save fires onShare directly with no parental gate", () => {
@@ -230,7 +230,7 @@ it("shows each practiced drill's newest 工夫, or まだないよ", () => {
   const root = document.createElement("div");
   renderDoneScreen(root, kufuDone({ 前蹴り: ["こし", "ひざ"] }));
   expect(root.querySelector('[data-kufu-latest="前蹴り"]')!.textContent).toBe("こし");
-  expect(root.querySelector('[data-kufu-open="前蹴り"]')!.textContent).toBe("💡 2");
+  expect(root.querySelector('[data-kufu-open="前蹴り"]')!.textContent).toBe("2");
   expect(root.querySelector('[data-kufu-latest="回し蹴り"]')!.textContent).toBe("まだないよ");
 });
 
@@ -306,7 +306,7 @@ it("tapping a drill name jumps the video to where that drill starts", () => {
   const video = root.querySelector("video")!;
   const play = vi.spyOn(video, "play").mockResolvedValue(undefined);
   const label = root.querySelector<HTMLButtonElement>('[data-kufu-jump="31.5"]')!;
-  expect(label.textContent).toContain("▶0:31");
+  expect(label.textContent).toContain("0:31");
   label.click();
   expect(video.currentTime).toBe(31.5);
   expect(play).toHaveBeenCalled();

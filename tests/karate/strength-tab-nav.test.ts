@@ -63,3 +63,23 @@ it("keeps the bottom tabs when another menu is picked on 積み重ね", async ()
   root.querySelector<HTMLButtonElement>('[data-navtab="train"]')!.click();
   expect(root.querySelector("[data-start]")).not.toBeNull();
 });
+
+// 家族 の ゲートを × で やめたら、来た タブへ もどる（いつも 特訓 ではなく）。
+it("cancelling the 家族 gate with × returns to the tab the child came from", async () => {
+  const root = await mount();
+
+  root.querySelector<HTMLButtonElement>('[data-navtab="strength"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
+  expect(root.querySelector("[data-gate-question]")).not.toBeNull();
+
+  root.querySelector<HTMLButtonElement>("[data-gate-cancel]")!.click();
+  expect(root.querySelector("[data-gate-question]")).toBeNull();
+  expect(root.classList.contains("strength")).toBe(true);
+  expect(root.querySelector(".bottom-nav-btn.active")!.getAttribute("data-navtab")).toBe("strength");
+
+  // From 特訓 it still goes back to 特訓.
+  root.querySelector<HTMLButtonElement>('[data-navtab="train"]')!.click();
+  root.querySelector<HTMLButtonElement>('[data-navtab="family"]')!.click();
+  root.querySelector<HTMLButtonElement>("[data-gate-cancel]")!.click();
+  expect(root.querySelector("[data-start]")).not.toBeNull();
+});

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-// Practice credit on a saved menu: only drills that ran down to 0 level up;
-// 休憩 and skipped drills don't, and an unsaved menu earns nothing.
+// Practice credit on a saved menu: drills that ran down to 0 level up;
+// 休憩 doesn't, and an unsaved menu earns nothing. (There is no スキップ
+// anymore — SERIES_GUIDE 5.15; stopping partway is covered in app.test.ts.)
 import { it, expect, vi, beforeEach } from "vitest";
 import { KarateApp, videoDateLabel } from "../../karate-trainer/src/app";
 import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store";
@@ -8,7 +9,6 @@ import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
 import { getActiveId } from "../../karate-trainer/src/member-store";
 import { savePreset } from "../../karate-trainer/src/preset-store";
 import { loadMenuBelt, levelOf, beltStateFor, setSelectedPreset } from "../../karate-trainer/src/menu-belt-store";
-import { SessionScheduler } from "../../karate-trainer/src/scheduler";
 import { renderSetupScreen } from "../../karate-trainer/src/ui/setup-screen";
 import { renderDoneScreen } from "../../karate-trainer/src/ui/done-screen";
 import type { Menu } from "../../karate-trainer/src/types";
@@ -36,11 +36,11 @@ beforeEach(() => {
   (globalThis.URL as any).revokeObjectURL = vi.fn();
 });
 
-// Runs a session over `menu`; `drive(loop, skip)` plays it out.
+// Runs a session over `menu`; `drive(loop)` plays it out.
 // `saved`: the menu is a saved menu the member picked (so its belt fills).
 async function run(
   menu: Menu,
-  drive: (loop: (ms: number) => void, skip: () => void) => void,
+  drive: (loop: (ms: number) => void) => void,
   { saved = true, stopHangs = false }: { saved?: boolean; stopHangs?: boolean } = {},
 ) {
   const root = document.createElement("div");
@@ -76,10 +76,7 @@ async function run(
   await app.start();
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
   await tick(); await tick();
-  drive(
-    (ms) => { for (let t = 0; t < ms; t += 250) loopCb!(250); },
-    () => root.querySelector<HTMLButtonElement>("[data-skip]")!.click(),
-  );
+  drive((ms) => { for (let t = 0; t < ms; t += 250) loopCb!(250); });
   for (let i = 0; i < 3; i++) await tick();
   const levels = () => loadMenuBelt(presetId, mem);
   return { root, mem, stop, level: (name: string) => levelOf(levels(), name), bars: () => beltStateFor(levels(), menu).bars };
@@ -90,26 +87,6 @@ const two: Menu = [
   { id: "b", name: "回し蹴り", seconds: 2, kind: "drill" },
 ];
 
-it("the scheduler reports whether a drill ran to 0 or was skipped", () => {
-  const onDrillEnd = vi.fn();
-  const s = new SessionScheduler(two, {
-    onDrillStart: vi.fn(), onTick: vi.fn(), onEncourage: vi.fn(), onCountdown: vi.fn(), onDrillEnd, onSessionEnd: vi.fn(),
-  });
-  s.start();
-  s.skip();
-  for (let t = 0; t < 2000; t += 250) s.tick(250);
-  expect(onDrillEnd.mock.calls.map((c) => c[1])).toEqual([false, true]);
-});
-
-it("skipping every drill levels nothing up", async () => {
-  const { root, level, bars } = await run(two, (_loop, skip) => { skip(); skip(); });
-  expect(level("前蹴り")).toBe(0);
-  expect(level("回し蹴り")).toBe(0);
-  expect(bars()).toBe(0);
-  expect(root.querySelector("[data-belt-result]")!.textContent).toContain("練習した種目がない");
-  expect(root.querySelector(".done-title")!.textContent).toBe("おつかれさま！");
-});
-
 it("the level is saved before the video, so a save that never ends can't lose it", async () => {
   const { root, level, bars, mem } = await run(two, (loop) => { loop(4500); }, { stopHangs: true });
   expect(root.textContent).toContain("動画を保存中");
@@ -119,20 +96,12 @@ it("the level is saved before the video, so a save that never ends can't lose it
   expect(mem.getItem("karate.streak")).not.toBeNull();
 });
 
-it("a skipped drill just doesn't level up; the finished one still does", async () => {
-  const { root, level, bars } = await run(two, (loop, skip) => { loop(2250); skip(); });
-  expect(level("前蹴り")).toBe(1);
-  expect(level("回し蹴り")).toBe(0);
-  expect(bars()).toBe(0);   // the belt follows the lowest drill
-  expect(root.querySelector("[data-belt-result]")!.textContent).toBe("帯のバー 0/10");
-});
-
-it("finishing every drill fills the belt bar; skipping a 休憩 is fine", async () => {
+it("finishing every drill fills the belt bar; a 休憩 doesn't level up", async () => {
   const menu: Menu = [
     { id: "a", name: "前蹴り", seconds: 2, kind: "drill" },
-    { id: "r", name: "休憩", seconds: 30, kind: "rest" },
+    { id: "r", name: "休憩", seconds: 2, kind: "rest" },
   ];
-  const { level, bars } = await run(menu, (loop, skip) => { loop(2250); skip(); });
+  const { level, bars } = await run(menu, (loop) => { loop(4500); });
   expect(level("前蹴り")).toBe(1);
   expect(level("休憩")).toBe(0);
   expect(bars()).toBe(1);
@@ -162,12 +131,12 @@ it("the video's 特訓一覧 gets each drill's level and the bar it earned", asy
     { id: "r", name: "休憩", seconds: 2, kind: "rest" },
     { id: "b", name: "回し蹴り", seconds: 2, kind: "drill" },
   ];
-  const { stop } = await run(menu, (loop, skip) => { loop(2250); loop(2250); skip(); });
+  const { stop } = await run(menu, (loop) => { loop(2250); loop(2250); loop(2250); });
   const [events, , items] = stop.mock.calls[0];
   expect(items).toEqual([
     { name: "前蹴り", seconds: 2, kind: "drill", level: 0, gained: true },
     { name: "休憩", seconds: 2, kind: "rest" },
-    { name: "回し蹴り", seconds: 2, kind: "drill", level: 0, gained: false },
+    { name: "回し蹴り", seconds: 2, kind: "drill", level: 0, gained: true },
   ]);
   // After the last drill every row is marked done, so earned bars show.
   expect(events.at(-1).patch).toEqual({ drillIndex: 3 });
@@ -199,11 +168,6 @@ it("the row toggle turns a drill into a 休憩 and back", () => {
   renderSetupScreen(root, { ...deps, menu: [{ id: "c", name: "ストレッチ", seconds: 30, kind: "drill" }] });
   root.querySelector<HTMLButtonElement>("[data-kind-toggle]")!.click();
   expect((onChange.mock.calls[2][0] as Menu)[0]).toMatchObject({ kind: "rest", name: "ストレッチ" });
-});
-
-it("skipping every drill doesn't count toward the 🔥 streak", async () => {
-  const { stop } = await run(two, (_loop, skip) => { skip(); skip(); });
-  expect(stop.mock.calls[0][4]).toEqual({ dateLabel, beltLabel: "⚪ 白帯", menuName: "基本", decor: "frame" });
 });
 
 it("the 種目 counter ignores 休憩: 「1 / 2 種目」 for drill・休憩・drill", async () => {

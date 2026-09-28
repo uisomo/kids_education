@@ -1,12 +1,13 @@
 // 工夫 card: centred over the page, listing one drill's 工夫 (newest first, up
 // to the plan's per-種目 cap) with 「けす」 on each, and a box to add one more.
 // Opened from the 💡 button on a 今日の稽古 row and on the done screen. It stays
-// open through saves and erases, and closes only with 「とじる」.
+// open through saves and erases, and closes only with the × at its top left.
 //
 // The card only reports actions — persistence and the plan caps stay with the
 // caller (kufu-store), which it re-asks after every change.
 
 import { KUFU_MAX_LEN } from "../kufu-store";
+import { modalHead } from "./modal-head";
 
 export interface KufuModalDeps {
   drillName: string;
@@ -52,16 +53,10 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
   const composer = document.createElement("div");
   composer.className = "kufu-card-composer";
 
-  const actions = document.createElement("div");
-  actions.className = "kufu-card-actions";
+  // × top left (SERIES_GUIDE 5.15) instead of a 「とじる」 at the bottom.
+  const { head } = modalHead(title, () => close(), "kufuModalClose");
 
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "kufu-card-cancel";
-  closeBtn.dataset.kufuModalClose = "";
-  closeBtn.textContent = "とじる";
-  actions.append(closeBtn);
-
-  card.append(title, list, composer, actions);
+  card.append(head, list, composer);
   overlay.append(card);
   host.append(overlay);
 
@@ -190,9 +185,8 @@ export function openKufuModal(host: HTMLElement, deps: KufuModalDeps): () => voi
     vv?.removeEventListener("resize", follow);
   }
 
-  // Only 「とじる」 closes (and Escape on a keyboard) — a stray tap beside the
-  // card must not throw away what the child was doing.
-  closeBtn.addEventListener("click", close);
+  // Only the × closes (and Escape on a keyboard) — a stray tap beside the
+  // card must not throw away what the child was doing (no backdrop close).
 
   paint();
   return close;
