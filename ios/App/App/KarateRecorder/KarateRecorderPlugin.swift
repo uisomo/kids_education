@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import AlanKit
 import Capacitor
 import Foundation
 import LocalAuthentication
@@ -569,6 +570,10 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var decor: OverlayCompositor.Decor
         var menu: [OverlayCompositor.MenuItem]
         var sounds: [OverlayCompositor.Sound]
+        /// 🎬 えんしゅつ（SERIES_GUIDE 5.14）。こなければ nil（いままでと おなじ）
+        var viralFX: ViralFXSettings?
+        /// 動画の 左上の しるし「アランの空手」「アランのピアノ」
+        var brandName: String?
     }
 
     private static func parseSaveOptions(_ options: [String: Any]) -> SaveOptions {
@@ -615,7 +620,9 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             // 家族タブで選んだ かざり. An unknown or missing value means none.
             decor: OverlayCompositor.Decor(rawValue: options["decor"] as? String ?? "") ?? .none,
             menu: menu,
-            sounds: sounds
+            sounds: sounds,
+            viralFX: (options["viralfx"] as? [String: Any]).map { ViralFXSettings(json: $0) },
+            brandName: options["brandName"] as? String
         )
     }
 
@@ -798,6 +805,12 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         let tryBurn = job.attempts <= 2
         let tryMix = job.attempts <= 3 && (voiceTrack != nil || !mixedSounds.isEmpty)
         if !tryBurn { print("⚡️  [KarateRecorder] save \(job.id) attempt \(job.attempts): skipping the overlay") }
+        // 🎬 えんしゅつは 1回めだけ。人の 切りぬき（Vision）は おもいので、とちゅうで アプリが
+        // 落ちたら 2回めは いままでの 文字だけに する（動画を なくさない ことが いちばん）
+        let viralFX = job.attempts <= 1 ? parsed.viralFX : nil
+        if parsed.viralFX != nil, viralFX == nil {
+            print("⚡️  [KarateRecorder] save \(job.id) attempt \(job.attempts): skipping viralfx")
+        }
 
         var exportMode = "raw"
         var soundMixed = false
@@ -814,6 +827,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                         streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
                         beltLabel: parsed.beltLabel,
                         menuName: parsed.menuName, decor: parsed.decor,
+                        viralFX: viralFX, brandName: parsed.brandName,
                         onProgress: reportProgress
                     )
                 }
@@ -821,6 +835,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 exportMode = "burned"
                 soundMixed = result.soundMixed
                 mixError = result.mixError
+                // 📸 写真の ストップの コマを 写真へ（設定で「しゃしん」が オンのとき）
+                KarateViralFX.saveStills(result.stills)
             } catch {
                 burnError = error.localizedDescription
                 print("⚡️  [KarateRecorder] burn-in failed: \(error.localizedDescription)")

@@ -1,4 +1,6 @@
 @preconcurrency import AVFoundation
+import AlanKit
+import CoreImage
 import CoreText
 import UIKit
 
@@ -255,7 +257,7 @@ enum OverlayCompositor {
     /// Hiragino and nothing else changes.
     private nonisolated(unsafe) static var fontsRegistered = false
 
-    private static func registerFonts() {
+    static func registerFonts() {
         guard !fontsRegistered else { return }
         fontsRegistered = true
         for path in ["/fonts/MPLUSRounded1c-ExtraBold.ttf", "/fonts/MPLUSRounded1c-Medium.ttf"] {
@@ -1185,6 +1187,8 @@ enum OverlayCompositor {
         let soundMixed: Bool
         /// Why (part of) the sound mix was dropped, if it was.
         let mixError: String?
+        /// 🎬 えんしゅつの 写真の ストップ（settings.photos のとき）。写真へ 保存する
+        var stills: [CIImage] = []
     }
 
     /// The asset to export: the raw capture with the voice and music mixed in,
@@ -1277,16 +1281,20 @@ enum OverlayCompositor {
         beltLabel: String? = nil,
         menuName: String? = nil,
         decor: Decor = .none,
+        viralFX: ViralFXSettings? = nil,
+        brandName: String? = nil,
         onProgress: ((Float) -> Void)? = nil
     ) async throws -> ExportResult {
         let started = Date()
+        var result: ExportResult
         // Keep the source asset in this local for the whole export: composition
         // tracks don't retain it.
         let source = AVURLAsset(url: sourceURL)
         // With echo-cancelled input the microphone no longer hears the music or
         // character voices, so they are mixed back in from the original files.
         // A failed mix still exports the recording with its overlay.
-        let (asset, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
+        let (asset, audioMix, mixResult) = await mixedAsset(source: source, sounds: sounds, voice: voice)
+        result = mixResult
         guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
             throw CompositorError.noVideoTrack
         }
@@ -1301,6 +1309,25 @@ enum OverlayCompositor {
             composition = AVMutableVideoComposition(propertiesOf: asset)
         }
         composition.renderSize = size
+
+        // 🎬 えんしゅつ（SERIES_GUIDE 5.14）：カメラの コマに 演出を かけてから、下の 文字を かさねる。
+        // ぜんぶ オフなら ここは 何も しない（いままでと おなじ 書き出し）
+        var viralRenderer: ViralFXRenderer?
+        if let viralFX, !KarateViralFX.isOff(viralFX) {
+            registerFonts()   // 人の うしろの 文字も M PLUS Rounded 1c で
+            let transform = try await videoTrack.load(.preferredTransform)
+            let duration = try await asset.load(.duration)
+            let renderer = ViralFXRenderer(
+                settings: viralFX, look: DailyLook(), size: size,
+                moments: KarateViralFX.finishMoments(events: events, menu: menu),
+                segments: KarateViralFX.segments(events: events, menu: menu),
+                brandName: brandName)
+            composition.customVideoCompositorClass = ViralFXVideoCompositor.self
+            composition.instructions = [ViralFXInstruction(
+                timeRange: CMTimeRange(start: .zero, duration: duration), trackID: videoTrack.trackID,
+                renderer: renderer, orientation: KarateViralFX.orientation(for: transform), size: size)]
+            viralRenderer = renderer
+        }
 
         let parentLayer = CALayer()
         parentLayer.frame = CGRect(origin: .zero, size: size)
@@ -1323,8 +1350,10 @@ enum OverlayCompositor {
         try await export(asset: asset, videoComposition: composition, audioMix: audioMix, to: outputURL,
                          onProgress: onProgress)
         withExtendedLifetime(source) {}
-        print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video",
-                     Date().timeIntervalSince(started), totalDurationMs / 1000))
+        print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video%@",
+                     Date().timeIntervalSince(started), totalDurationMs / 1000,
+                     viralRenderer == nil ? "" : " (viralfx)"))
+        if let viralRenderer, viralRenderer.settings.photos { result.stills = viralRenderer.stills }
         return result
     }
 
