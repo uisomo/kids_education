@@ -52,6 +52,7 @@ export const ICONS = {
   // ── ことば・きく ──
   letter:   { color: "pink",   label: "てがみ",   svg: `<rect x="3.2" y="5.6" width="17.6" height="12.8" rx="2.8" fill="currentColor"/><path d="M4.4 7.2 12 12.8l7.6-5.6" stroke="rgba(0,0,0,.26)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` },
   idea:     { color: "yellow", label: "くふう",   svg: `<path d="M12 3.2a6.2 6.2 0 0 0-3.6 11.3c.6.5 1 1.1 1 1.9v.6h5.2v-.6c0-.8.4-1.4 1-1.9A6.2 6.2 0 0 0 12 3.2z" fill="currentColor"/><rect x="9.4" y="18" width="5.2" height="2.8" rx="1.3" fill="currentColor"/>` },
+  mic:      { color: "red",    label: "はなす",   svg: `<rect x="8.6" y="2.8" width="6.8" height="11.4" rx="3.4" fill="currentColor"/><path d="M5.6 11a6.4 6.4 0 0 0 12.8 0" ${S} stroke-width="2.4"/><path d="M12 17.4v3M8.6 20.6h6.8" ${S} stroke-width="2.4"/>` },
   headphones: { color: "cyan", label: "イヤホン", svg: `<path d="M4.6 15v-2.6a7.4 7.4 0 0 1 14.8 0V15" ${S} stroke-width="2.6"/><rect x="3.4" y="13.2" width="5" height="7" rx="2.2" fill="currentColor"/><rect x="15.6" y="13.2" width="5" height="7" rx="2.2" fill="currentColor"/>` },
   trash:    { color: "grey",   label: "けす",     svg: `<path d="M4.6 6.8h14.8" ${S} stroke-width="2.6"/><path d="M9.4 6.4V4.6h5.2v1.8" ${S} stroke-width="2.2"/><path d="M6.4 8.6h11.2l-.9 10.4a1.6 1.6 0 0 1-1.6 1.4H8.9a1.6 1.6 0 0 1-1.6-1.4z" fill="currentColor"/>` },
   // ── せってい・まもる ──

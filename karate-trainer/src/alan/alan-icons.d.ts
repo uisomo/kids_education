@@ -3,7 +3,8 @@ export type IconName =
   | "back" | "close" | "next" | "home" | "play" | "record" | "camera" | "again"
   | "pause" | "random" | "share" | "save" | "add" | "check" | "star" | "flame"
   | "gift" | "new" | "film" | "chart" | "child" | "family" | "letter" | "idea"
-  | "headphones" | "trash" | "lock" | "settings" | "sound" | "mute" | "help" | "sparkle";
+  | "mic" | "headphones" | "trash" | "lock" | "settings" | "sound" | "mute" | "help"
+  | "sparkle";
 
 export type GlossyColor =
   | "grey" | "cyan" | "blue" | "green" | "pink" | "orange" | "yellow" | "purple" | "red" | "white" | "brand";
