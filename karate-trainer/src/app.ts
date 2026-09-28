@@ -71,6 +71,7 @@ export function videoDateLabel(now: Date): string {
 import { DiagnosticsLog } from "./diagnostics-log";
 import { openSavedVideoModal } from "./ui/saved-video-modal";
 import { COPY, IS_PIANO } from "./flavor";
+import { dailyLook, loadViralFX, openViralFXPanel, saveViralFX, type ViralFXSettings } from "@alan/daily";
 import {
   applyMotionEffects, cachedMotionPresets, cancelMotionEffects, motionEffectPresets,
   motionPlaybackUrl, motionPresetsAsked, MOTION_MODE,
@@ -101,6 +102,8 @@ export interface VideoRecorderLike {
     labels?: {
       streakLabel?: string; dateLabel?: string; beltLabel?: string;
       menuName?: string; decor?: string;
+      // バズる録画の演出（SERIES_GUIDE 5.14）。ネイティブだけが つかう
+      viralfx?: ViralFXSettings; brandName?: string;
     },
   ): Promise<Blob>;
   fileExtension(): string;
@@ -252,6 +255,15 @@ export interface KarateAppDeps {
   testTools?: boolean;
 }
 
+
+// バズる録画の演出の 保存キー（SERIES_GUIDE 5.14）：子どもごとに m:<id>:karate.viralfx。
+// ピアノも ほかの キーと おなじく「karate.」の まま（アプリが べつなので 保存の 場所も べつ）。
+const VIRALFX_APP = "karate";
+
+// どれか 1つでも オンか（ぜんぶ オフなら ボタンを 「オフ」の 見た目に）
+function viralFxOn(s: ViralFXSettings): boolean {
+  return s.person !== "natural" || s.textBehind || s.cinematic || s.flash || s.photos;
+}
 
 export class KarateApp {
   private menu: Menu;
@@ -603,6 +615,17 @@ export class KarateApp {
       // No re-render while typing (the iOS IME drops out), so the screen is
       // refreshed once the popup is closed instead.
       onHookEditorClosed: () => { this.showSetup(); },
+      // 🎬 えんしゅつ：録画の 前に 子どもが じぶんで オン・オフ（保護者ゲートは いらない）。
+      // 種目ごとに 見た目が かわるのは ネイティブの 書き出し（ViralFXCompositor.swift）。
+      viralFxOn: viralFxOn(loadViralFX(this.mem(), VIRALFX_APP)),
+      onOpenViralFX: () => {
+        openViralFXPanel({
+          settings: loadViralFX(this.mem(), VIRALFX_APP),
+          look: dailyLook(),
+          onChange: (s) => saveViralFX(this.mem(), VIRALFX_APP, s),
+          onClose: () => { this.showSetup(); },
+        });
+      },
       characterId: this.characterState.selectedId,
       onSelectCharacter: (id: CharacterId) => {
         this.characterState.selectedId = id;
@@ -1580,6 +1603,10 @@ export class KarateApp {
         ...(linked?.name.trim() ? { menuName: linked.name.trim() } : IS_PIANO ? { menuName: COPY.listTitle } : {}),
         // Free always carries a decoration; 「なし」 needs a paid plan.
         decor: effectiveDecor(loadPlan(this.base()), this.base()),
+        // 🎬 えんしゅつ（5.14）と 動画の 左上の しるし「アランの〇〇」。種目の はじまりは
+        // events の drillIndex から ネイティブが ひろう（あたらしい 道は つくらない）
+        viralfx: loadViralFX(this.mem(), VIRALFX_APP),
+        brandName: COPY.appName,
       };
       const blob = recorder ? await recorder.stop(events, recordedDurationMs, menu, sounds, labels) : new Blob();
       await this.deps.wakeGuard.release();

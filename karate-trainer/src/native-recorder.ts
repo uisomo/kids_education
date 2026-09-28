@@ -9,6 +9,7 @@
 // exists here. See ios/App/App/KarateRecorder/.
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import type { OverlayEvent, OverlayMenuItem, SoundEvent } from "./overlay-event-log";
+import type { ViralFXSettings } from "@alan/daily";
 
 // stopRecording() answers as soon as the camera has stopped: the capture is
 // already safe on disk and the overlay is burned in afterwards, in a save that
@@ -74,6 +75,11 @@ export interface KarateRecorderPluginLike {
     menuName?: string;
     // "frame" | "icon" | "banner" | "none" — Alan's decoration on the video.
     decor?: string;
+    // 🎬 えんしゅつ（SERIES_GUIDE 5.14）。ぜんぶ オフ／なし なら いままでと おなじ 書き出し。
+    // 種目ごとに かわる 区切りは events の drillIndex と menu から ネイティブが つくる
+    viralfx?: ViralFXSettings;
+    // 動画の 左上の しるし「アランの空手」「アランのピアノ」
+    brandName?: string;
   }): Promise<NativeStopResult>;
   // Stops recording/preview/voice/music and deletes the session's temp files.
   // Optional so older native builds (and test fakes) without it still type.
@@ -485,6 +491,7 @@ export class NativeVideoRecorder {
     labels: {
       streakLabel?: string; dateLabel?: string; beltLabel?: string;
       menuName?: string; decor?: string;
+      viralfx?: ViralFXSettings; brandName?: string;
     } = {},
   ): Promise<Blob> {
     const plugin = this.getPlugin();
