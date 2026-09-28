@@ -43,10 +43,13 @@ export interface NativeSaveResult {
   burnedIn: boolean;
   burnError?: string;
   // "burned" (overlay + sound), "mixed" (sound, no overlay — burn-in failed),
-  // or "raw" (the silent camera file — every export failed).
+  // "remuxed" (the camera file + the child's voice as recorded, no re-encode),
+  // or "raw" (the silent camera file — only when the voice could not be read).
   // "privacyFailed"：おへや・かめんを かくせなかった（uri は ""。生の 動画は 出さない）
-  exportMode?: "burned" | "mixed" | "raw" | "privacyFailed";
+  // "failed"：まだ できていない（uri は ""）。ネイティブが 録画を のこして、つぎに また やる
+  exportMode?: "burned" | "mixed" | "remuxed" | "raw" | "privacyFailed" | "failed";
   privacyError?: string;
+  error?: string;
   soundMixed?: boolean;
   mixError?: string;
   // Set when the system cut the recording short (see onInterrupted()).
@@ -60,6 +63,9 @@ export interface SaveStatus {
   saving: { jobId: string; progress: number; resumed: boolean } | null;
   // Finished videos nobody has seen yet, oldest first.
   unseen: { jobId: string; uri: string; createdAt: number }[];
+  // Finished videos not yet saved to 写真 (seen or not), oldest first. The app
+  // keeps these until 写真 confirms a save. Older native builds omit it.
+  unsaved?: { jobId: string; uri: string; createdAt: number }[];
 }
 
 export interface KarateRecorderPluginLike {
@@ -543,6 +549,8 @@ export class NativeVideoRecorder {
   private adopt(result: NativeSaveResult, soundCount: number): NativeSaveResult {
     if (result.exportMode === "privacyFailed") {
       console.warn(`[KarateRecorder] could not hide the room/face, nothing saved: ${result.privacyError ?? ""}`);
+    } else if (result.exportMode === "failed") {
+      console.warn(`[KarateRecorder] video not finished yet, kept for a retry: ${result.error ?? ""}`);
     }
     this.lastUri = result.uri || null;
     this.burnedIn = result.burnedIn;
@@ -573,6 +581,7 @@ export class NativeVideoRecorder {
   }
 
   // The finished video was shown to the child: don't offer it again later.
+  // (Only the offer: native keeps the file until 写真 confirms a save.)
   markSeen(): void {
     if (this.jobId) void nativeSaveTracker(this.getPlugin()).markSeen(this.jobId);
   }
