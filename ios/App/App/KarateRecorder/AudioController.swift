@@ -321,16 +321,17 @@ final class AudioController {
         tapFormat = format
     }
 
-    func startVoiceCapture() {
+    /// `url` は PendingSaves の フォルダ（Application Support）。録画の とちゅうで 落ちても 声が のこる
+    /// （CAF は とじずに 終わっても 読める）。はじめられたら true
+    @discardableResult
+    func startVoiceCapture(to url: URL) -> Bool {
         queue.sync {
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 log("no microphone input format; voice capture skipped")
-                return
+                return false
             }
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("karate-voice-\(UUID().uuidString).caf")
             do {
                 let file = try AVAudioFile(forWriting: url, settings: format.settings,
                                            commonFormat: format.commonFormat, interleaved: format.isInterleaved)
@@ -348,10 +349,19 @@ final class AudioController {
                 installVoiceTap()
                 if active { _ = ensureEngineRunning() }
                 log("voice capture started: \(format)")
+                return true
             } catch {
                 log("voice capture failed: \(error.localizedDescription)")
+                return false
             }
         }
+    }
+
+    /// いま 録っている 声の さいしょの 音の 時刻（まだ なければ nil）。録画の 日記に 書く
+    var currentVoiceStartHostSeconds: Double? {
+        voiceLock.lock()
+        defer { voiceLock.unlock() }
+        return voiceStartHostSeconds
     }
 
     private func appendVoice(_ buffer: AVAudioPCMBuffer, at when: AVAudioTime) {

@@ -313,6 +313,9 @@ final class CameraSession: NSObject {
                     // the movie lost its first ~8 seconds of sound.
 
                     if session.canAddOutput(movieOutput) { session.addOutput(movieOutput) }
+                    // 2秒ごとに ファイルを 見られる 形に する（録画の とちゅうで アプリが 落ちても、
+                    // そこまでの 映像は 再生できる。つぎの 起動で PendingSaves が ひろう）
+                    movieOutput.movieFragmentInterval = CMTime(seconds: 2, preferredTimescale: 600)
                     // かめん：顔の 位置は カメラが くれる（Vision なし・ほぼ タダ）
                     privacy?.addOutputs(to: session)
 
@@ -445,15 +448,16 @@ final class CameraSession: NSObject {
 
     /// Resolves only once AVFoundation reports the file has really started, so
     /// a rejected start reaches JS as an error instead of a silent no-op.
-    func startRecording() async throws -> URL {
+    ///
+    /// `url` は PendingSaves の フォルダ（Application Support）。tmp には 書かない：
+    /// 録画の とちゅうで 落ちても、つぎの 起動まで のこる。
+    func startRecording(to url: URL) async throws -> URL {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<URL, Error>) in
             sessionQueue.async { [self] in
                 guard session.isRunning else {
                     cont.resume(throwing: CameraError.notRunning)
                     return
                 }
-                let url = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("karate-raw-\(UUID().uuidString).mov")
                 stateLock.lock()
                 switch state {
                 case .starting, .recording:
@@ -464,8 +468,9 @@ final class CameraSession: NSObject {
                     break
                 }
                 if case let .finished(old, _, _) = state {
-                    // Never collected by a stop; don't leave it behind.
-                    try? FileManager.default.removeItem(at: old)
+                    // stop で ひろわれなかった 録画。消さない：録画の 日記（PendingSaves）が もっていて、
+                    // プラグインが 保存に まわす
+                    print("⚡️  [KarateRecorder] earlier recording \(old.lastPathComponent) was never stopped; leaving it to its journal")
                 }
                 state = .starting
                 startContinuation = cont
@@ -500,11 +505,12 @@ final class CameraSession: NSObject {
                 case let .finished(url, usable, reason):
                     state = .idle
                     stateLock.unlock()
-                    if usable, FileManager.default.fileExists(atPath: url.path) {
-                        print("⚡️  [KarateRecorder] recording had already ended (\(reason)); saving what was captured")
+                    // usable でなくても 消さない：とちゅうまでは 再生できる ことが おおい
+                    // （movieFragmentInterval）。見られるかは プラグインが VideoCheck で しらべる
+                    if FileManager.default.fileExists(atPath: url.path) {
+                        print("⚡️  [KarateRecorder] recording had already ended (\(reason), usable=\(usable)); saving what was captured")
                         cont.resume(returning: url)
                     } else {
-                        try? FileManager.default.removeItem(at: url)
                         cont.resume(throwing: CameraError.notRecording)
                     }
                 case .idle:
@@ -592,9 +598,11 @@ extension CameraSession: AVCaptureFileOutputRecordingDelegate {
         if let stop {
             if start != nil {
                 stop.resume(throwing: error ?? CameraError.notRecording)
-            } else if let error, !usable {
+            } else if let error, !usable, !FileManager.default.fileExists(atPath: outputFileURL.path) {
                 stop.resume(throwing: error)
             } else {
+                // エラーつきでも ファイルが あれば かえす（見られるかは プラグインが しらべる）
+                if let error, !usable { print("⚡️  [KarateRecorder] recording finished with an error (\(error.localizedDescription)); keeping the file") }
                 stop.resume(returning: outputFileURL)
             }
         }

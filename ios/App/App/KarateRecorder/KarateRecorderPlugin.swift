@@ -51,8 +51,11 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     private let audio = AudioController()
 
     // Session state. Main-actor confined: every plugin method hops to the main
-    // actor before touching it (rawURL used to be written from arbitrary tasks).
-    @MainActor private var rawURL: URL?
+    // actor before touching it.
+    /// いま 録っている 録画の 日記（PendingSaves）の id。startRecording で つくる
+    @MainActor private var recordingJobId: String?
+    /// startPreview で ページが くれた おへや・かめんの 値（録画の 日記に 書く：落ちたあとも かくす ため）
+    @MainActor private var previewPrivacyJSON: [String: Any]?
     @MainActor private var recordingActive = false
     /// stopRecording is between stopping the camera and queueing the save.
     @MainActor private var stopping = false
@@ -79,9 +82,11 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         audio.onInterruptionBegan = { [weak self] in
             Task { @MainActor in self?.reportInterruption("audioInterruption") }
         }
-        // A save the app was killed in the middle of gets finished now.
+        // A save the app was killed in the middle of gets finished now — and a
+        // recording the app was killed in the middle of (its journal says "recording").
         Task { @MainActor [weak self] in
             await self?.waitUntilActive()
+            await self?.adoptInterruptedRecordings()
             self?.resumePendingSaves()
         }
         // イヤフォンを抜いた/さした瞬間に BGM を止める/流せるようにする。
@@ -100,8 +105,20 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                if self.savingJobId != nil { self.exportBackgrounded = true }
+                if let id = self.savingJobId {
+                    self.exportBackgrounded = true
+                    // iOS に 止められても 「落ちた」とは かぞえない（段を 下げない）
+                    PendingSaves.setInProgress(id, false)
+                }
                 self.reportInterruption("background")
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                // もどってきた：ここから 落ちたら ほんとうに 落ちた ことに なる
+                if let id = self?.savingJobId { PendingSaves.setInProgress(id, true) }
             }
         })
     }
@@ -135,6 +152,13 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("web view unavailable")
                 return
             }
+            // まえの ページ（WebView が 読みなおされた）の 録画が まだ 回っている：
+            // 「already recording」で ことわらず、止めて 保存に まわす
+            if self.recordingActive || self.recordingJobId != nil, !self.stopping {
+                await self.salvageRecording(reason: "pageReloaded")
+            }
+            await self.adoptInterruptedRecordings()
+            self.previewPrivacyJSON = privacyOptions
             self.removeStaleTemporaryFiles()
             // 稽古中のキラキラが「なし」なら、解析用のカメラ出力自体を足さない。
             // どちらだったかはログに残す: 出なかったときに「選ばれていない」のか
@@ -184,24 +208,31 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     /// At the start of a session nothing from earlier sessions is still in use
     /// except the last finished video (the done screen may still share it),
     /// videos nobody has seen yet, and saves still waiting, so every other
-    /// karate-* temp file — voice tracks, raw captures, partial exports left by
-    /// a crash — goes.
+    /// karate-* temp file — partial exports left by a crash, ✨キラキラ copies — goes.
+    ///
+    /// **できあがった 動画は 写真に 保存 できた ものしか 消さない**（FinishedVideos）。
+    /// 録画の 日記が もっている 生の 映像・声も 消さない。
     @MainActor
     private func removeStaleTemporaryFiles() {
-        guard !stopping, !recordingActive else { return }
+        guard !stopping, !recordingActive, recordingJobId == nil else { return }
         let fm = FileManager.default
         let tmp = fm.temporaryDirectory
-        var keep = Set(Self.unseenVideos().compactMap { $0["name"] as? String })
-        if let last = UserDefaults.standard.string(forKey: Self.lastFinishedKey) { keep.insert(last) }
+        // むかしの ビルドが tmp に おいた できあがりを、iOS に 消される まえに うつす
+        FinishedVideos.migrateFromTemporaryDirectory()
+        var keepFinished = Set(Self.unseenVideos().compactMap { $0["name"] as? String })
+        if let last = UserDefaults.standard.string(forKey: Self.lastFinishedKey) { keepFinished.insert(last) }
+        FinishedVideos.removeSaved(keeping: keepFinished)
         // Captures in tmp belong to pending saves whose move out of tmp failed.
-        keep.formUnion(PendingSaves.all().flatMap { [$0.rawName, $0.voiceName].compactMap { $0 } }
-            .filter { $0.hasPrefix("tmp:") }.map { String($0.dropFirst(4)) })
-        PendingSaves.removeOrphans(except: savingJobId)
+        let jobs = PendingSaves.all()
+        let keepTmp = Set(jobs.flatMap { $0.fileNames }.filter { $0.hasPrefix("tmp:") }.map { String($0.dropFirst(4)) })
+        let running = ([savingJobId] + saveQueue.map { $0.id }).compactMap { $0 }
+        PendingSaves.removeOrphans(except: running, keeping: FinishedVideos.pendingNamesToKeep())
         // ✨キラキラ の解析結果も、元の動画が消えたら一緒に消す。
+        let finishedNames = Set((try? fm.contentsOfDirectory(atPath: FinishedVideos.directory.path)) ?? [])
         MotionEffects.removeOrphanedSidecars(
-            keeping: Set(keep.map { ($0 as NSString).deletingPathExtension }))
+            keeping: Set(keepTmp.union(finishedNames).map { ($0 as NSString).deletingPathExtension }))
         guard let names = try? fm.contentsOfDirectory(atPath: tmp.path) else { return }
-        let stale = names.filter { $0.hasPrefix("karate-") && !keep.contains($0) }.map { tmp.appendingPathComponent($0) }
+        let stale = names.filter { $0.hasPrefix("karate-") && !keepTmp.contains($0) }.map { tmp.appendingPathComponent($0) }
         guard !stale.isEmpty else { return }
         DispatchQueue.global(qos: .utility).async {
             for url in stale { try? fm.removeItem(at: url) }
@@ -211,47 +242,103 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // MARK: - Recording
 
+    /// 録画を はじめる。**生の 映像と 声は さいしょから Application Support（PendingSaves）に 書き、
+    /// はじまったら すぐ 日記（state "recording"）を 書く。** 録画の とちゅうで アプリが 落ちても、
+    /// つぎの 起動（か startPreview）で ふつうの 保存として ひろう。
     @objc func startRecording(_ call: CAPPluginCall) {
         let arrivedAt = Self.hostNow()
         Task { @MainActor in
-            guard !self.recordingActive, !self.stopping else {
+            guard !self.stopping else {
                 call.reject("already recording")
                 return
             }
+            // まえの ページの 録画が 回ったまま（WebView が 読みなおされた）：止めて 保存に まわす
+            if self.recordingActive || self.recordingJobId != nil {
+                await self.salvageRecording(reason: "pageReloaded")
+            }
+            let id = UUID().uuidString
+            let rawName = "\(id)-raw.mov"
+            let voiceName = "\(id)-voice.caf"
             self.recordCallHostSeconds = arrivedAt
             self.interruptionReason = nil
+            self.recordingJobId = id
             // Voice first, so its file already covers the first video frame.
-            self.audio.startVoiceCapture()
+            let voiceStarted = self.audio.startVoiceCapture(to: PendingSaves.url(voiceName))
             do {
-                self.rawURL = try await self.camera.startRecording()
+                _ = try await self.camera.startRecording(to: PendingSaves.url(rawName))
                 self.recordingActive = true
+                let timing = self.captureTiming(voiceStart: self.audio.currentVoiceStartHostSeconds)
+                var privacy: [String: Any] = [:]
+                if let json = self.previewPrivacyJSON, JSONSerialization.isValidJSONObject(["privacy": json]) {
+                    privacy["privacy"] = json
+                }
+                var job = PendingSave(
+                    id: id, rawName: rawName, voiceName: voiceStarted ? voiceName : nil,
+                    voiceLeadSeconds: timing.lead, voiceProcessing: self.audio.voiceProcessing,
+                    shiftMs: timing.shiftMs,
+                    options: (try? JSONSerialization.data(withJSONObject: privacy)) ?? Data("{}".utf8),
+                    interruption: nil, createdAt: Date(), attempts: 0, state: "recording")
+                do {
+                    try PendingSaves.save(job)
+                } catch {
+                    // 録画は つづける（ファイルは もう Application Support に ある。日記は stop で もういちど 書く）
+                    print("⚡️  [KarateRecorder] recording \(id) runs without a journal for now")
+                }
                 call.resolve()
+                // 声の さいしょの 音が まだ なら、すこし あとで 日記の ずれを なおす
+                if voiceStarted, self.audio.currentVoiceStartHostSeconds == nil {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    if self.recordingJobId == id, PendingSaves.load(id)?.isRecording == true,
+                       let voiceStart = self.audio.currentVoiceStartHostSeconds {
+                        job.voiceLeadSeconds = self.captureTiming(voiceStart: voiceStart).lead
+                        try? PendingSaves.save(job)
+                    }
+                }
             } catch {
                 // Don't leave the voice file open (and the mic tapped) for a
-                // recording that never started.
+                // recording that never started. 何も 録れていないので 消して よい
+                self.recordingJobId = nil
+                let fm = FileManager.default
                 if let voice = self.audio.stopVoiceCapture() {
-                    try? FileManager.default.removeItem(at: voice.url)
+                    try? fm.removeItem(at: voice.url)
                 }
+                try? fm.removeItem(at: PendingSaves.url(rawName))
+                PendingSaves.remove(id)
                 call.reject(error.localizedDescription)
             }
         }
     }
 
+    /// 声と 映像が それぞれ 何秒 ずれているか（stopRecording と 録画の 日記で おなじ 計算）
+    @MainActor
+    private func captureTiming(voiceStart: Double?) -> (lead: Double, shiftMs: Double) {
+        let videoStart = camera.recordingStartHostSeconds
+        let lead: Double = {
+            guard let v = voiceStart, let c = videoStart else { return 0 }
+            return c - v
+        }()
+        let shiftMs: Double = {
+            guard let v = videoStart, let c = recordCallHostSeconds else { return 0 }
+            return min(max(0, (v - c) * 1000), 5000)
+        }()
+        return (lead, shiftMs)
+    }
+
     /// Stops everything for a session that is being abandoned (for example
-    /// startRecording failed) and deletes its temp files. Always resolves.
+    /// startRecording failed). Always resolves.
+    ///
+    /// 録画が もう 回っていたら（1秒 以上 見られる 映像が あれば）消さずに 保存に まわす：
+    /// 子どもの 稽古を なくさない。何も 録れていなければ 消す。
     @objc func cancelRecording(_ call: CAPPluginCall) {
         Task { @MainActor in
-            self.recordingActive = false
-            let fm = FileManager.default
-            if let raw = try? await self.camera.stopRecording() {
-                try? fm.removeItem(at: raw)
-            }
-            if let voice = self.audio.stopVoiceCapture() {
-                try? fm.removeItem(at: voice.url)
-            }
-            if !self.stopping {
-                if let raw = self.rawURL { try? fm.removeItem(at: raw) }
-                self.rawURL = nil
+            if !self.stopping, self.recordingActive || self.recordingJobId != nil {
+                await self.salvageRecording(reason: "cancelled", minSeconds: 1)
+            } else if !self.stopping {
+                // 録画は ない：開いたままの 声の ファイルだけ（どの 日記も もっていなければ）消す
+                if let voice = self.audio.stopVoiceCapture() {
+                    let owned = PendingSaves.all().contains { $0.fileNames.contains(voice.url.lastPathComponent) }
+                    if !owned { try? FileManager.default.removeItem(at: voice.url) }
+                }
             }
             self.audio.stopMusic()
             self.audio.stop()
@@ -333,6 +420,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 PHAssetCreationRequest.forAsset().addResource(with: .video, fileURL: url, options: nil)
             } completionHandler: { ok, error in
                 if ok {
+                    // 写真に 入った：ここで はじめて 片づけて よい しるしを つける（つぎの 稽古の まえに 片づく）
+                    if let name = FinishedVideos.contains(url) { FinishedVideos.markSaved(name) }
                     call.resolve()
                 } else {
                     call.reject(error?.localizedDescription ?? "saving to 写真 failed")
@@ -527,21 +616,23 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     /// Video export needs the GPU and hardware encoder, which iOS can take away
     /// once the app is in the background. An export that failed that way is
     /// run again when the app comes back instead of losing the overlay/sound.
+    ///
+    /// バックグラウンドで 失敗した ぶんは 何回でも（回数の 上限なし）アプリに もどってから やりなおす。
+    /// それは 「失敗」と かぞえず、段も 下げない（iOS に GPU を とられた だけ）。
     @MainActor
     private func exportRetryingInForeground<T>(_ name: String, _ body: () async throws -> T) async throws -> T {
-        exportBackgrounded = false
-        do {
-            let task = BackgroundTask(name)
-            defer { task.end() }
-            return try await body()
-        } catch {
-            guard exportBackgrounded || UIApplication.shared.applicationState != .active else { throw error }
-            print("⚡️  [KarateRecorder] \(name) failed in the background (\(error.localizedDescription)); retrying in the foreground")
-            await waitUntilActive()
+        while true {
             exportBackgrounded = false
-            let task = BackgroundTask(name)
-            defer { task.end() }
-            return try await body()
+            do {
+                let task = BackgroundTask(name)
+                defer { task.end() }
+                return try await body()
+            } catch {
+                if error is CancellationError { throw error }
+                guard exportBackgrounded || UIApplication.shared.applicationState != .active else { throw error }
+                print("⚡️  [KarateRecorder] \(name) failed in the background (\(error.localizedDescription)); retrying in the foreground")
+                await waitUntilActive()
+            }
         }
     }
 
@@ -657,69 +748,156 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             self.stopping = true
             self.recordingActive = false
-            defer {
-                self.stopping = false
-                self.rawURL = nil
-            }
-            let fm = FileManager.default
+            defer { self.stopping = false }
+            let id = self.recordingJobId ?? UUID().uuidString
+            self.recordingJobId = nil
 
-            let raw: URL
+            var stopError: Error?
+            var raw: URL?
             do {
                 raw = try await self.camera.stopRecording()
             } catch {
-                if let voice = self.audio.stopVoiceCapture() { try? fm.removeItem(at: voice.url) }
-                call.reject(error.localizedDescription)
-                return
+                stopError = error
             }
             // After the camera, so the voice also covers the last frame.
             let capture = self.audio.stopVoiceCapture()
-            // A voice file that never received a buffer is no voice at all.
-            let voice = (capture?.buffers ?? 0) > 0 ? capture : nil
-            if let capture, voice == nil { try? fm.removeItem(at: capture.url) }
-
-            let videoStart = self.camera.recordingStartHostSeconds
-            let lead: Double = {
-                guard let v = voice?.startHostSeconds, let c = videoStart else { return 0 }
-                return c - v
-            }()
-            let shiftMs: Double = {
-                guard let v = videoStart, let c = self.recordCallHostSeconds else { return 0 }
-                return min(max(0, (v - c) * 1000), 5000)
-            }()
-            print(String(format: "⚡️  [KarateRecorder] voice starts %.0f ms before the first video frame; overlay shifted %.0f ms earlier", lead * 1000, shiftMs))
-
-            let id = UUID().uuidString
-            let rawName = PendingSaves.adopt(raw, as: "\(id)-raw.\(raw.pathExtension.isEmpty ? "mov" : raw.pathExtension)")
-            let voiceName = voice.map { PendingSaves.adopt($0.url, as: "\(id)-voice.\($0.url.pathExtension)") }
-            let job = PendingSave(
-                id: id, rawName: rawName, voiceName: voiceName,
-                voiceLeadSeconds: lead, voiceProcessing: voice?.voiceProcessing ?? false,
-                shiftMs: shiftMs, options: optionsData, interruption: self.interruptionReason,
-                createdAt: Date(), attempts: 0
-            )
-            // On disk before anything slow starts: from here a killed app
-            // finishes this video on its next launch.
-            PendingSaves.save(job)
+            guard let job = await self.finishCapture(id: id, raw: raw, capture: capture, optionsData: optionsData,
+                                                     interruption: self.interruptionReason, minSeconds: 0) else {
+                call.reject(stopError?.localizedDescription ?? "recording unusable")
+                return
+            }
 
             var result: JSObject = [
                 "jobId": id,
                 "echoCancelled": self.camera.echoCancelled,
             ]
             // おへや・かめんが オンなら、かくす まえの 動画は ページに わたさない
-            // （できあがりまで 待つ。生の ファイルは かくし おわったら 消す）
-            if Self.parsePrivacy(options["privacy"] as? [String: Any]).settings.isOn {
+            // （できあがりまで 待つ。生の ファイルは 写真に 保存 できるまで アプリの 中に のこる）
+            let saved = (try? JSONSerialization.jsonObject(with: job.options)) as? [String: Any] ?? options
+            if Self.parsePrivacy(saved["privacy"] as? [String: Any]).settings.isOn {
                 result["privacyPending"] = true
             } else {
-                result["rawUri"] = PendingSaves.url(rawName).absoluteString
+                result["rawUri"] = PendingSaves.url(job.rawName).absoluteString
             }
             if let reason = self.interruptionReason { result["interruption"] = reason }
-            if let voice {
-                result["voiceLeadMs"] = lead * 1000
-                result["voiceProcessing"] = voice.voiceProcessing
-                result["voicePeakDb"] = voice.peakDb
+            if job.voiceName != nil, let capture {
+                result["voiceLeadMs"] = job.voiceLeadSeconds * 1000
+                result["voiceProcessing"] = capture.voiceProcessing
+                result["voicePeakDb"] = capture.peakDb
             }
             call.resolve(result)
             self.enqueueSave(job)
+        }
+    }
+
+    /// 録画が おわった（stop・ページの 読みなおし・cancel）：日記を「録画ずみ」に して かえす。
+    /// 見られる 映像が ない（`minSeconds` より みじかい）ときだけ ファイルと 日記を 消して nil
+    @MainActor
+    private func finishCapture(id: String, raw: URL?, capture: AudioController.VoiceCapture?, optionsData: Data?,
+                               interruption: String?, minSeconds: Double) async -> PendingSave? {
+        let fm = FileManager.default
+        let journal = PendingSaves.load(id)
+        let rawURL = raw ?? journal.map { PendingSaves.url($0.rawName) }
+        func discard() {
+            if let rawURL { try? fm.removeItem(at: rawURL) }
+            if let capture { try? fm.removeItem(at: capture.url) }
+            if let journal { journal.fileNames.forEach { try? fm.removeItem(at: PendingSaves.url($0)) } }
+            PendingSaves.remove(id)
+        }
+        guard let rawURL, fm.fileExists(atPath: rawURL.path) else {
+            print("⚡️  [KarateRecorder] recording \(id) left no file")
+            discard()
+            return nil
+        }
+        // usable でない（エラーで おわった）ファイルも、見られる ところまでは のこす
+        guard let seconds = await VideoCheck.videoSeconds(rawURL), seconds >= minSeconds else {
+            print("⚡️  [KarateRecorder] recording \(id) has no playable video; discarding it")
+            discard()
+            return nil
+        }
+        let ext = rawURL.pathExtension.isEmpty ? "mov" : rawURL.pathExtension
+        let rawName = PendingSaves.adopt(rawURL, as: "\(id)-raw.\(ext)")
+        // A voice file that never received a buffer is no voice at all.
+        let voice = (capture?.buffers ?? 0) > 0 ? capture : nil
+        if let capture, voice == nil { try? fm.removeItem(at: capture.url) }
+        let voiceName = voice.map { PendingSaves.adopt($0.url, as: "\(id)-voice.\($0.url.pathExtension)") }
+        let timing = captureTiming(voiceStart: voice?.startHostSeconds)
+        print(String(format: "⚡️  [KarateRecorder] %.1f s recorded; voice starts %.0f ms before the first video frame; overlay shifted %.0f ms earlier",
+                     seconds, timing.lead * 1000, timing.shiftMs))
+
+        var job = journal ?? PendingSave(
+            id: id, rawName: rawName, voiceName: nil, voiceLeadSeconds: 0, voiceProcessing: false,
+            shiftMs: 0, options: Data("{}".utf8), interruption: nil, createdAt: Date(), attempts: 0)
+        job.rawName = rawName
+        job.voiceName = voiceName
+        job.voiceLeadSeconds = timing.lead
+        job.voiceProcessing = voice?.voiceProcessing ?? false
+        job.shiftMs = timing.shiftMs
+        // 日記が ない（書けなかった）ときも おへや・かめんは わすれない（生の 顔を 出さない）
+        if let optionsData {
+            job.options = optionsData
+            // ページが privacy を 送らなくても、録画を はじめた ときの 値（日記）を のこす
+            if var fresh = (try? JSONSerialization.jsonObject(with: optionsData)) as? [String: Any], fresh["privacy"] == nil,
+               let started = journal.flatMap({ (try? JSONSerialization.jsonObject(with: $0.options)) as? [String: Any] })?["privacy"] {
+                fresh["privacy"] = started
+                if JSONSerialization.isValidJSONObject(fresh), let merged = try? JSONSerialization.data(withJSONObject: fresh) {
+                    job.options = merged
+                }
+            }
+        } else if journal == nil, let privacy = previewPrivacyJSON,
+                  JSONSerialization.isValidJSONObject(["privacy": privacy]) {
+            job.options = (try? JSONSerialization.data(withJSONObject: ["privacy": privacy])) ?? job.options
+        }
+        job.interruption = interruption
+        job.state = nil
+        // On disk before anything slow starts: from here a killed app
+        // finishes this video on its next launch. 書けなくても 何も 消さない
+        // （ファイルは もう pending に あり、録画中の 日記が のこっていれば それが ひろう）
+        do { try PendingSaves.save(job) } catch { print("⚡️  [KarateRecorder] save \(id) is only queued in memory") }
+        return job
+    }
+
+    /// まだ 回っている 録画を 止めて、ふつうの 保存に まわす（ページの 読みなおし・cancel）
+    @MainActor
+    private func salvageRecording(reason: String, minSeconds: Double = 0) async {
+        guard !stopping else { return }
+        stopping = true
+        recordingActive = false
+        defer { stopping = false }
+        let id = recordingJobId ?? UUID().uuidString
+        recordingJobId = nil
+        let raw = try? await camera.stopRecording()
+        let capture = audio.stopVoiceCapture()
+        guard let job = await finishCapture(id: id, raw: raw, capture: capture, optionsData: nil,
+                                            interruption: interruptionReason ?? reason, minSeconds: minSeconds) else { return }
+        print("⚡️  [KarateRecorder] recording \(id) was still running (\(reason)); saving it")
+        // あたらしい ページには 待っている 人が いないので、おわったら「見ていない 動画」として 出す
+        resumedJobIds.insert(job.id)
+        enqueueSave(job)
+    }
+
+    /// 日記が "recording" のまま（録画の とちゅうで アプリが 落ちた）：見られる 映像が あれば ふつうの 保存に
+    @MainActor
+    private func adoptInterruptedRecordings() async {
+        let fm = FileManager.default
+        guard !stopping else { return }
+        for var job in PendingSaves.all() where job.isRecording && job.id != recordingJobId {
+            let seconds = await VideoCheck.videoSeconds(PendingSaves.url(job.rawName))
+            // しらべて いる あいだに 録画・stop が はじまったら さわらない
+            guard !stopping, job.id != recordingJobId, PendingSaves.load(job.id)?.isRecording == true else { continue }
+            guard let seconds else {
+                print("⚡️  [KarateRecorder] interrupted recording \(job.id) has no playable video; discarding it")
+                job.fileNames.forEach { try? fm.removeItem(at: PendingSaves.url($0)) }
+                PendingSaves.remove(job.id)
+                continue
+            }
+            if let voice = job.voiceName, !fm.fileExists(atPath: PendingSaves.url(voice).path) { job.voiceName = nil }
+            job.state = nil
+            job.interruption = job.interruption ?? "appClosed"
+            do { try PendingSaves.save(job) } catch { print("⚡️  [KarateRecorder] could not update journal \(job.id)") }
+            print(String(format: "⚡️  [KarateRecorder] recovered %.1f s of a recording cut short (%@)", seconds, job.id))
+            resumedJobIds.insert(job.id)
+            enqueueSave(job)
         }
     }
 
@@ -735,6 +913,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     /// Finished videos nobody has looked at yet — typically one whose save was
     /// finished on a later launch. JS shows them and calls markVideoSeen().
+    /// **これは おしらせの ためだけ。** ここから はずれても 動画は 消えない（FinishedVideos）
     private static let unseenKey = "KarateRecorder.unseenVideos"
 
     private static func unseenVideos() -> [[String: Any]] {
@@ -747,7 +926,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @MainActor
     private func resumePendingSaves() {
-        let jobs = PendingSaves.all()
+        let jobs = PendingSaves.all().filter { !$0.isRecording && $0.state != "broken" }
         guard !jobs.isEmpty else { return }
         print("⚡️  [KarateRecorder] resuming \(jobs.count) save(s) cut short last time")
         for job in jobs {
@@ -769,8 +948,13 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var job = saveQueue.removeFirst()
         savingJobId = job.id
         saveProgress = 0
-        job.attempts += 1
-        PendingSaves.save(job)
+        // まえの 書き出しが とちゅうの まま（バックグラウンドにも 行かず）おわった＝アプリが 落ちた。
+        // それだけを かぞえる（つぎは 軽い 段から）
+        if job.inProgress == true {
+            job.attempts += 1
+            print("⚡️  [KarateRecorder] save \(job.id) crashed last time (\(job.attempts) so far)")
+        }
+        persist(&job)
         Task { @MainActor in
             let result = await self.runSave(job)
             self.savingJobId = nil
@@ -779,10 +963,29 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// Burns and mixes one saved practice. Never throws: the worst case is the
-    /// silent camera file, which is still the family's video.
+    /// 日記を 書く。`inProgress` は いま 前に いるか どうか（うしろに いる ときの 失敗は 落ちたと かぞえない）
+    @MainActor
+    private func persist(_ job: inout PendingSave, inProgress: Bool? = nil) {
+        job.inProgress = inProgress ?? (UIApplication.shared.applicationState == .active)
+        do { try PendingSaves.save(job) } catch { print("⚡️  [KarateRecorder] journal for \(job.id) not updated") }
+    }
+
+    /// のこった まま（まだ 保存を まっている）の 答え。ファイルは ひとつも 消さない
+    @MainActor
+    private func keepPending(_ job: PendingSave, mode: String, error: String) -> JSObject {
+        var job = job
+        persist(&job, inProgress: false)
+        print("⚡️  [KarateRecorder] save \(job.id) kept for later (\(mode)): \(error)")
+        return ["jobId": job.id, "uri": "", "burnedIn": false, "exportMode": mode, "error": error,
+                "resumed": resumedJobIds.contains(job.id)]
+    }
+
+    /// Burns and mixes one saved practice. 段を 下へ：文字＋音 → 音だけ → 生の 映像＋声（再エンコードなし）
+    /// → 生の 映像だけ（声が 読めないときだけ）。どの 段も できた 動画を VideoCheck で たしかめてから つかう。
+    /// できた 動画が Application Support に 入って たしかめられるまで、日記も 生の ファイルも 消さない。
     @MainActor
     private func runSave(_ job: PendingSave) async -> JSObject {
+        var job = job
         let fm = FileManager.default
         let started = Date()
         let options = (try? JSONSerialization.jsonObject(with: job.options)) as? [String: Any] ?? [:]
@@ -791,44 +994,60 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         let shiftMs = job.shiftMs
         let jobId = job.id
 
-        // おへや・かめん（5.16）：**いちばん はじめに** かくした 動画を つくり、生の ファイルを 消す。
+        guard await VideoCheck.videoSeconds(raw) != nil else {
+            // 映像が 読めない：消さずに よけておく（つぎの 起動で くりかえさない）
+            job.state = "broken"
+            return keepPending(job, mode: "failed", error: "capture unreadable")
+        }
+
+        // おへや・かめん（5.16）：**いちばん はじめに** かくした 動画を つくる。
         // このあとの しあげ（文字・音）と その予備（音だけ・そのまま）は ぜんぶ かくした 動画から なので、
-        // どの 道に 行っても 顔と 部屋は 出ない。かくせなかったら 保存しない。
+        // どの 道に 行っても 顔と 部屋は 出ない。かくせなかったら 保存しない（生の ファイルは のこす）。
+        // 段：full → reduced → wholeFrame（Vision なし・画面ぜんぶ ぼかす）。落ちた 回数 だけ 下から はじめる
         let privacy = Self.parsePrivacy(options["privacy"] as? [String: Any])
         var privacyShare: Float = 0
-        if privacy.settings.isOn, !job.rawName.contains("-private.") {
+        if privacy.settings.isOn, !job.privacyDone {
             privacyShare = 0.5
             let privateName = "\(job.id)-private.mp4"
-            do {
-                try await self.exportRetryingInForeground("KarateRecorderPrivacy") {
-                    try await PrivacyExport.export(
-                        source: raw, to: PendingSaves.url(privateName), settings: privacy.settings,
-                        background: privacy.background, keep: privacy.keep,
-                        onProgress: { [weak self] p in
-                            self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(p * 0.5)])
-                        })
+            var level = PrivacyLevel.forAttempt(job.attempts + 1)
+            var privacyError: String?
+            while true {
+                do {
+                    let source = raw
+                    let current = level
+                    _ = try await self.exportRetryingInForeground("KarateRecorderPrivacy") {
+                        try await PrivacyExport.export(
+                            source: source, to: PendingSaves.url(privateName), settings: privacy.settings,
+                            background: privacy.background, keep: privacy.keep, level: current,
+                            onProgress: { [weak self] p in
+                                self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(p * 0.5)])
+                            })
+                    }
+                    privacyError = nil
+                    break
+                } catch {
+                    privacyError = error.localizedDescription
+                    print("⚡️  [AlanPrivacy] save \(job.id) could not hide the room/face at \(level.rawValue): \(error.localizedDescription)")
+                    if level == .wholeFrame { break }
+                    level = level.next
                 }
-                var updated = job
-                updated.rawName = privateName
-                PendingSaves.save(updated)
-                try? fm.removeItem(at: raw)
-                raw = PendingSaves.url(privateName)
-            } catch {
-                print("⚡️  [AlanPrivacy] save \(job.id) could not hide the room/face: \(error.localizedDescription)")
-                if job.attempts <= 3 {
-                    // まだ 生の ファイルは のこっている：つぎの 起動で もういちど
-                    return ["jobId": job.id, "uri": "", "burnedIn": false, "exportMode": "privacyFailed",
-                            "privacyError": error.localizedDescription]
-                }
-                // なんども だめ：生の 動画は 出さずに 消す
-                try? fm.removeItem(at: raw)
-                PendingSaves.remove(job.id)
-                return ["jobId": job.id, "uri": "", "burnedIn": false, "exportMode": "privacyFailed",
-                        "privacyError": error.localizedDescription]
             }
-        } else if job.rawName.contains("-private.") {
+            if let privacyError {
+                // 生の 映像は 出さない。消しも しない（つぎに また）
+                var result = keepPending(job, mode: "privacyFailed", error: privacyError)
+                result["privacyError"] = privacyError
+                return result
+            }
+            print("⚡️  [AlanPrivacy] save \(job.id) hidden at \(level.rawValue)")
+            job.originalRawName = job.rawName
+            job.rawName = privateName
+            job.attempts = 0   // しあげの 段は また いちばん 上から
+            persist(&job)
+            raw = PendingSaves.url(privateName)
+        } else if job.privacyDone {
             privacyShare = 0.5
         }
+        let expected = await VideoCheck.videoSeconds(raw)
 
         let events = parsed.events.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
         let totalMs = max(0, parsed.totalDurationMs - shiftMs)
@@ -839,7 +1058,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         //
         // Keep the countdown effects (/sounds/…) and leave the character cheer
         // voices (/characters/…) out: in the recording they talked over the child.
-        let hasVoice = job.voiceName != nil
+        let voiceURL = job.voiceName.map { PendingSaves.url($0) }.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil }
+        let hasVoice = voiceURL != nil
         let mixedSounds = (!hasVoice || job.voiceProcessing)
             ? parsed.sounds.filter { sound in
                 switch sound {
@@ -848,9 +1068,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }.map { Self.shifted($0, byMs: shiftMs) }
             : []
-        let voiceTrack = job.voiceName.map {
-            OverlayCompositor.VoiceTrack(url: PendingSaves.url($0), leadSeconds: job.voiceLeadSeconds)
-        }
+        let voiceTrack = voiceURL.map { OverlayCompositor.VoiceTrack(url: $0, leadSeconds: job.voiceLeadSeconds) }
 
         // 「動画を仕上げ中… 42%」 on the web side. かくす 書き出しを したら、その あとの 半分。
         let reportProgress: (Float) -> Void = { [weak self] raw in
@@ -859,12 +1077,12 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             Task { @MainActor in if self?.savingJobId == jobId { self?.saveProgress = Double(progress) } }
         }
 
-        // A save that already failed to finish twice (the app died during it)
-        // skips the overlay, and after that the mix too: a lighter export that
-        // succeeds beats one that crashes the app on every launch.
-        let tryBurn = job.attempts <= 2
-        let tryMix = job.attempts <= 3 && (voiceTrack != nil || !mixedSounds.isEmpty)
-        if !tryBurn { print("⚡️  [KarateRecorder] save \(job.id) attempt \(job.attempts): skipping the overlay") }
+        // A save that already crashed the app twice skips the overlay, and after
+        // that the mix too: a lighter export that succeeds beats one that
+        // crashes the app on every launch. (バックグラウンドの 失敗は かぞえない)
+        let tryBurn = job.attempts < 2
+        let tryMix = job.attempts < 3 && (voiceTrack != nil || !mixedSounds.isEmpty)
+        if !tryBurn { print("⚡️  [KarateRecorder] save \(job.id) after \(job.attempts) crash(es): skipping the overlay") }
 
         var exportMode = "raw"
         var soundMixed = false
@@ -872,11 +1090,12 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var mixError: String?
         var output: URL?
         let out = PendingSaves.url("\(job.id)-out.mp4")
+        let source = raw
         if tryBurn {
             do {
                 let result = try await self.exportRetryingInForeground("KarateRecorderBurn") {
                     try await OverlayCompositor.burn(
-                        sourceURL: raw, outputURL: out, events: events, totalDurationMs: totalMs,
+                        sourceURL: source, outputURL: out, events: events, totalDurationMs: totalMs,
                         menu: parsed.menu, sounds: mixedSounds, voice: voiceTrack,
                         streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
                         beltLabel: parsed.beltLabel,
@@ -884,60 +1103,93 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                         onProgress: reportProgress
                     )
                 }
+                try await VideoCheck.validate(out, expectedSeconds: expected)
                 output = out
                 exportMode = "burned"
                 soundMixed = result.soundMixed
                 mixError = result.mixError
             } catch {
                 burnError = error.localizedDescription
+                try? fm.removeItem(at: out)
                 print("⚡️  [KarateRecorder] burn-in failed: \(error.localizedDescription)")
             }
         }
         if output == nil, tryMix {
             // Burn-in failing must never cost the family their recording: the
-            // sound mix without the overlay, then the raw capture.
+            // sound mix without the overlay, then the raw capture with its voice.
             do {
                 let result = try await self.exportRetryingInForeground("KarateRecorderMix") {
-                    try await OverlayCompositor.mixOnly(sourceURL: raw, outputURL: out, sounds: mixedSounds,
+                    try await OverlayCompositor.mixOnly(sourceURL: source, outputURL: out, sounds: mixedSounds,
                                                         voice: voiceTrack, onProgress: reportProgress)
                 }
+                try await VideoCheck.validate(out, expectedSeconds: expected)
                 output = out
                 exportMode = "mixed"
                 soundMixed = result.soundMixed
                 mixError = result.mixError
             } catch {
                 mixError = error.localizedDescription
+                try? fm.removeItem(at: out)
                 print("⚡️  [KarateRecorder] sound-only export failed: \(error.localizedDescription)")
             }
         }
-
-        // The finished video goes to tmp like before; the capture stays where it
-        // is until the next practice, since the done screen may be playing it.
-        let ext = output != nil ? "mp4" : (raw.pathExtension.isEmpty ? "mov" : raw.pathExtension)
-        let final = fm.temporaryDirectory.appendingPathComponent("karate-training-\(job.id).\(ext)")
-        try? fm.removeItem(at: final)
-        do {
-            if let output {
-                try fm.moveItem(at: output, to: final)
-            } else {
-                try fm.copyItem(at: raw, to: final)
+        if output == nil, let voiceTrack {
+            // さいごの 段：生の 映像＋声を そのまま（再エンコードなし・こわれにくい）
+            let remuxed = PendingSaves.url("\(job.id)-remux.mov")
+            do {
+                try await self.exportRetryingInForeground("KarateRecorderRemux") {
+                    try await OverlayCompositor.remux(sourceURL: source, outputURL: remuxed, voice: voiceTrack)
+                }
+                try await VideoCheck.validate(remuxed, expectedSeconds: expected)
+                output = remuxed
+                exportMode = "remuxed"
+                soundMixed = true
+            } catch {
+                try? fm.removeItem(at: remuxed)
+                print("⚡️  [KarateRecorder] remux with the voice failed: \(error.localizedDescription)")
             }
-        } catch {
-            print("⚡️  [KarateRecorder] could not place the finished video: \(error.localizedDescription)")
         }
-        let finalURL = fm.fileExists(atPath: final.path) ? final : (output ?? raw)
+
+        // できあがりは Application Support/KarateRecorder/finished へ（tmp では ない）。コピーでなく 移す。
+        // 生の 映像を そのまま つかう ときも 移す（そのとき 声は 写真に 保存 されるまで のこす）
+        let placed = output ?? raw
+        let ext = placed.pathExtension.isEmpty ? "mov" : placed.pathExtension
+        let finalName = FinishedVideos.name(forJob: job.id, ext: ext)
+        let final = FinishedVideos.url(finalName)
+        if fm.fileExists(atPath: final.path) { try? fm.removeItem(at: final) }   // まえに とちゅうで おわった ぶん
+        do {
+            try fm.moveItem(at: placed, to: final)
+        } catch {
+            if output != nil { try? fm.removeItem(at: placed) }
+            return keepPending(job, mode: "failed", error: "could not place the finished video: \(error.localizedDescription)")
+        }
+        do {
+            try await VideoCheck.validate(final, expectedSeconds: expected)
+        } catch {
+            // 生の 映像を 移していたら もどす（日記が さす 場所に）
+            if output == nil { try? fm.moveItem(at: final, to: placed) } else { try? fm.removeItem(at: final) }
+            return keepPending(job, mode: "failed", error: "finished video failed its check: \(error.localizedDescription)")
+        }
+
+        // ここで はじめて 日記を 消せる。写真に 保存 されるまで のこす もの：かくす まえの 生の 録画、
+        // 映像だけに なったときの 声
+        var keepUntilSaved: [String] = []
+        if let original = job.originalRawName { keepUntilSaved.append(original) }
+        if output == nil, let voice = job.voiceName { keepUntilSaved.append(voice) }
+        FinishedVideos.setKeepUntilSaved(finalName, keepUntilSaved)
         PendingSaves.remove(job.id)
-        UserDefaults.standard.set(finalURL.lastPathComponent, forKey: Self.lastFinishedKey)
+        UserDefaults.standard.set(finalName, forKey: Self.lastFinishedKey)
+        // おしらせの 一覧（3つまで）。ここから はずれても 動画は 消えない
         var unseen = Self.unseenVideos().filter { ($0["jobId"] as? String) != job.id }
-        unseen.append(["jobId": job.id, "name": finalURL.lastPathComponent,
+        unseen.append(["jobId": job.id, "name": finalName,
                        "createdAt": job.createdAt.timeIntervalSince1970 * 1000])
         Self.setUnseenVideos(Array(unseen.suffix(3)))
-        print(String(format: "⚡️  [KarateRecorder] save %@ done (%@) in %.1f s, attempt %d",
+        print(String(format: "⚡️  [KarateRecorder] save %@ done (%@) in %.1f s after %d crash(es)",
                      job.id, exportMode, Date().timeIntervalSince(started), job.attempts))
 
         var result: JSObject = [
             "jobId": job.id,
-            "uri": finalURL.absoluteString,
+            "uri": final.absoluteString,
             "burnedIn": exportMode == "burned",
             "exportMode": exportMode,
             "soundMixed": soundMixed,
@@ -950,20 +1202,33 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         return result
     }
 
-    /// `{ saving: { jobId, progress, resumed } | null, unseen: [{ jobId, uri, createdAt }] }`
+    /// できあがりの 動画の 場所（いまは finished/、むかしの ビルドの ものは tmp）
+    private static func finishedURL(_ name: String) -> URL? {
+        let fm = FileManager.default
+        let finished = FinishedVideos.url(name)
+        if fm.fileExists(atPath: finished.path) { return finished }
+        let legacy = fm.temporaryDirectory.appendingPathComponent(name)
+        return fm.fileExists(atPath: legacy.path) ? legacy : nil
+    }
+
+    /// `{ saving: { jobId, progress, resumed } | null, unseen: [{ jobId, uri, createdAt }],
+    ///    unsaved: [{ jobId, uri, createdAt }] }`
     /// — for the app to show a save still running or a video finished while
-    /// nobody was looking (after the app was killed mid-save).
+    /// nobody was looking (after the app was killed mid-save). `unsaved` は
+    /// まだ 写真に 保存 されていない できあがり ぜんぶ（見たか どうかに かかわらず）
     @objc func getSaveStatus(_ call: CAPPluginCall) {
         Task { @MainActor in
-            let tmp = FileManager.default.temporaryDirectory
             let unseen: [JSObject] = Self.unseenVideos().compactMap { entry in
-                guard let jobId = entry["jobId"] as? String, let name = entry["name"] as? String else { return nil }
-                let url = tmp.appendingPathComponent(name)
-                guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+                guard let jobId = entry["jobId"] as? String, let name = entry["name"] as? String,
+                      let url = Self.finishedURL(name) else { return nil }
                 return ["jobId": jobId, "uri": url.absoluteString,
                         "createdAt": (entry["createdAt"] as? NSNumber)?.doubleValue ?? 0]
             }
-            var result: JSObject = ["unseen": unseen]
+            let unsaved: [JSObject] = FinishedVideos.unsaved().map { video in
+                ["jobId": FinishedVideos.jobId(of: video.name) ?? video.name, "uri": video.url.absoluteString,
+                 "createdAt": video.createdAt.timeIntervalSince1970 * 1000]
+            }
+            var result: JSObject = ["unseen": unseen, "unsaved": unsaved]
             if let id = self.savingJobId {
                 result["saving"] = ["jobId": id, "progress": self.saveProgress,
                                     "resumed": self.resumedJobIds.contains(id)] as JSObject
@@ -977,6 +1242,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// おしらせを もう 出さない だけ。動画は 消さない（消せるのは 写真に 保存 できた あと）
     @objc func markVideoSeen(_ call: CAPPluginCall) {
         let jobId = call.getString("jobId")
         Self.setUnseenVideos(Self.unseenVideos().filter { ($0["jobId"] as? String) != jobId })
