@@ -7,7 +7,8 @@ import { buildParentNote } from "./howto";
 import { icon, plainIcon } from "../alan/alan-icons.js";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
-import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
+import { type Period, type ProductId, APP_KEY, PRIVACY_URL, TERMS_URL, productId, series } from "../billing";
+import { type AppKey, APPS, SUITE_PITCH, fallbackPrice, planFeatures, suiteSaving, upgradeHint } from "../alan/alan-billing.js";
 import { BELTS, BARS_PER_BELT } from "../belt-store";
 import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { LETTER_MAX_LEN, LETTER_BY_MAX_LEN, LETTER_KEEP } from "../letter-store";
@@ -123,9 +124,13 @@ export interface BillingView {
   onRestore(): void;
   onManage(): void;
   onChooseFree(): void;            // Free can't be bought: explains cancelling
+  // スイートを どの アプリで 買ったか。ほかの アランの アプリなら ここでは 買う ボタンを 出さない（2重に 払わせない）
+  fromApp?: AppKey | null;
 }
 
-const PLAN_ORDER: Plan[] = ["free", "premium", "family"];
+// カードの ならび：スイート（いちばん上・大きく）→ ファミリー → プレミアム → フリー（SERIES_GUIDE 5.8b・5.8c）。
+// この アプリで 売る プランだけ（series.sells）。
+const PLAN_ORDER: Plan[] = [...series.sells].reverse();
 
 const NAME_MAX_LEN = 12;
 
@@ -258,7 +263,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     memberHint.append(plainIcon("lock", "s"), "のメンバーは、プランを上げるか ほかの人を削除すると使えます");
   } else if (deps.members.length >= cap) {
     memberHint.textContent = cap === 1
-      ? "2人目からはファミリープランで追加できます"
+      ? "2人目からは ファミリー か アランのスイート で追加できます"
       : `このプランは${cap}人までです`;
   }
   memberHint.hidden = !memberHint.textContent;
@@ -273,50 +278,34 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   planNote.className = "family-plan-note";
   planNote.textContent = "家族みんなで1つのプラン";
 
+  const billing = deps.billing;
+  // ほかの アランの アプリで スイートに 入っている（ここでは 買わない）
+  const suiteElsewhere = deps.activePlan === "suite" && !!billing?.fromApp && billing.fromApp !== APP_KEY
+    ? billing.fromApp : null;
+  const planInfo: HTMLElement[] = [];
+  if (suiteElsewhere) {
+    const elsewhere = document.createElement("div");
+    elsewhere.className = "a-plan-hint";
+    elsewhere.dataset.suiteElsewhere = suiteElsewhere;
+    elsewhere.textContent = `${APPS[suiteElsewhere].name}で 入っています（アランの アプリ ぜんぶ つかえます）`;
+    planInfo.push(elsewhere);
+  } else {
+    const hint = upgradeHint(APP_KEY, deps.activePlan);
+    if (hint) {
+      const el = document.createElement("div");
+      el.className = "a-plan-hint";
+      el.dataset.upgradeHint = "";
+      el.textContent = hint;
+      planInfo.push(el);
+    }
+  }
+
   const planCards = document.createElement("div");
   planCards.className = "family-plan-cards";
   planCards.dataset.planCards = "";
-
-  const billing = deps.billing;
-  if (billing) PLAN_ORDER.forEach((plan) => planCards.append(buildStoreCard(plan, deps.activePlan, billing)));
-  else PLAN_ORDER.forEach((plan) => {
-    const meta = PLAN_META[plan];
-    const isActive = plan === deps.activePlan;
-
-    const card = document.createElement("button");
-    card.className = `family-plan-card${isActive ? " active" : ""}`;
-    card.dataset.planCard = plan;
-    card.disabled = isActive;
-
-    const name = document.createElement("div");
-    name.className = "family-plan-name";
-    name.textContent = meta.label;
-
-    const price = document.createElement("div");
-    price.className = "family-plan-price";
-    price.textContent = meta.monthly;
-
-    const yearly = document.createElement("div");
-    yearly.className = "family-plan-yearly";
-    if (meta.yearly) yearly.textContent = `または ${meta.yearly}`;
-
-    const feats = document.createElement("div");
-    feats.className = "family-plan-feats";
-    feats.textContent = planFeatsText(plan);
-
-    if (isActive) {
-      const badge = document.createElement("div");
-      badge.className = "family-plan-badge";
-      badge.textContent = "いま";
-      card.append(badge);
-    }
-
-    card.append(name, price);
-    if (meta.yearly) card.append(yearly);
-    card.append(feats);
-    card.addEventListener("click", () => deps.onSelectPlan(plan));
-    planCards.append(card);
-  });
+  PLAN_ORDER.forEach((plan) => planCards.append(billing
+    ? buildStoreCard(plan, deps.activePlan, billing, !!suiteElsewhere)
+    : buildPickCard(plan, deps.activePlan, () => deps.onSelectPlan(plan))));
 
   // --- くらす assignment section (E3) ---
   const classNodes = buildClassSection(deps);
@@ -355,7 +344,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // where its own background covers the strip behind the phone's clock.
   root.append(buildJumpNav(root, { live: liveNodes.length > 0 }), title, listTitle, list, addRow, memberHint, memberSettings,
               ...parentNodes, ...lockNodes, ...decorNodes, ...liveNodes, ...privacyNodes,
-              planTitle, planNote, planCards, ...billingNodes);
+              planTitle, planNote, ...planInfo, planCards, ...billingNodes);
 }
 
 // The 家族 tab is one long page (members → settings → 保護者の方へ → かざり →
@@ -709,39 +698,90 @@ function buildPrivacySection(deps: FamilyDeps): Node[] {
   return nodes;
 }
 
-function planFeatsText(plan: Plan): string {
-  const limits = PLAN_LIMITS[plan];
-  const perKid = limits.members > 1 ? "/人" : "";
-  const kidsText = limits.members === 1 ? "1人" : `${limits.members}人まで`;
-  const kufuText = limits.kufuPerDrill === 0 ? "工夫なし" : `工夫 ${limits.kufuTotal}${perKid}`;
-  const lines = [kidsText, `メニュー ${limits.presetsPerMember}${perKid}`, kufuText];
-  // Same rule that unlocks かざり「なし」, so the card can't promise more than the picker allows.
-  if (canRemoveDecor(plan)) lines.push("キャラなし動画");
-  return lines.join("\n");
+// カードの 行（シリーズ共通の planFeatures に 空手の 数を わたす）。空手の フリーは 1日の 回数でなく
+// メニュー・工夫の 数で かぎる（daily: false）。数は PLAN_LIMITS（アプリが まもる 上限）と おなじ。
+export function planFeatureLines(plan: Plan): string[] {
+  const free = PLAN_LIMITS.free;
+  const paid = PLAN_LIMITS.premium;
+  const decor = canRemoveDecor("premium") ? ["キャラなし動画"] : [];
+  return planFeatures(APP_KEY, plan, {
+    daily: false,
+    free: [`メニュー ${free.presetsPerMember}`, `工夫 ${free.kufuTotal}`],
+    paid: [`メニュー ${paid.presetsPerMember}`, `工夫 ${paid.kufuTotal}`, ...decor],
+  });
 }
 
-// App Store mode: a plan card with 月 / 年 buttons at the store's own prices.
-function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTMLElement {
+// カードの 中身（名前・スイートの ひとこと・行・おとくさ）。見た目は シリーズ共通の .a-plan（tokens.css）。
+function planCardShell(card: HTMLElement, plan: Plan, activePlan: Plan): void {
   const isActive = plan === activePlan;
-  const card = document.createElement("div");
-  card.className = `family-plan-card family-store-card${isActive ? " active" : ""}`;
+  card.className = `a-plan family-plan${plan === "suite" ? " suite" : ""}${isActive ? " current active" : ""}`;
   card.dataset.planCard = plan;
 
-  if (isActive) {
+  if (isActive || plan === "suite") {
     const badge = document.createElement("div");
-    badge.className = "family-plan-badge";
-    badge.textContent = "いま";
+    badge.className = "a-plan-badge";
+    badge.textContent = isActive ? "いま" : "おすすめ";
     card.append(badge);
   }
 
   const name = document.createElement("div");
-  name.className = "family-plan-name";
+  name.className = "a-plan-name";
   name.textContent = PLAN_META[plan].label;
+  card.append(name);
 
-  const feats = document.createElement("div");
-  feats.className = "family-plan-feats";
-  feats.textContent = planFeatsText(plan);
-  card.append(name, feats);
+  if (plan === "suite") {
+    const pitch = document.createElement("div");
+    pitch.className = "a-plan-pitch";
+    pitch.textContent = SUITE_PITCH;
+    card.append(pitch);
+  }
+
+  const feats = document.createElement("ul");
+  feats.className = "a-plan-feats";
+  planFeatureLines(plan).forEach((line) => {
+    const li = document.createElement("li");
+    li.textContent = line;
+    feats.append(li);
+  });
+  card.append(feats);
+
+  if (plan === "suite") {
+    const saving = document.createElement("div");
+    saving.className = "a-plan-saving";
+    saving.textContent = suiteSaving();
+    card.append(saving);
+  }
+}
+
+// お店の ない とき（ウェブ・テスト版）：カードを おすと その プランに なる。
+function buildPickCard(plan: Plan, activePlan: Plan, onPick: () => void): HTMLElement {
+  const meta = PLAN_META[plan];
+  const card = document.createElement("button");
+  planCardShell(card, plan, activePlan);
+  card.disabled = plan === activePlan;
+
+  const price = document.createElement("div");
+  price.className = "family-plan-price";
+  price.textContent = meta.monthly;
+  card.append(price);
+  if (meta.yearly) {
+    const yearly = document.createElement("div");
+    yearly.className = "family-plan-yearly";
+    yearly.textContent = `または ${meta.yearly}`;
+    card.append(yearly);
+  }
+  card.addEventListener("click", onPick);
+  return card;
+}
+
+// App Store mode: a plan card with 月 / 年 buttons at the store's own prices.
+// noBuy：スイートを ほかの アランの アプリで 買っている → どの カードにも 買う ボタンを 出さない。
+function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView, noBuy: boolean): HTMLElement {
+  const isActive = plan === activePlan;
+  const card = document.createElement("div");
+  planCardShell(card, plan, activePlan);
+  card.classList.add("family-store-card");
+  if (noBuy) return card;
 
   if (plan === "free") {
     if (!isActive) {
@@ -756,6 +796,8 @@ function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTM
     return card;
   }
 
+  const buys = document.createElement("div");
+  buys.className = "family-plan-buys";
   (["monthly", "yearly"] as Period[]).forEach((period) => {
     const id = productId(plan, period);
     const price = billing.prices?.[id];
@@ -764,8 +806,9 @@ function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTM
     const buy = document.createElement("button");
     buy.className = `family-plan-buy${current ? " current" : ""}`;
     buy.dataset.buy = id;
-    // null prices = still loading; a missing price = not for sale right now.
-    buy.textContent = !billing.prices ? "…" : !price ? "—" : `${current ? "✓ " : ""}${price}/${unit}`;
+    // お店の 値段が まだ（null）・ない（いまは 売っていない）ときは きまった 値段を 見せて 押せない
+    const shown = price ?? fallbackPrice(id);
+    buy.textContent = !shown ? "—" : `${current ? "✓ " : ""}${shown}/${unit}`;
     // The price after the trial stays on the button, so the terms are clear.
     const trial = price && !current ? billing.trials?.[id] : undefined;
     if (trial) {
@@ -776,11 +819,12 @@ function buildStoreCard(plan: Plan, activePlan: Plan, billing: BillingView): HTM
       buy.textContent = `そのあと ${price}/${unit}`;
       buy.prepend(tag);
     }
-    buy.setAttribute("aria-label", `${PLAN_META[plan].label} ${unit}ごと${trial ? ` ${trial}無料、そのあと` : ""}${price ? ` ${price}` : ""}${current ? "（いまのプラン）" : ""}`);
+    buy.setAttribute("aria-label", `${PLAN_META[plan].label} ${unit}ごと${trial ? ` ${trial}無料、そのあと` : ""}${shown ? ` ${shown}` : ""}${current ? "（いまのプラン）" : ""}`);
     buy.disabled = billing.busy || current || !price;
     buy.addEventListener("click", () => billing.onBuy(id));
-    card.append(buy);
+    buys.append(buy);
   });
+  card.append(buys);
   return card;
 }
 
@@ -821,7 +865,7 @@ function buildBillingFooter(billing: BillingView): Node[] {
   const legal = document.createElement("p");
   legal.className = "family-plan-legal";
   legal.dataset.billingLegal = "";
-  legal.textContent = "プレミアム・ファミリーは自動更新のサブスクリプションです（1か月または1年）。"
+  legal.textContent = "プレミアム・ファミリー・アランのスイートは自動更新のサブスクリプションです（1か月または1年）。"
     + "お支払いは Apple ID に請求され、期間が終わる24時間前までに自動更新を止めないと、同じ期間・同じ金額で更新されます。"
     + "止めるときは「サブスクリプションを管理」から。 ";
   const links: [string, string][] = [["利用規約", TERMS_URL], ["プライバシーポリシー", PRIVACY_URL]];

@@ -92,7 +92,7 @@ it("基本 doesn't use the Free plan's one menu slot", async () => {
   select(root).dispatchEvent(new Event("change"));
   root.querySelector<HTMLButtonElement>("[data-preset-save]")!.click();
   expect(loadPresets(storage)).toHaveLength(1);
-  expect(root.textContent).toContain("プランの上限です");
+  expect(root.textContent).toContain("メニューは ここまで");
 });
 
 it("a saved menu already named 基本 keeps its name; the built-in one becomes 基本（標準）", async () => {

@@ -9,13 +9,17 @@
 //   Free     ¥0                        kids 1  menus 1       工夫 1
 //   Premium  ¥1,000/月 or ¥10,000/年   kids 1  menus 5       工夫 3/種目, 150
 //   Family   ¥1,500/月 or ¥15,000/年   kids 5  menus 5/kid   工夫 3/種目, 150/kid
+//   Suite    ¥5,000/月 or ¥50,000/年   ファミリーと おなじ（アランの アプリ ぜんぶ。SERIES_GUIDE 5.8b）
 // Menus are household-shared, so the cap is presetsPerMember × usable kids.
+// プランの 名前・人数・ねだんは シリーズ共通の alan-billing（PLANS）が 正本。
+// フリーの 上限は「1日の 回数」でなく メニュー・工夫の 数（SERIES_GUIDE 5.8c の 空手の ちがい）。
 
+import { type Plan as SeriesPlan, PLAN_ORDER, PLANS } from "./alan/alan-billing.js";
 import { loadMembers } from "./member-store";
 import { scopeKey } from "./scoped-storage";
 import { TEST_MODE } from "./test-mode";
 
-export type Plan = "free" | "premium" | "family";
+export type Plan = SeriesPlan;
 
 export interface PlanLimits {
   members: number;      // max usable members (kids); extras are locked, not deleted
@@ -25,9 +29,11 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free: { members: 1, presetsPerMember: 1, kufuPerDrill: 1, kufuTotal: 1 },
-  premium: { members: 1, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
-  family: { members: 5, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
+  free: { members: PLANS.free.members, presetsPerMember: 1, kufuPerDrill: 1, kufuTotal: 1 },
+  premium: { members: PLANS.premium.members, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
+  family: { members: PLANS.family.members, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
+  // スイートは ファミリーと おなじ
+  suite: { members: PLANS.suite.members, presetsPerMember: 5, kufuPerDrill: 3, kufuTotal: 150 },
 };
 
 export interface PlanMeta {
@@ -36,11 +42,10 @@ export interface PlanMeta {
   yearly: string | null; // display yearly price (null = no yearly option)
 }
 
-export const PLAN_META: Record<Plan, PlanMeta> = {
-  free: { label: "フリー", monthly: "¥0", yearly: null },
-  premium: { label: "プレミアム", monthly: "¥1,000/月", yearly: "¥10,000/年" },
-  family: { label: "ファミリー", monthly: "¥1,500/月", yearly: "¥15,000/年" },
-};
+export const PLAN_META: Record<Plan, PlanMeta> = Object.fromEntries(PLAN_ORDER.map((plan) => {
+  const p = PLANS[plan];
+  return [plan, { label: p.label, monthly: p.monthly ? `${p.monthly}/月` : "¥0", yearly: p.yearly ? `${p.yearly}/年` : null }];
+})) as Record<Plan, PlanMeta>;
 
 const KEY = "karate.householdPlan";
 const DEFAULT_PLAN: Plan = "free";
@@ -50,7 +55,7 @@ const LEGACY_MEMBER_KEY = "karate.plan";       // per member: "standard" | "max"
 const LEGACY_FAMILY_KEY = "karate.familyPlan"; // household: "on"
 
 function isPlan(v: unknown): v is Plan {
-  return v === "free" || v === "premium" || v === "family";
+  return (PLAN_ORDER as unknown[]).includes(v);
 }
 
 // Carry an older install over: Family stays Family, and any member on the old
@@ -68,9 +73,9 @@ export function loadPlan(base: Storage = localStorage): Plan {
   try {
     const raw = base.getItem(KEY);
     if (isPlan(raw)) return raw;
-    // The test アプリ starts on Family so every feature can be tried at once;
-    // its plan cards still switch the plan afterwards.
-    const plan = TEST_MODE ? "family" : migrate(base);
+    // テスト版は スイートから（ぜんぶ ためせる。alan-billing の testBuild と おなじ）。
+    // プランの カードで あとから 切りかえられる。
+    const plan: Plan = TEST_MODE ? "suite" : migrate(base);
     base.setItem(KEY, plan);
     return plan;
   } catch {

@@ -14,7 +14,7 @@ import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty 
 import { makeNativeBgm, makeNativeHeadphoneWatcher, playNativeClip } from "./native-audio";
 import { alwaysConnected, withHeadphoneGate } from "./bgm-gate";
 import { Capacitor } from "@capacitor/core";
-import { makeRevenueCatBilling } from "./revenuecat-billing";
+import { appBilling } from "./billing";
 import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
 import { makeTickLoop } from "./tick-loop";
 import { COPY, IS_PIANO, PIANO_BUILD_MARKER } from "./flavor";
@@ -181,11 +181,11 @@ async function exportFile(filename: string, blob: Blob): Promise<void> {
 
 const app = new KarateApp(root, {
   storage,
-  // App Store subscriptions. The RevenueCat public SDK key comes from
-  // karate-trainer/.env.local (VITE_REVENUECAT_API_KEY): test_… for the Test
-  // Store while developing, appl_… for release. The test アプリ never talks to
-  // the App Store: its plan cards switch the plan for free.
-  billing: isNative && !TEST_MODE ? makeRevenueCatBilling(import.meta.env.VITE_REVENUECAT_API_KEY ?? "") : undefined,
+  // App Store subscriptions（シリーズ共通の alan-billing。billing.ts）。The RevenueCat
+  // public SDK key comes from karate-trainer/.env.local (VITE_REVENUECAT_API_KEY):
+  // test_… for the Test Store while developing, appl_… for release. The test
+  // アプリ never talks to the App Store: its plan cards switch the plan for free.
+  billing: appBilling(isNative),
   testTools: TEST_MODE,
   openSettings: isNative ? () => { void openAppSettings(); } : undefined,
   requestReview: isNative ? () => { void requestAppReview(); } : undefined,

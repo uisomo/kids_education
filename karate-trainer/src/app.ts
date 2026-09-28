@@ -559,9 +559,10 @@ export class KarateApp {
         const saved = savePreset(name, this.menu, this.base(), this.familyPresetLimit());
         if (saved) setSelectedPreset(saved.id, this.mem());
         this.showSetup(saved ? undefined
-          : atLimit ? "プランの上限です。上書き保存するか、アップグレードしてね"
+          : atLimit ? "メニューは ここまで。上書き保存なら できるよ（ふやすのは おうちの人へ）"
             : "保存できませんでした（端末の空き容量を確認してください）",
-          !saved && atLimit ? { label: "プランを見る", run: () => this.openPlans() } : undefined);
+          // 子どもには 買う 画面を 出さない：「おうちの人へ」→ ゲート → プラン（SERIES_GUIDE 5.8c）
+          !saved && atLimit ? { label: "おうちの人へ", run: () => this.openPlans() } : undefined);
       },
       onOverwritePreset: (id) => {
         if (id === BASIC_PRESET_ID) return;   // 基本 is read-only; 保存 makes a copy
@@ -1085,6 +1086,7 @@ export class KarateApp {
       trials: this.billingInfo && this.billingInfo.plan !== "free" ? {} : this.trials,
       currentProduct: this.billingInfo?.plan === "free" ? null : this.billingInfo?.productId ?? null,
       renewal: renewalText(this.billingInfo),
+      fromApp: this.billingInfo?.fromApp ?? null,
       busy: this.billingBusy,
       status: this.billingStatus,
       onBuy: (id) => { void this.buy(billing, id); },

@@ -30,15 +30,17 @@ beforeEach(() => {
   document.body.textContent = "";
 });
 
-const FREE: BillingInfo = { plan: "free", productId: null, expiresAt: null, willRenew: false };
-const info = (plan: "premium" | "family", productId: string): BillingInfo =>
-  ({ plan, productId, expiresAt: "2026-10-15T00:00:00Z", willRenew: true });
+const FREE: BillingInfo = { plan: "free", productId: null, expiresAt: null, willRenew: false, fromApp: null };
+const info = (plan: "premium" | "family" | "suite", productId: string, fromApp: BillingInfo["fromApp"] = "karate"): BillingInfo =>
+  ({ plan, productId, expiresAt: "2026-10-15T00:00:00Z", willRenew: true, fromApp });
 
 function fakeBilling(start: BillingInfo | null) {
   let listener: ((i: BillingInfo) => void) | null = null;
   const billing = {
     refresh: vi.fn(async () => start),
-    prices: vi.fn(async () => ({ premium_monthly: "¥980", premium_yearly: "¥9,800", family_monthly: "¥1,480", family_yearly: "¥14,800" })),
+    prices: vi.fn(async () => ({ premium_monthly: "¥980", premium_yearly: "¥9,800", family_monthly: "¥1,480", family_yearly: "¥14,800",
+      suite_monthly: "¥5,000", suite_yearly: "¥50,000" })),
+    trials: vi.fn(async () => ({})),
     purchase: vi.fn(async (): Promise<PurchaseOutcome> => ({ status: "cancelled" })),
     restore: vi.fn(async (): Promise<BillingInfo | null> => FREE),
     manage: vi.fn(async () => {}),
@@ -218,4 +220,36 @@ it("restore reports what it found, and Free points to Apple's manage page", asyn
   root.querySelector<HTMLButtonElement>('[data-navtab="train"]')!.click();
   openFamily();
   expect(status()).toBe("");
+});
+
+// アランのスイート（SERIES_GUIDE 5.8b）
+it("the suite is a family plan here: 5 kids, and it can be bought from this app", async () => {
+  const { billing } = fakeBilling(FREE);
+  billing.purchase.mockResolvedValueOnce({ status: "purchased", info: info("suite", "suite_monthly") });
+  const { root, storage, openFamily, status } = await makeApp(billing);
+  openFamily();
+  const cards = [...root.querySelectorAll<HTMLElement>("[data-plan-card]")].map((c) => c.dataset.planCard);
+  expect(cards).toEqual(["suite", "family", "premium", "free"]);
+  root.querySelector<HTMLButtonElement>('[data-buy="suite_monthly"]')!.click();
+  await flush();
+  expect(billing.purchase).toHaveBeenCalledWith("suite_monthly");
+  expect(loadPlan(storage)).toBe("suite");
+  expect(status()).toContain("アランのスイートになりました");
+  for (const name of ["はな", "けん", "りく", "そら"]) {
+    root.querySelector<HTMLInputElement>("[data-member-add-input]")!.value = name;
+    root.querySelector<HTMLButtonElement>("[data-member-add]")!.click();
+  }
+  expect(loadMembers(storage)).toHaveLength(5);
+  expect(root.querySelector<HTMLButtonElement>("[data-member-add]")!.disabled).toBe(true);
+});
+
+it("a suite bought in another アランの app: says where, and offers nothing to buy", async () => {
+  const { billing } = fakeBilling(info("suite", "suite_yearly", "kimochi"));
+  const { root, storage, openFamily } = await makeApp(billing);
+  expect(loadPlan(storage)).toBe("suite");
+  openFamily();
+  expect(root.querySelector("[data-suite-elsewhere]")!.textContent).toBe("アランのきもちで 入っています（アランの アプリ ぜんぶ つかえます）");
+  expect(root.querySelector("[data-buy]")).toBeNull();
+  expect(root.querySelector("[data-choose-free]")).toBeNull();
+  expect(root.querySelector("[data-restore]")).not.toBeNull();
 });

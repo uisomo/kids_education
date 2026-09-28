@@ -59,7 +59,12 @@ it("renders a plan card per plan with the active member's plan marked", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps({ activePlan: "premium" }));
   const cards = root.querySelectorAll("[data-plan-card]");
-  expect(cards).toHaveLength(3);   // free / premium / family
+  // スイート（いちばん上）→ ファミリー → プレミアム → フリー
+  expect([...cards].map((c) => (c as HTMLElement).dataset.planCard)).toEqual(["suite", "family", "premium", "free"]);
+  expect(root.querySelector('[data-plan-card="suite"]')!.classList.contains("suite")).toBe(true);
+  expect(root.querySelector('[data-plan-card="suite"] .a-plan-badge')!.textContent).toBe("おすすめ");
+  expect(root.querySelector('[data-plan-card="premium"] .a-plan-badge')!.textContent).toBe("いま");
+  expect(root.querySelector("[data-upgrade-hint]")!.textContent).toBe("あと ¥500/月で きょうだいも（5人まで）");
   expect(root.querySelector('[data-plan-card="premium"]')!.classList.contains("active")).toBe(true);
   expect(root.querySelector('[data-plan-card="free"]')!.classList.contains("active")).toBe(false);
 });
@@ -71,7 +76,7 @@ it("shows monthly and yearly prices and each plan's kid limit", () => {
   expect(fam.classList.contains("active")).toBe(true);
   expect(fam.querySelector(".family-plan-price")!.textContent).toBe("¥1,500/月");
   expect(fam.querySelector(".family-plan-yearly")!.textContent).toContain("¥15,000/年");
-  expect(fam.querySelector(".family-plan-feats")!.textContent).toContain("5人まで");
+  expect(fam.querySelector(".a-plan-feats")!.textContent).toContain("5人まで");
   const prem = root.querySelector('[data-plan-card="premium"]')!;
   expect(prem.querySelector(".family-plan-price")!.textContent).toBe("¥1,000/月");
   expect(prem.querySelector(".family-plan-yearly")!.textContent).toContain("¥10,000/年");
@@ -297,18 +302,17 @@ it("a member name can be changed with 変更", () => {
   expect(onRenameMember).toHaveBeenCalledWith("m2", "じろう");
 });
 
-it("plan cards list menus and 工夫, per kid on Family", () => {
+it("plan cards list menus and 工夫 (the caps the app enforces), kids on Family and the suite", () => {
   const root = document.createElement("div");
   renderFamilyScreen(root, deps());
-  const feats = (plan: string) => root.querySelector(`[data-plan-card="${plan}"] .family-plan-feats`)!.textContent!;
-  expect(feats("free")).toContain("メニュー 1");
-  expect(feats("premium")).toContain("メニュー 5");
-  expect(feats("premium")).toContain("工夫 150");
-  expect(feats("family")).toContain("メニュー 5/人");
-  expect(feats("family")).toContain("工夫 150/人");
-  expect(feats("free")).not.toContain("キャラなし動画");
-  expect(feats("premium")).toContain("キャラなし動画");
-  expect(feats("family")).toContain("キャラなし動画");
+  const feats = (plan: string) => [...root.querySelectorAll(`[data-plan-card="${plan}"] .a-plan-feats li`)].map((li) => li.textContent);
+  expect(feats("free")).toEqual(["子ども 1人", "メニュー 1", "工夫 1", "ろくが・ほぞん OK"]);
+  expect(feats("premium")).toEqual(["子ども 1人", "メニュー 5", "工夫 150", "キャラなし動画"]);
+  expect(feats("family")).toEqual(["子ども 5人まで", "ひとりずつ プレミアムと おなじ"]);
+  expect(feats("suite")).toContain("家族 5人まで");
+  // 空手は 1日の 回数で かぎらない
+  expect(root.textContent).not.toContain("1日1回");
+  expect(root.querySelector('[data-plan-card="suite"] .a-plan-saving')!.textContent).toMatch(/^ぜんぶ べつべつだと ¥[\d,]+\/月$/);
 });
 
 it("「工夫をぜんぶけす」 shows the count and asks the app to clear; disabled with none", () => {
@@ -368,7 +372,7 @@ it("billing: loading, unavailable and current products can't be bought", () => {
   const loading = document.createElement("div");
   renderFamilyScreen(loading, deps({ billing: billingView({ prices: null }) }));
   const l = loading.querySelector<HTMLButtonElement>('[data-buy="premium_monthly"]')!;
-  expect(l.textContent).toBe("…");
+  expect(l.textContent).toBe("¥1,000/月");   // お店の 値段が まだ → きまった 値段（押せない）
   expect(l.disabled).toBe(true);
 
   const root = document.createElement("div");
@@ -381,7 +385,7 @@ it("billing: loading, unavailable and current products can't be bought", () => {
   expect(cur.disabled).toBe(true);
   expect(root.querySelector<HTMLButtonElement>('[data-buy="premium_yearly"]')!.disabled).toBe(false);
   const missing = root.querySelector<HTMLButtonElement>('[data-buy="family_monthly"]')!;
-  expect(missing.textContent).toBe("—");
+  expect(missing.textContent).toBe("¥1,500/月");
   expect(missing.disabled).toBe(true);
 });
 

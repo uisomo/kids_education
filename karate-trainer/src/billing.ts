@@ -1,31 +1,31 @@
-// App Store subscriptions. The household's plan comes from what Apple says it
-// bought (RevenueCat entitlements), never from a tap in the UI; plan-store
-// keeps the last known plan so the limits still apply offline.
+// 課金（App Store のサブスク）。しくみは シリーズ共通の alan-billing（アランの基盤 packages/billing。
+// SERIES_GUIDE 5.8・5.8b・5.8c）。ここは 空手／ピアノの うすい つつみ。
 //
-// App Store Connect / RevenueCat setup this code expects:
-//   products      premium_monthly, premium_yearly, family_monthly, family_yearly
-//                 (one subscription group, Family ranked above Premium)
-//   entitlements  "premium" and "family" (family products grant family)
-//   offering      the current offering holds a package for each product
+// - プランは Apple（RevenueCat）が 買ったと いうもの だけ。UI の タップでは かわらない。
+//   plan-store は さいごに わかった プランの キャッシュ（オフラインでも 上限は そのまま）
+// - アランのスイート（どの アランの アプリで 買っても）は ファミリーと おなじ（子ども 5人）
+// - 商品ID：空手は 前ぶん なし（premium_monthly …）、ピアノは piano_、スイートは <app>_suite_<period>。
+//   RevenueCat の offering の package の 名前は アプリの中の 名前（premium_monthly … suite_yearly）
 
+import {
+  type AppKey, type Billing, type BillingInfo, type Period, type ProductId, type PurchaseOutcome,
+  createSeriesBilling, MANAGE_URL, openExternal, productId, renewalText, TERMS_URL, trialLength,
+} from "./alan/alan-billing.js";
 import type { Plan } from "./plan-store";
 import { IS_PIANO } from "./flavor";
+import { TEST_MODE } from "./test-mode";
 
+export type { Billing, BillingInfo, Period, ProductId, PurchaseOutcome };
 export type PaidPlan = Exclude<Plan, "free">;
-export type Period = "monthly" | "yearly";
-export type ProductId = `${PaidPlan}_${Period}`;
+export { MANAGE_URL, productId, renewalText, TERMS_URL, trialLength };
 
-export const PRODUCT_IDS: ProductId[] = ["premium_monthly", "premium_yearly", "family_monthly", "family_yearly"];
+/** この アプリの key（alan-billing の APPS）。 */
+export const APP_KEY: AppKey = IS_PIANO ? "piano" : "karate";
 
-// Apple's standard EULA is accepted as the Terms of Use link. The privacy
-// policy has to be hosted somewhere public before release.
-export const TERMS_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
-// Each app has its own privacy page (karate-trainer/piano-site/ for the piano app).
+// アプリごとの プライバシーポリシー（ピアノは karate-trainer/piano-site/）。
 export const PRIVACY_URL = IS_PIANO ? "https://alan-piano.pages.dev/privacy" : "https://karate-trainer.pages.dev/privacy";
-export const MANAGE_URL = "https://apps.apple.com/account/subscriptions";
 
-// Store product ids that stand for ours: the RevenueCat Test Store products
-// were created as monthly / yearly (Premium) and monthly_2 / yearly_2 (Family).
+// RevenueCat の Test Store で むかし 作った 商品（monthly / yearly＝プレミアム、monthly_2 / yearly_2＝ファミリー）。
 const STORE_ALIASES: Record<string, ProductId> = {
   monthly: "premium_monthly",
   yearly: "premium_yearly",
@@ -33,78 +33,41 @@ const STORE_ALIASES: Record<string, ProductId> = {
   yearly_2: "family_yearly",
 };
 
-// The piano app sells the same four products under piano_-prefixed store ids
-// (App Store Connect product ids must be unique across the developer account).
-export function toProductId(storeId: string): ProductId | null {
-  const id = storeId.replace(/^piano_/, "");
-  return (PRODUCT_IDS as string[]).includes(id) ? id as ProductId : STORE_ALIASES[id] ?? null;
+/** シリーズの 課金。planKey は むかしからの karate.householdPlan（ピアノも おなじ 名前。べつの アプリなので まざらない）。 */
+export const series = createSeriesBilling({
+  app: APP_KEY,
+  apiKey: import.meta.env.VITE_REVENUECAT_API_KEY ?? "",
+  testBuild: TEST_MODE,
+  loadSdk: () => import("@revenuecat/purchases-capacitor").then((m) => m.Purchases),
+  aliases: STORE_ALIASES,
+  planKey: "karate.householdPlan",
+});
+
+/** お店の 商品ID → アプリの中の 名前（この アプリの もの と、どの アプリの スイート）。 */
+export const toProductId = series.toProductId;
+
+/** premium_monthly → premium（アプリの中の 名前でも、お店の 商品IDでも）。 */
+export function planOfProduct(raw: string): Plan {
+  const id = /^(premium|family|suite)_(monthly|yearly)$/.test(raw) ? raw : series.toProductId(raw);
+  const plan = id?.split("_")[0];
+  return plan === "premium" || plan === "family" || plan === "suite" ? plan : "free";
 }
 
-export function productId(plan: PaidPlan, period: Period): ProductId {
-  return `${plan}_${period}`;
+/** iPhone の アプリの 課金。テスト版は お店に つながない（プランの カードで 切りかえ）→ undefined。
+ *  キーが ない 本番ビルドでも「売らない」課金を かえす（ない と カードで ただで プランが かえられて しまう）。 */
+export function appBilling(isNative: boolean): Billing | undefined {
+  if (!isNative || TEST_MODE) return undefined;
+  return series.billing ?? unconfiguredBilling();
 }
 
-export function planOfProduct(rawId: string): Plan {
-  const id = rawId.replace(/^piano_/, "");
-  if (id.startsWith("family_")) return "family";
-  if (id.startsWith("premium_")) return "premium";
-  return "free";
-}
-
-// Family outranks Premium when both are active (e.g. mid-upgrade).
-export function planFromEntitlements(active: Iterable<string>): Plan {
-  const set = new Set(active);
-  if (set.has("family")) return "family";
-  if (set.has("premium")) return "premium";
-  return "free";
-}
-
-export interface BillingInfo {
-  plan: Plan;
-  productId: string | null;   // the subscription behind the plan
-  expiresAt: string | null;   // ISO date of the current period's end
-  willRenew: boolean;
-}
-
-export type PurchaseOutcome =
-  | { status: "purchased"; info: BillingInfo }
-  | { status: "cancelled" }
-  | { status: "pending" }     // Ask to Buy / payment needs approval
-  | { status: "error"; message: string };
-
-export interface Billing {
-  // Latest subscription state (the SDK's cache when offline); null when it
-  // can't be read at all.
-  refresh(): Promise<BillingInfo | null>;
-  // Localized store prices ("¥980") per product. Missing = not for sale now.
-  prices(): Promise<Partial<Record<ProductId, string>>>;
-  // Free-trial length per product ("1週間"), when the store offers one.
-  trials?(): Promise<Partial<Record<ProductId, string>>>;
-  purchase(id: ProductId): Promise<PurchaseOutcome>;
-  restore(): Promise<BillingInfo | null>;
-  // Apple's page for changing or cancelling the subscription.
-  manage(): Promise<void>;
-  // Renewals, expiries and purchases made elsewhere (another device).
-  onChange(cb: (info: BillingInfo) => void): void;
-}
-
-// A store trial period ("WEEK", 1) as 「1週間」; "" for a unit we don't name.
-export function trialLength(unit: string, count: number): string {
-  const n = Math.max(1, count);
-  switch (unit) {
-    case "DAY": return n % 7 === 0 ? `${n / 7}週間` : `${n}日間`;
-    case "WEEK": return `${n}週間`;
-    case "MONTH": return `${n}か月`;
-    case "YEAR": return `${n}年`;
-    default: return "";
-  }
-}
-
-// "2026/10/15 に自動更新" / "2026/10/15 まで（自動更新オフ）"; "" on Free.
-export function renewalText(info: BillingInfo | null): string {
-  if (!info || info.plan === "free" || !info.expiresAt) return "";
-  const d = new Date(info.expiresAt);
-  if (Number.isNaN(d.getTime())) return "";
-  const date = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-  return info.willRenew ? `${date} に自動更新` : `${date} まで（自動更新オフ）`;
+function unconfiguredBilling(): Billing {
+  return {
+    refresh: async () => null,
+    prices: async () => ({}),
+    trials: async () => ({}),
+    purchase: async () => ({ status: "error", message: "RevenueCat API key is not set" }),
+    restore: async () => null,
+    manage: async () => openExternal(MANAGE_URL),
+    onChange: () => { /* なにも かわらない */ },
+  };
 }
