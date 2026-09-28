@@ -1,6 +1,6 @@
 import type { CharacterId } from "../character-store";
 import { openKufuModal } from "./kufu-modal";
-import { glossyIcon, icon } from "../alan/alan-icons.js";
+import { icon, plainIcon } from "../alan/alan-icons.js";
 import { COPY, IS_PIANO } from "../flavor";
 
 export interface DoneKufuDrill {
@@ -280,7 +280,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
         latest.classList.toggle("is-empty", !list.length);
         open.textContent = "";
         open.classList.add("with-icon");
-        open.append(glossyIcon("idea", "s"), list.length ? String(list.length) : "かく");
+        open.append(plainIcon("idea", "s"), list.length ? String(list.length) : "かく");
       };
       paint();
       open.addEventListener("click", () => {

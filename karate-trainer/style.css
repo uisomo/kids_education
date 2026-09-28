@@ -4710,3 +4710,69 @@ input[data-gate-input]:disabled,
   .is-guide-spot { animation: none; box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.85); }
   .guide-tip-hand { animation: none; }
 }
+
+/* ---------- おへや・かめん（SERIES_GUIDE 5.16） ---------- */
+.start-row .privacy-open-btn { gap: 0.3rem; padding-left: 0.4rem; }
+.start-row .privacy-open-btn.is-on {
+  background: #ffd166;
+  border-color: #ffe29a;
+  color: #1a162b;
+}
+.privacy-open-mask { width: 30px; height: auto; display: block; }
+.start-row .privacy-open-btn:not(.is-on) .privacy-open-mask { filter: grayscale(0.7) opacity(0.8); }
+
+.privacy-modal-body { display: flex; flex-direction: column; gap: 12px; margin-top: 0.6rem; }
+.privacy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 60px;
+  padding: 0.55rem 0.9rem;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 209, 102, 0.28);
+  background: rgba(26, 22, 43, 0.5);
+  color: #fff;
+  font-family: inherit;
+  text-align: left;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  transition: transform 0.08s ease;
+}
+.privacy-toggle:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+.privacy-toggle.is-on { border-color: #ffd166; background: rgba(255, 209, 102, 0.2); }
+.privacy-toggle.is-locked { opacity: 0.75; }
+.privacy-toggle-text { display: flex; flex-direction: column; flex: 1; }
+.privacy-toggle-name { font-size: 1.05rem; font-weight: 900; }
+.privacy-toggle-hint { font-size: 0.75rem; opacity: 0.8; }
+.privacy-toggle-state { font-weight: 900; font-size: 0.9rem; }
+.privacy-masks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.privacy-mask {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 48px;
+  padding: 0.5rem 0.3rem;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(26, 22, 43, 0.5);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 0.8rem;
+}
+.privacy-mask img { width: 100%; max-width: 88px; height: auto; }
+.privacy-mask.is-on { border-color: #ffd166; background: rgba(255, 209, 102, 0.2); }
+.privacy-parent-label { font-weight: 900; margin: 0.6rem 0 0.3rem; }
+.privacy-parent-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* 「かくす」が ふえて 4つに なったので、375px でも 1行に おさまるよう 合計は 2行に おりかえす */
+.start-controls:has(.privacy-open-btn) .bgm-toggle-btn,
+.start-controls:has(.privacy-open-btn) .hook-toggle-btn { padding: 0 0.5rem; }
+.start-controls:has(.privacy-open-btn) .privacy-open-btn { padding-left: 0.3rem; }
+.start-controls:has(.privacy-open-btn) .total {
+  white-space: normal;
+  max-width: 4.6rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  text-align: center;
+}

@@ -21,7 +21,7 @@ import {
 import { BLOCKS } from "../block-catalog";
 import { unlockedBlocks, nextBlock, practiceCount } from "../block-store";
 import { COPY } from "../flavor";
-import { glossyIcon, type IconName } from "../alan/alan-icons.js";
+import { type IconName, plainIcon } from "../alan/alan-icons.js";
 
 export type ItemSection = "sparkle" | "belt" | "block";
 
@@ -461,7 +461,7 @@ export function renderItemScreen(root: HTMLElement, deps: ItemScreenDeps = {}): 
     button.type = "button";
     button.className = `item-tab${s.id === shown ? " is-on" : ""}`;
     button.dataset.itemTab = s.id;
-    button.append(glossyIcon(s.icon, "s"), s.label);
+    button.append(plainIcon(s.icon, "s"), s.label);
     button.addEventListener("click", () => deps.onSection?.(s.id));
     tabs.append(button);
   });

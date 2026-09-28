@@ -1,6 +1,6 @@
 import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
-import { glossyIcon, icon, iconButton, type IconName } from "../alan/alan-icons.js";
+import { icon, iconButton, type IconName } from "../alan/alan-icons.js";
 import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
 import type { Decor } from "../decor-store";
 import { hookPalette, hookFill, HOOK_COLOR_MODE } from "../hook-style";
@@ -77,11 +77,11 @@ export function renderTrainingScreen(
   progEl.textContent = "";
 
   // A button's words with a series icon (alan-icons) in front.
-  // 色の こい ボタン（赤・緑）は 白い 絵（icon）、明るい 地（金・黄）は グロッシーの 丸（glossyIcon）。
+  // 色の こい ボタン（赤・緑）は 白い 絵、明るい 地（金・黄）は 墨色の 絵。どちらも 丸の 地なし（5.2c）。
   const label = (btn: HTMLElement, name: IconName | null, text: string, glossy = false): void => {
     btn.textContent = "";
     btn.classList.toggle("with-icon", !!name);
-    if (name) btn.append(glossy ? glossyIcon(name, "s") : icon(name));
+    if (name) btn.append(glossy ? icon(name, "ic", "dark") : icon(name));
     btn.append(text);
   };
 

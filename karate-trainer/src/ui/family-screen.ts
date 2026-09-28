@@ -4,7 +4,7 @@
 
 import type { Member } from "../member-store";
 import { buildParentNote } from "./howto";
-import { glossyIcon, icon } from "../alan/alan-icons.js";
+import { icon, plainIcon } from "../alan/alan-icons.js";
 import type { Preset } from "../preset-store";
 import { type Plan, PLAN_LIMITS, PLAN_META } from "../plan-store";
 import { type Period, type ProductId, PRIVACY_URL, TERMS_URL, productId } from "../billing";
@@ -13,6 +13,7 @@ import { type Decor, DECORS, DECOR_META, canRemoveDecor } from "../decor-store";
 import { LETTER_MAX_LEN, LETTER_BY_MAX_LEN, LETTER_KEEP } from "../letter-store";
 import type { Letter } from "../letter-store";
 import { COPY } from "../flavor";
+import { PARENT_CHOICES, type ParentChoice, type PrivacyParent } from "../alan/alan-privacy";
 import { type DeviceOwner, PIN_MIN_LEN, PIN_MAX_LEN } from "../parent-lock-store";
 
 export interface FamilyDeps {
@@ -63,6 +64,9 @@ export interface FamilyDeps {
   liveOn?: boolean;
   liveSparkleName?: string | null;
   onSetLiveOn?(on: boolean): void;
+  // おへや・かめん（5.16）：おうちの人の 上書き（家じゅう 共通）。まかせる 以外は 子どもが さわれない
+  privacyParent?: PrivacyParent;
+  onSetPrivacyParent?(parent: PrivacyParent): void;
   canRemoveDecor?: boolean;
   // App Store subscriptions (iOS app). Present → the plan cards buy through
   // Apple instead of setting the plan, with restore / manage and the required
@@ -184,7 +188,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
       name = document.createElement("span");
       name.className = "family-member-name";
       name.textContent = m.name;
-      if (locked) { name.classList.add("with-icon"); name.prepend(glossyIcon("lock", "s")); }
+      if (locked) { name.classList.add("with-icon"); name.prepend(plainIcon("lock", "s")); }
     } else {
       const onRename = deps.onRenameMember;
       const input = document.createElement("input");
@@ -251,7 +255,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   memberHint.dataset.memberHint = "";
   if (deps.members.length > cap) {
     memberHint.classList.add("with-icon");
-    memberHint.append(glossyIcon("lock", "s"), "のメンバーは、プランを上げるか ほかの人を削除すると使えます");
+    memberHint.append(plainIcon("lock", "s"), "のメンバーは、プランを上げるか ほかの人を削除すると使えます");
   } else if (deps.members.length >= cap) {
     memberHint.textContent = cap === 1
       ? "2人目からはファミリープランで追加できます"
@@ -326,6 +330,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   const shareNodes = buildShareSection(deps);
   const decorNodes = buildDecorSection(deps);
   const liveNodes = buildLiveEffectSection(deps);
+  const privacyNodes = buildPrivacySection(deps);
   const testNodes = buildTestToolsSection(deps);
 
   // 1) メンバーを管理する (everyone), 2) 設定したいメンバー and, framed together,
@@ -349,7 +354,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
   // The jump bar goes first: it is pinned at the very top of the screen (CSS),
   // where its own background covers the strip behind the phone's clock.
   root.append(buildJumpNav(root, { live: liveNodes.length > 0 }), title, listTitle, list, addRow, memberHint, memberSettings,
-              ...parentNodes, ...lockNodes, ...decorNodes, ...liveNodes,
+              ...parentNodes, ...lockNodes, ...decorNodes, ...liveNodes, ...privacyNodes,
               planTitle, planNote, planCards, ...billingNodes);
 }
 
@@ -571,7 +576,7 @@ function buildDecorSection(deps: FamilyDeps): Node[] {
     const name = document.createElement("span");
     name.className = "decor-option-name";
     name.textContent = meta.label;
-    if (locked) { name.classList.add("with-icon"); name.prepend(glossyIcon("lock", "s")); }
+    if (locked) { name.classList.add("with-icon"); name.prepend(plainIcon("lock", "s")); }
     const hint = document.createElement("span");
     hint.className = "decor-option-hint";
     hint.textContent = locked ? "プレミアムでえらべます" : meta.hint;
@@ -648,6 +653,60 @@ function buildLiveEffectSection(deps: FamilyDeps): Node[] {
   }
 
   return [sectionTitle, note, list];
+}
+
+/// おへや・かめん（SERIES_GUIDE 5.16）：どうがに うつる へやと かおを かくすか。
+/// 子どもは ホームの「かくす」で きりかえる。ここで「いつも オン／いつも オフ」に すると
+/// 子どもの 好みより こちらが つかわれ、ホームの トグルは さわれなくなる。
+function buildPrivacySection(deps: FamilyDeps): Node[] {
+  const { privacyParent, onSetPrivacyParent } = deps;
+  if (!privacyParent || !onSetPrivacyParent) return [];
+
+  const sectionTitle = document.createElement("div");
+  sectionTitle.className = "family-section-label";
+  sectionTitle.textContent = "どうがで かくす（おへや・かめん）";
+
+  const note = document.createElement("p");
+  note.className = "family-plan-note";
+  note.textContent = "おへや：うしろの へやを 絵に かえます。かめん：かおに アランたちの かめんを つけます。"
+    + "「まかせる」は 子どもが ホームの「かくす」で えらびます。「いつも オン／オフ」に すると 子どもは かえられません。"
+    + "かくす まえの どうがは アプリの 外に 出ません。";
+
+  const rows: { key: keyof PrivacyParent; name: string }[] = [
+    { key: "room", name: "おへや" },
+    { key: "face", name: "かめん" },
+  ];
+  const nodes: Node[] = [sectionTitle, note];
+  for (const row of rows) {
+    const label = document.createElement("div");
+    label.className = "privacy-parent-label";
+    label.textContent = row.name;
+    const list = document.createElement("div");
+    list.className = "decor-options privacy-parent-options";
+    list.dataset.privacyParent = row.key;
+    for (const choice of PARENT_CHOICES) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "decor-option";
+      btn.dataset.privacyChoice = choice.id;
+      const current = privacyParent[row.key] === choice.id;
+      if (current) btn.classList.add("on");
+      const name = document.createElement("span");
+      name.className = "decor-option-name";
+      name.textContent = choice.name;
+      btn.append(name);
+      if (current) {
+        const badge = document.createElement("span");
+        badge.className = "decor-option-badge";
+        badge.textContent = "いまこれ";
+        btn.append(badge);
+      }
+      btn.addEventListener("click", () => onSetPrivacyParent({ ...privacyParent, [row.key]: choice.id as ParentChoice }));
+      list.append(btn);
+    }
+    nodes.push(label, list);
+  }
+  return nodes;
 }
 
 function planFeatsText(plan: Plan): string {

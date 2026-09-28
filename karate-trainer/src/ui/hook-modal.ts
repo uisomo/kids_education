@@ -10,7 +10,7 @@
 
 import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
 import { HOOK_PRESETS, nextPresetIndex } from "../hook-presets";
-import { glossyIcon, icon } from "../alan/alan-icons.js";
+import { icon, plainIcon } from "../alan/alan-icons.js";
 import { modalHead } from "./modal-head";
 
 export interface HookModalDeps {
@@ -126,7 +126,7 @@ export function openHookModal(host: HTMLElement, deps: HookModalDeps): () => voi
   changeBtn.className = "hook-modal-change";
   changeBtn.dataset.hookChange = "";
   changeBtn.classList.add("with-icon");
-  changeBtn.append(glossyIcon("again", "s"), CHANGE_LABEL);
+  changeBtn.append(plainIcon("again", "s"), CHANGE_LABEL);
   let shown: number | null = HOOK_PRESETS.findIndex(
     (preset) => preset.join("\n") === (deps.text ?? "").trim(),
   );

@@ -8,11 +8,13 @@ import { attachDragReorder, reorder } from "./drag-reorder";
 import { openKufuModal } from "./kufu-modal";
 import { COPY, IS_PIANO } from "../flavor";
 import { MAX_TEXT_LINES, MAX_TEXT_CHARS, clampChars } from "../drill-texts";
+import { openPrivacyModal, maskSrc } from "./privacy-modal";
+import type { PrivacySettings } from "../alan/alan-privacy";
 import { openHookModal } from "./hook-modal";
 import { openLetterModal } from "./letter-modal";
 import { openHowtoMenu } from "./howto";
 import type { Letter } from "../letter-store";
-import { glossyIcon, icon } from "../alan/alan-icons.js";
+import { glossyIcon, icon, plainIcon } from "../alan/alan-icons.js";
 
 export interface SetupMember {
   id: string;
@@ -28,6 +30,11 @@ export interface SetupDeps {
   // the iOS IME composition (かな入力 drops out after one character).
   onEdit(menu: Menu): void;
   onStart(): void;
+  // おへや・かめん（5.16）：いま 使う 値と、おうちの人が きめて さわれない もの。無ければ ボタンを 出さない
+  privacy?: { settings: PrivacySettings; locks: { room: boolean; face: boolean } };
+  onSetPrivacy?(settings: PrivacySettings): void;
+  // カードを とじたら（ホームを かきなおす）
+  onPrivacyClosed?(): void;
   // Saved named menus (presets), shown as a closed-by-default dropdown.
   presets: Preset[];
   onSavePreset(): void;      // 「保存」: name + snapshot the current menu as a new saved menu
@@ -199,7 +206,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     streak.className = "setup-streak";
     streak.dataset.streak = "";
     streak.classList.add("with-icon");
-    streak.append(glossyIcon("flame", "s"), `${deps.streakDays}日継続中`);
+    streak.append(plainIcon("flame", "s"), `${deps.streakDays}日継続中`);
     header.append(streak);
   }
 
@@ -409,7 +416,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       const kufu = document.createElement("button");
       kufu.className = "row-kufu";
       kufu.dataset.kufuOpen = drill.name;
-      kufu.append(glossyIcon("idea", "s"));
+      kufu.append(plainIcon("idea", "s"));
       kufu.setAttribute("aria-label", `${drill.name} の工夫`);
       // Read the CURRENT name: the kid may have renamed the drill since render.
       const paint = () => {
@@ -507,7 +514,9 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     if (needsHeadphones) bgmBtn.dataset.bgmNeedsHeadphones = "";
     bgmBtn.className = "bgm-toggle-btn" + (deps.bgmMuted ? " muted" : "");
     bgmBtn.classList.add("with-icon");
-    bgmBtn.append(glossyIcon(needsHeadphones ? "headphones" : deps.bgmMuted ? "mute" : "sound", "s"), BGM_LABEL);
+    // わくの 中なので 丸の 地なし（5.2c）。オン（黄色い 地）は 墨色の 絵
+    const bgmIcon = needsHeadphones ? "headphones" : deps.bgmMuted ? "mute" : "sound";
+    bgmBtn.append(deps.bgmMuted || needsHeadphones ? plainIcon(bgmIcon, "s") : icon(bgmIcon, "ic", "dark"), BGM_LABEL);
     bgmBtn.setAttribute(
       "aria-label",
       needsHeadphones ? "練習BGM — イヤフォンをつけると流れます" : "練習BGM on/off",
@@ -527,7 +536,7 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     hookBtn.className = "hook-toggle-btn" + (deps.hookOn ? " is-on" : "");
     // Labelled: a bare 🪝 next to a bare 🎵 gave no clue which was which.
     hookBtn.classList.add("with-icon");
-    hookBtn.append(glossyIcon("sound", "s"), "よみあげ");
+    hookBtn.append(deps.hookOn ? icon("sound", "ic", "dark") : plainIcon("sound", "s"), "よみあげ");
     hookBtn.setAttribute("aria-label", "さいしょに読み上げる ことば on/off");
     hookBtn.addEventListener("click", () => {
       // Off → turn it on and go straight to the words; already on → just edit
@@ -545,6 +554,32 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       });
     });
     controls.append(hookBtn);
+  }
+
+  // おへや・かめん：1つの ボタン（アランの かめんの 絵＋「かくす」）→ カード。
+  // オンの ときは 色が つく（いま つけている かめんの 絵に なる）。
+  if (deps.privacy && deps.onSetPrivacy) {
+    const { settings, locks } = deps.privacy;
+    const on = settings.room || settings.face;
+    const privacyBtn = document.createElement("button");
+    privacyBtn.type = "button";
+    privacyBtn.dataset.privacyOpen = "";
+    privacyBtn.className = "hook-toggle-btn privacy-open-btn with-icon" + (on ? " is-on" : "");
+    const img = document.createElement("img");
+    img.className = "privacy-open-mask";
+    img.src = maskSrc(settings.mask);
+    img.alt = "";
+    privacyBtn.append(img, "かくす");
+    privacyBtn.setAttribute("aria-label", "どうがで おへやと かおを かくす");
+    privacyBtn.addEventListener("click", () => {
+      openPrivacyModal(root, {
+        settings,
+        locks,
+        onChange: (next) => deps.onSetPrivacy!(next),
+        onClose: () => deps.onPrivacyClosed?.(),
+      });
+    });
+    controls.append(privacyBtn);
   }
 
   // 合計 sits at the right end of the switch line instead of on a line of its

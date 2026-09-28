@@ -5,7 +5,7 @@
 // アイコンは シリーズ共通の グロッシー（src/alan/alan-icons.js、SERIES_GUIDE 5.2c）。
 // えらんでいる タブだけ 意味の 色、ほかは グレー（tokens.css の .a-tab と おなじ 考え）。
 
-import { glossyIcon, type IconName } from "../alan/alan-icons.js";
+import { type IconName, plainIcon } from "../alan/alan-icons.js";
 
 export type NavTab = "train" | "sparkle" | "strength" | "family";
 
@@ -35,7 +35,8 @@ export function createBottomNav(deps: BottomNavDeps): HTMLElement {
     btn.className = `bottom-nav-btn${active ? " active" : ""}`;
     btn.dataset.navtab = t.id;
     if (active) btn.setAttribute("aria-current", "page");
-    const icon = glossyIcon(t.icon, "m");
+    // タブは わくが あるので 丸の 地なし（5.2c）
+    const icon = plainIcon(t.icon, "m");
     icon.classList.add("bottom-nav-icon");
     const label = document.createElement("span");
     label.className = "bottom-nav-label";

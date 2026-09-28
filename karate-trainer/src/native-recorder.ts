@@ -9,6 +9,11 @@
 // exists here. See ios/App/App/KarateRecorder/.
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import type { OverlayEvent, OverlayMenuItem, SoundEvent } from "./overlay-event-log";
+import type { PrivacySettings } from "./alan/alan-privacy";
+
+// おへや・かめん（SERIES_GUIDE 5.16）：ネイティブへ わたす 使う 値。background は 背景の 絵の web パス、
+// keep は 人の ほかに のこす かたち [[x, y], …]（0〜1、うつっている 絵で。ピアノの 鍵盤）。
+export type NativePrivacy = PrivacySettings & { background?: string; keep?: [number, number][] };
 
 // stopRecording() answers as soon as the camera has stopped: the capture is
 // already safe on disk and the overlay is burned in afterwards, in a save that
@@ -17,7 +22,9 @@ export interface NativeStopResult {
   // The queued save; its result arrives as an "exportFinished" event.
   jobId?: string;
   // The camera capture (no overlay, no sound) — playable right away.
+  // おへや・かめんが オンのときは 来ない（かくす まえの 動画は わたさない）。かわりに privacyPending。
   rawUri?: string;
+  privacyPending?: boolean;
   // Older native builds finished the save inside stopRecording().
   uri?: string;
   burnedIn?: boolean;
@@ -37,7 +44,9 @@ export interface NativeSaveResult {
   burnError?: string;
   // "burned" (overlay + sound), "mixed" (sound, no overlay — burn-in failed),
   // or "raw" (the silent camera file — every export failed).
-  exportMode?: "burned" | "mixed" | "raw";
+  // "privacyFailed"：おへや・かめんを かくせなかった（uri は ""。生の 動画は 出さない）
+  exportMode?: "burned" | "mixed" | "raw" | "privacyFailed";
+  privacyError?: string;
   soundMixed?: boolean;
   mixError?: string;
   // Set when the system cut the recording short (see onInterrupted()).
@@ -57,7 +66,7 @@ export interface KarateRecorderPluginLike {
   // `liveEffects` is the ✨キラキラ preset shown ON SCREEN during practice
   // (empty = off, which is also the default). It never reaches the saved
   // video — see motion-effects.ts. Optional so test fakes still type.
-  startPreview(opts?: { liveEffects?: string; mode?: string }): Promise<void>;
+  startPreview(opts?: { liveEffects?: string; mode?: string; privacy?: NativePrivacy }): Promise<void>;
   stopPreview(): Promise<void>;
   startRecording(): Promise<void>;
   stopRecording(opts: {
@@ -74,6 +83,8 @@ export interface KarateRecorderPluginLike {
     menuName?: string;
     // "frame" | "icon" | "banner" | "none" — Alan's decoration on the video.
     decor?: string;
+    // おへや・かめん：録画を はじめた ときの 値で 書き出す（落ちたあとの 書き出しなおしも）
+    privacy?: NativePrivacy;
   }): Promise<NativeStopResult>;
   // Stops recording/preview/voice/music and deletes the session's temp files.
   // Optional so older native builds (and test fakes) without it still type.
@@ -374,6 +385,7 @@ export class NativeVideoRecorder {
   private jobId: string | null = null;
   private saving: Promise<NativeSaveResult | null> | null = null;
   private liveEffects: { liveEffects: string; mode: string } | undefined;
+  private privacy: NativePrivacy | undefined;
 
   constructor(deps: NativeRecorderDeps = {}) {
     this.deps = deps;
@@ -417,9 +429,14 @@ export class NativeVideoRecorder {
     this.liveEffects = { liveEffects: presetId, mode };
   }
 
+  // おへや・かめん（5.16）。startCamera の前に呼ぶ。その録画の あいだ かわらない
+  setPrivacy(privacy: NativePrivacy): void {
+    this.privacy = privacy;
+  }
+
   async startCamera(): Promise<MediaStream> {
     const plugin = this.getPlugin();
-    await plugin.startPreview(this.liveEffects);
+    await plugin.startPreview({ ...this.liveEffects, ...(this.privacy ? { privacy: this.privacy } : {}) });
     // Makes the web layer transparent so the native preview behind it shows
     // through — see the html.native-camera rules in style.css.
     this.setPreviewClass(true);
@@ -498,15 +515,17 @@ export class NativeVideoRecorder {
       // the bridge.
       const clipCount = sounds.filter((s) => s.kind === "clip").length;
       console.warn(`[KarateRecorder] sending ${sounds.length} sounds (${clipCount} clips) to stopRecording`);
-      const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds, ...labels });
+      const privacy = this.privacy;
+      const result = await plugin.stopRecording({ events, totalDurationMs, menu, sounds, ...labels, ...(privacy ? { privacy } : {}) });
       if (result.interruption) {
         console.warn(`[KarateRecorder] recording was interrupted: ${result.interruption}`);
       }
       const toWebPath = this.deps.toWebPath ?? defaultToWebPath;
-      if (result.jobId && result.rawUri) {
+      if (result.jobId && (result.rawUri || result.privacyPending)) {
         this.jobId = result.jobId;
         this.lastUri = null;
-        this.lastPlaybackUrl = toWebPath(result.rawUri);
+        // おへや・かめん：できあがるまで 何も 見せない（かくす まえの 動画は 来ない）
+        this.lastPlaybackUrl = result.rawUri ? toWebPath(result.rawUri) : null;
         this.saving = tracker.watch(result.jobId).then((r) => this.adopt(r, sounds.length));
       } else if (result.uri) {
         // An older native build: already finished.
@@ -522,7 +541,10 @@ export class NativeVideoRecorder {
   }
 
   private adopt(result: NativeSaveResult, soundCount: number): NativeSaveResult {
-    this.lastUri = result.uri;
+    if (result.exportMode === "privacyFailed") {
+      console.warn(`[KarateRecorder] could not hide the room/face, nothing saved: ${result.privacyError ?? ""}`);
+    }
+    this.lastUri = result.uri || null;
     this.burnedIn = result.burnedIn;
     this.lastBurnError = result.burnError ?? null;
     // The native side reports a failed sound mix, but nothing used to read it:

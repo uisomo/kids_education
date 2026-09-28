@@ -7,7 +7,7 @@ import Foundation
 struct PendingSave: Codable {
     let id: String
     /// Camera capture (video only), a name from PendingSaves.adopt.
-    let rawName: String
+    var rawName: String
     /// The echo-free voice track, if any audio was captured.
     let voiceName: String?
     /// How far the voice starts before the first video frame.

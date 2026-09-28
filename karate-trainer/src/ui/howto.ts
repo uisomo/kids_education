@@ -12,7 +12,7 @@ const HOWTO_BASE = "https://howto.karate-trainer.pages.dev/howto";
 
 import { COPY, IS_PIANO } from "../flavor";
 import { modalHead } from "./modal-head";
-import { glossyIcon, type IconName } from "../alan/alan-icons.js";
+import { type IconName, plainIcon } from "../alan/alan-icons.js";
 
 export interface HowtoVideo {
   id: string;
@@ -76,7 +76,7 @@ function buildHowtoList(host: HTMLElement): HTMLElement {
     btn.className = "howto-btn";
     btn.dataset.howto = v.id;
     btn.classList.add("with-icon");
-    if (v.icon) btn.append(glossyIcon(v.icon, "s"));
+    if (v.icon) btn.append(plainIcon(v.icon, "s"));
     btn.append(v.label);
     btn.addEventListener("click", () => openHowtoVideo(host, v));
     grid.append(btn);

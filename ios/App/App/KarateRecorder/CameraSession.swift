@@ -1,3 +1,4 @@
+import AlanKit
 @preconcurrency import AVFoundation
 import UIKit
 import WebKit
@@ -49,6 +50,22 @@ final class CameraSession: NSObject {
     private let analysisQueue = DispatchQueue(label: "karate.recorder.analysis", qos: .userInitiated)
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var previewView: UIView?
+
+    /// おへや・かめん（SERIES_GUIDE 5.16、AlanKit）。画面だけ。**保存する動画は
+    /// 書き出しで PrivacyExport が 焼きこむ**（ここは 見せるだけで 画素を いじらない）。
+    /// 顔の 出力と 解析の コマは いつも つなぐ（トグルを かえても セッションを 組みなおさない）。
+    @MainActor private var privacyOverlay: PrivacyLiveOverlay?
+    @MainActor private var privacyChoice: (settings: PrivacySettings, background: CGImage?, keep: [CGPoint]?)
+        = (PrivacySettings(), nil, nil)
+    /// 解析の キューから よむ（main で 1回 入れたら かわらない）
+    private nonisolated(unsafe) var privacyForFrames: PrivacyLiveOverlay?
+
+    /// startPreview の 前に よぶ（録画ごと。子どもの 好みと おうちの人の 設定から きめた 値）
+    @MainActor
+    func setPrivacy(_ settings: PrivacySettings, background: CGImage?, keep: [CGPoint]?) {
+        privacyChoice = (settings, background, keep)
+        privacyOverlay?.apply(settings, background: background, keep: keep)
+    }
     /// All session mutation happens here; AVCaptureSession calls block.
     private let sessionQueue = DispatchQueue(label: "karate.recorder.session")
     private var stopContinuation: CheckedContinuation<URL, Error>?
@@ -104,10 +121,16 @@ final class CameraSession: NSObject {
             try await startRunning()
             observeSessionEvents()
             liveEffects?.start()
+            privacyOverlay?.apply(privacyChoice.settings, background: privacyChoice.background, keep: privacyChoice.keep)
             return
         }
         previewView?.removeFromSuperview()
 
+        if privacyOverlay == nil {
+            let overlay = PrivacyLiveOverlay()
+            privacyOverlay = overlay
+            privacyForFrames = overlay
+        }
         try await configureCaptureSession()
 
         let container = UIView(frame: webView.bounds)
@@ -124,6 +147,11 @@ final class CameraSession: NSObject {
             connection.isVideoMirrored = true
         }
         container.layer.addSublayer(layer)
+        // おへや（背景は プレビューの うしろ）・かめん（プレビューの まえ）
+        if let privacy = privacyOverlay {
+            privacy.install(on: layer)
+            privacy.apply(privacyChoice.settings, background: privacyChoice.background, keep: privacyChoice.keep)
+        }
 
         // ✨キラキラ（稽古中）: プレビューの上、web 画面の下。タップは通す。
         if let live = liveEffects {
@@ -254,7 +282,9 @@ final class CameraSession: NSObject {
         ) else {
             throw CameraError.noCamera
         }
-        let wantsAnalysis = liveEffects != nil
+        let privacy = privacyForFrames
+        // キラキラか おへや（人の 切りぬき）が あるときだけ 解析の 出力を 足す
+        let wantsAnalysis = liveEffects != nil || privacy != nil
 
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             sessionQueue.async { [session, movieOutput, analysisOutput, weak self] in
@@ -283,6 +313,8 @@ final class CameraSession: NSObject {
                     // the movie lost its first ~8 seconds of sound.
 
                     if session.canAddOutput(movieOutput) { session.addOutput(movieOutput) }
+                    // かめん：顔の 位置は カメラが くれる（Vision なし・ほぼ タダ）
+                    privacy?.addOutputs(to: session)
 
                     // ✨キラキラ を出すときだけ、解析用の出力をもう一本足す。
                     // 録画とは別の出力なので、ここが詰まっても movieOutput の
@@ -373,6 +405,7 @@ final class CameraSession: NSObject {
     func layoutPreview(to bounds: CGRect) {
         previewView?.frame = bounds
         previewLayer?.frame = bounds
+        privacyOverlay?.layout()
     }
 
     // MARK: - Recording
@@ -582,5 +615,6 @@ extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
                        from connection: AVCaptureConnection) {
         guard output === analysisOutput else { return }
         liveEffects?.submit(sampleBuffer)
+        privacyForFrames?.submit(sampleBuffer)
     }
 }

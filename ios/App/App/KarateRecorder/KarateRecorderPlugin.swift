@@ -1,3 +1,4 @@
+import AlanKit
 @preconcurrency import AVFoundation
 import Capacitor
 import Foundation
@@ -128,6 +129,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func startPreview(_ call: CAPPluginCall) {
         let livePreset = call.getString("liveEffects") ?? ""
         let mode = PracticeMode(rawValue: call.getString("mode") ?? "karate") ?? .karate
+        let privacyOptions = call.getObject("privacy") as [String: Any]?
         Task { @MainActor in
             guard let webView = self.webView else {
                 call.reject("web view unavailable")
@@ -141,6 +143,10 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 ? nil
                 : LiveMotionOverlay(mode: mode, presetID: livePreset)
             print("⚡️  [MotionFX] live: \(livePreset.isEmpty ? "off" : livePreset) (\(mode.rawValue))")
+            // おへや・かめん（5.16）：ページが きめた 使う 値（子どもの 好み＋おうちの人の 上書き）
+            let privacy = Self.parsePrivacy(privacyOptions)
+            self.camera.setPrivacy(privacy.settings, background: privacy.background, keep: privacy.keep)
+            print("⚡️  [AlanPrivacy] live: room \(privacy.settings.room), face \(privacy.settings.face) (\(privacy.settings.mask.rawValue))")
             do {
                 try await self.camera.startPreview(under: webView)
                 // After the capture session is running, so any interruption
@@ -571,6 +577,21 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var sounds: [OverlayCompositor.Sound]
     }
 
+    /// ページの `{ room, face, mask, background?, keep? }`。background は web の パス（/alan/privacy/…）、
+    /// keep は 人の ほかに のこす かたち `[[x, y], …]`（0〜1、うつっている 絵で）
+    static func parsePrivacy(_ json: [String: Any]?) -> (settings: PrivacySettings, background: CGImage?, keep: [CGPoint]?) {
+        guard let json else { return (PrivacySettings(), nil, nil) }
+        let settings = PrivacySettings(json: json)
+        let background: CGImage? = (json["background"] as? String)
+            .flatMap { OverlayCompositor.bundledURL(forWebPath: $0) }
+            .flatMap { UIImage(contentsOfFile: $0.path)?.cgImage }
+        let keep = (json["keep"] as? [[Any]])?.compactMap { p -> CGPoint? in
+            guard p.count == 2, let x = (p[0] as? NSNumber)?.doubleValue, let y = (p[1] as? NSNumber)?.doubleValue else { return nil }
+            return CGPoint(x: x, y: y)
+        }
+        return (settings, background, keep.flatMap { $0.count >= 3 ? $0 : nil })
+    }
+
     private static func parseSaveOptions(_ options: [String: Any]) -> SaveOptions {
         let menu: [OverlayCompositor.MenuItem] = (options["menu"] as? [[String: Any]] ?? []).compactMap { entry in
             guard let name = entry["name"] as? String else { return nil }
@@ -682,9 +703,15 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
             var result: JSObject = [
                 "jobId": id,
-                "rawUri": PendingSaves.url(rawName).absoluteString,
                 "echoCancelled": self.camera.echoCancelled,
             ]
+            // おへや・かめんが オンなら、かくす まえの 動画は ページに わたさない
+            // （できあがりまで 待つ。生の ファイルは かくし おわったら 消す）
+            if Self.parsePrivacy(options["privacy"] as? [String: Any]).settings.isOn {
+                result["privacyPending"] = true
+            } else {
+                result["rawUri"] = PendingSaves.url(rawName).absoluteString
+            }
             if let reason = self.interruptionReason { result["interruption"] = reason }
             if let voice {
                 result["voiceLeadMs"] = lead * 1000
@@ -760,8 +787,48 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         let started = Date()
         let options = (try? JSONSerialization.jsonObject(with: job.options)) as? [String: Any] ?? [:]
         let parsed = Self.parseSaveOptions(options)
-        let raw = PendingSaves.url(job.rawName)
+        var raw = PendingSaves.url(job.rawName)
         let shiftMs = job.shiftMs
+        let jobId = job.id
+
+        // おへや・かめん（5.16）：**いちばん はじめに** かくした 動画を つくり、生の ファイルを 消す。
+        // このあとの しあげ（文字・音）と その予備（音だけ・そのまま）は ぜんぶ かくした 動画から なので、
+        // どの 道に 行っても 顔と 部屋は 出ない。かくせなかったら 保存しない。
+        let privacy = Self.parsePrivacy(options["privacy"] as? [String: Any])
+        var privacyShare: Float = 0
+        if privacy.settings.isOn, !job.rawName.contains("-private.") {
+            privacyShare = 0.5
+            let privateName = "\(job.id)-private.mp4"
+            do {
+                try await self.exportRetryingInForeground("KarateRecorderPrivacy") {
+                    try await PrivacyExport.export(
+                        source: raw, to: PendingSaves.url(privateName), settings: privacy.settings,
+                        background: privacy.background, keep: privacy.keep,
+                        onProgress: { [weak self] p in
+                            self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(p * 0.5)])
+                        })
+                }
+                var updated = job
+                updated.rawName = privateName
+                PendingSaves.save(updated)
+                try? fm.removeItem(at: raw)
+                raw = PendingSaves.url(privateName)
+            } catch {
+                print("⚡️  [AlanPrivacy] save \(job.id) could not hide the room/face: \(error.localizedDescription)")
+                if job.attempts <= 3 {
+                    // まだ 生の ファイルは のこっている：つぎの 起動で もういちど
+                    return ["jobId": job.id, "uri": "", "burnedIn": false, "exportMode": "privacyFailed",
+                            "privacyError": error.localizedDescription]
+                }
+                // なんども だめ：生の 動画は 出さずに 消す
+                try? fm.removeItem(at: raw)
+                PendingSaves.remove(job.id)
+                return ["jobId": job.id, "uri": "", "burnedIn": false, "exportMode": "privacyFailed",
+                        "privacyError": error.localizedDescription]
+            }
+        } else if job.rawName.contains("-private.") {
+            privacyShare = 0.5
+        }
 
         let events = parsed.events.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
         let totalMs = max(0, parsed.totalDurationMs - shiftMs)
@@ -785,9 +852,9 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             OverlayCompositor.VoiceTrack(url: PendingSaves.url($0), leadSeconds: job.voiceLeadSeconds)
         }
 
-        // 「動画を仕上げ中… 42%」 on the web side.
-        let jobId = job.id
-        let reportProgress: (Float) -> Void = { [weak self] progress in
+        // 「動画を仕上げ中… 42%」 on the web side. かくす 書き出しを したら、その あとの 半分。
+        let reportProgress: (Float) -> Void = { [weak self] raw in
+            let progress = privacyShare + raw * (1 - privacyShare)
             self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(progress)])
             Task { @MainActor in if self?.savingJobId == jobId { self?.saveProgress = Double(progress) } }
         }

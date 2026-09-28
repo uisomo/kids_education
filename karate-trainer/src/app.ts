@@ -1,4 +1,9 @@
 import type { Menu, Drill } from "./types";
+import {
+  loadChildPrivacy, saveChildPrivacy, loadParentPrivacy, saveParentPrivacy, resolvePrivacy, privacyLocks,
+  type PrivacySettings, type PrivacyParent,
+} from "./alan/alan-privacy";
+import type { NativePrivacy } from "./native-recorder";
 import { loadMenu, saveMenu, formatMMSS, totalSeconds, MAX_RECORD_SECONDS, recordingBytesNeeded } from "./menu-store";
 import { type Preset, BASIC_PRESET, BASIC_PRESET_ID, loadPresets, savePreset, deletePreset, updatePreset } from "./preset-store";
 import { SessionScheduler, type SchedulerHandlers } from "./scheduler";
@@ -64,6 +69,9 @@ const HOOK_SOUND = "/sounds/hook-don.m4a";
 // 📅 The day burned into the saved video: 「2026年9月23日(火)」. Written out
 // rather than 2026/09/23 because it is read by children as often as parents.
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+// おへや・かめんの 保存キーの 頭（karate.privacy / karate.privacy.parent。ピアノも おなじ 名前で べつの アプリ）
+const PRIVACY_APP = "karate";
+
 export function videoDateLabel(now: Date): string {
   return `📅 ${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日(${WEEKDAYS[now.getDay()]})`;
 }
@@ -83,6 +91,8 @@ export interface VideoRecorderLike {
   // Native only: the ✨キラキラ preset to draw ON SCREEN during practice
   // ("" = off). It never reaches the saved video.
   setLiveEffects?(presetId: string, mode: string): void;
+  // Native only: おへや・かめん（5.16）の 使う 値。startCamera の 前に。
+  setPrivacy?(privacy: NativePrivacy): void;
   // Native (AVFoundation) starts capture asynchronously; the web MediaRecorder
   // path is synchronous and simply returns void.
   startRecording(streamOverride?: MediaStream): void | Promise<void>;
@@ -294,6 +304,12 @@ export class KarateApp {
   }
 
   // Base storage for family-shared data (member list, presets/classes).
+  /// おへや・かめん（5.16）：録画に つかう 値（子どもの 好み＋おうちの人の 上書き）と 背景の 絵
+  private nativePrivacy(): NativePrivacy {
+    const settings = resolvePrivacy(loadChildPrivacy(PRIVACY_APP, this.mem()), loadParentPrivacy(PRIVACY_APP, this.base()));
+    return { ...settings, background: IS_PIANO ? "/alan/privacy/bg-music.jpg" : "/alan/privacy/bg-dojo.jpg" };
+  }
+
   private base(): Storage {
     return this.deps.storage ?? localStorage;
   }
@@ -590,6 +606,21 @@ export class KarateApp {
       hookOn: getHook(this.mem()).on,
       hookText: getHook(this.mem()).text,
       hookAuto: getHook(this.mem()).auto,
+      privacy: {
+        settings: resolvePrivacy(loadChildPrivacy(PRIVACY_APP, this.mem()), loadParentPrivacy(PRIVACY_APP, this.base())),
+        locks: privacyLocks(loadParentPrivacy(PRIVACY_APP, this.base())),
+      },
+      // ロックされて いない ものだけ 子どもの 好みに 入る（ロック中の 値は そのまま のこす）
+      onSetPrivacy: (next: PrivacySettings) => {
+        const locks = privacyLocks(loadParentPrivacy(PRIVACY_APP, this.base()));
+        const mine = loadChildPrivacy(PRIVACY_APP, this.mem());
+        saveChildPrivacy(PRIVACY_APP, {
+          room: locks.room ? mine.room : next.room,
+          face: locks.face ? mine.face : next.face,
+          mask: next.mask,
+        }, this.mem());
+      },
+      onPrivacyClosed: () => this.showSetup(),
       onToggleHook: () => {
         const h = getHook(this.mem());
         setHook({ ...h, on: !h.on }, this.mem());
@@ -913,6 +944,8 @@ export class KarateApp {
       liveOn: loadLiveOn(base),
       liveSparkleName: sparkleById(loadEquippedSparkle(this.mem(), base))?.name ?? null,
       onSetLiveOn: (on: boolean) => { setLiveOn(on, base); this.showFamily(); },
+      privacyParent: loadParentPrivacy(PRIVACY_APP, base),
+      onSetPrivacyParent: (parent: PrivacyParent) => { saveParentPrivacy(PRIVACY_APP, parent, base); this.showFamily(); },
       parentLock: {
         hasPin: getParentLock(base).pin !== null,
         owner: getParentLock(base).owner,
@@ -1183,6 +1216,7 @@ export class KarateApp {
         loadLiveOn(this.base()) ? loadEquippedSparkle(this.mem(), this.base()) : "",
         MOTION_MODE,
       );
+      recorder.setPrivacy?.(this.nativePrivacy());
       stream = await recorder.startCamera();
       await this.deps.wakeGuard.acquire();
     } catch {
