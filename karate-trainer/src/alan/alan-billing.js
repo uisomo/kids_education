@@ -28,7 +28,7 @@ export const PLANS = {
 export const TRIAL = { period: "P1W", label: "1週間" };
 
 /** スイートの ひとこと（プランの カードに 出す）。 */
-export const SUITE_PITCH = "アランの アプリ ぜんぶ・家族 5人まで";
+export const SUITE_PITCH = "いちばん おとく";
 
 /** スイートの entitlement（RevenueCat。シリーズで 1つ）。 */
 export const SUITE_ENTITLEMENT = "alan_suite";
@@ -65,13 +65,14 @@ export const PERIODS = ["monthly", "yearly"];
  *   content.free  フリーで つかえる もの（例：["10この お題"]）
  *   content.paid  有料で ふえる もの（例：["ぜんぶの お題（60）", "くわしい きろく"]）
  *   content.daily false なら「1日1回」の 行を 出さない（回数で なく 数で かぎる アプリ：空手の メニュー）
+ *   content.recording false なら「ろくが・ほぞん OK」を 出さない（まだ 録画の ない アプリ）
  */
 export function planFeatures(app, plan, content = {}) {
   const free = content.free ?? ["はじめの お題"];
   const paid = content.paid ?? ["ぜんぶの お題"];
   const n = PLANS.family.members;
   switch (plan) {
-    case "free": return ["子ども 1人", ...(content.daily === false ? [] : ["1日1回"]), ...free, "ろくが・ほぞん OK"];
+    case "free": return ["子ども 1人", ...(content.daily === false ? [] : ["1日1回"]), ...free, ...(content.recording === false ? [] : ["ろくが・ほぞん OK"])];
     case "premium": return ["子ども 1人", ...(content.daily === false ? [] : ["1日 なんかいでも"]), ...paid];
     case "family": return [`子ども ${n}人まで`, "ひとりずつ プレミアムと おなじ"];
     case "suite": return [`アランの アプリ ${Object.keys(APPS).length}つ ぜんぶ`, `家族 ${n}人まで`, "あたらしい アプリも"];
@@ -86,10 +87,10 @@ export function suiteSaving() {
   return `ぜんぶ べつべつだと ¥${each.toLocaleString("ja-JP")}/月`;
 }
 
-/** つぎの プランへの ひとこと（カードの 上・上限に あたった とき）。plan = いまの プラン。 */
-export function upgradeHint(app, plan) {
+/** つぎの プランへの ひとこと（カードの 上・上限に あたった とき）。plan = いまの プラン。noun = アプリの お題の よびかた（まよい・おはなし）。 */
+export function upgradeHint(app, plan, noun = "お題") {
   const sells = APPS[app].sells;
-  if (plan === "free") return sells.includes("premium") ? "1日 なんかいでも・ぜんぶの お題に" : "";
+  if (plan === "free") return sells.includes("premium") ? `1日 なんかいでも・ぜんぶの ${noun}に` : "";
   if (plan === "premium" && sells.includes("family")) return "あと ¥500/月で きょうだいも（5人まで）";
   if (plan === "premium" || plan === "family") return `アランの アプリ ぜんぶなら スイート（${suiteSaving()}）`;
   return "";
@@ -163,7 +164,7 @@ export function trialLength(unit, count) {
 /**
  * アプリの 課金を つくる。
  *   app       APPS の key（"kimochi" など）
- *   apiKey    RevenueCat の 公開キー（appl_… 本番 / test_… Test Store）。"" なら 売らない（ブラウザ・未設定）
+ *   apiKey    RevenueCat の 公開キー（appl_… 本番 / test_… Test Store）。"" なら 売らない（未設定）。iPhone の 中 でなければ つかわない
  *   testBuild テスト版：お店に つながず、プランは スイート（ぜんぶ ためせる）
  *   loadSdk   RevenueCat の Purchases を かえす（Vite：() => import("@revenuecat/purchases-capacitor").then(m => m.Purchases)）
  *             わたさなければ window.Capacitor の プラグイン（バンドラーの ない おかね）
@@ -204,6 +205,8 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
   const infoFromCustomer = (customer) => {
     let best = { plan: "free", productId: null, expiresAt: null, willRenew: false, fromApp: null };
     const active = Object.entries(customer?.entitlements?.active ?? {});
+    // entitlement が 1つも ない ＝ フリー（activeSubscriptions だけでは 数えない。むかしの 空手と おなじ）
+    if (!active.length) return best;
     const offer = (plan, rest) => { if (PLANS[plan].rank > PLANS[best.plan].rank) best = { plan, ...rest }; };
     const fromOf = (storeId) => parseStoreId(storeId)?.app ?? app;
 
@@ -237,7 +240,9 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
     return best;
   };
 
-  const billing = apiKey && !testBuild ? revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer }) : null;
+  // iPhone の アプリの 中 だけ（ブラウザ・テストでは キーが あっても お店に つながない）
+  const native = !!globalThis.Capacitor?.isNativePlatform?.();
+  const billing = apiKey && !testBuild && native ? revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer }) : null;
 
   return {
     app,

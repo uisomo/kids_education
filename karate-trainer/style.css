@@ -42,12 +42,12 @@
   --line: var(--panel-line);
 }
 /* アランのピアノの 色（SERIES_GUIDE 5.2f：335° ピンク）。main.ts が ピアノの ビルドだけ html に data-piano-build を つける。
-   地は いまの デザインの まま 暗い インディゴ（表の #fff5f8 に するかは uk の 確認まち）。 */
+   地は 空手と おなじ 暗い インディゴ（5.2f の 表）。 */
 :root[data-piano-build] {
   --brand: #ff7aa8;
   --brand-hi: #ff9fc0;
   --brand-dark: #d9487c;
-  --on-brand: #fff;
+  --on-brand: #4d0a24; /* 白 × ピンクは 2.4:1 → こい ピンク（5.2f） */
 }
 
 /* 暗い地なので --ink は 白。白い グロッシーの 丸（もどる・とじる）の 絵だけは こい色に する。 */

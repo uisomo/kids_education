@@ -81,6 +81,6 @@ export function createSeriesBilling(opts: {
   planKey?: string;
 }): SeriesBilling;
 
-export function planFeatures(app: AppKey, plan: Plan, content?: { free?: string[]; paid?: string[]; daily?: boolean }): string[];
+export function planFeatures(app: AppKey, plan: Plan, content?: { free?: string[]; paid?: string[]; daily?: boolean; recording?: boolean }): string[];
 export function suiteSaving(): string;
-export function upgradeHint(app: AppKey, plan: Plan): string;
+export function upgradeHint(app: AppKey, plan: Plan, noun?: string): string;
