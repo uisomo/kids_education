@@ -101,8 +101,18 @@ public enum VideoEffectsExporter {
         session.metadata = []
         let cancellation = ExportCancellation()
         let poll = Task.detached(priority: .utility) {
+            // 見はり：60秒 すすまなければ やめる（とまった 書き出しで ずっと またせない）
+            var last: Float = -1
+            var lastChange = Date()
             while !Task.isCancelled {
-                progress(.init(.exporting,Double(session.progress)))
+                let p = session.progress
+                progress(.init(.exporting,Double(p)))
+                if p != last { last = p; lastChange = Date() }
+                else if Date().timeIntervalSince(lastChange) > 60 {
+                    print("⚡️  [MotionFX] export stalled at \(Int(p * 100))%; cancelling")
+                    cancellation.cancel()
+                    return
+                }
                 do { try await Task.sleep(nanoseconds: 200_000_000) } catch { return }
             }
         }

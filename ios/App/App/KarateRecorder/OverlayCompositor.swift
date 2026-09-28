@@ -1,4 +1,5 @@
 @preconcurrency import AVFoundation
+import AlanKit
 import CoreText
 import UIKit
 
@@ -1275,33 +1276,15 @@ enum OverlayCompositor {
         export.shouldOptimizeForNetworkUse = true
 
         try? FileManager.default.removeItem(at: outputURL)
-        let poll = onProgress.map { report in
-            Task.detached {
-                while !Task.isCancelled {
-                    report(export.progress)
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                }
-            }
-        }
-        defer { poll?.cancel() }
         // exportAsynchronously is deprecated in the iOS 18 SDK in favour of
         // export(to:as:), but it exists on every iOS version this app targets.
-        // Wrapping it avoids depending on which async overload a given SDK has.
+        // ExportWatchdog（AlanKit）が それを 見はる：60秒 すすまなければ やめて 失敗に する
+        // （つぎの 段へ。とまった 書き出しで 保存の 列が ずっと つまらないように）
         do {
-            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-                export.exportAsynchronously {
-                    if export.status == .completed {
-                        cont.resume()
-                    } else {
-                        cont.resume(throwing: CompositorError.exportFailed(
-                            export.error?.localizedDescription ?? "status \(export.status.rawValue)"
-                        ))
-                    }
-                }
-            }
+            try await ExportWatchdog.run(export, onProgress: onProgress)
         } catch {
             try? FileManager.default.removeItem(at: outputURL)
-            throw error
+            throw CompositorError.exportFailed(error.localizedDescription)
         }
     }
 
@@ -1370,6 +1353,48 @@ enum OverlayCompositor {
         print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video",
                      Date().timeIntervalSince(started), totalDurationMs / 1000))
         return result
+    }
+
+    /// さいごの 段：生の 映像と 声を、再エンコード なしで 1つの .mov に まとめる（重い 処理が なく
+    /// 失敗しにくい。音量の 調整や 音楽は なし）。声が ない・読めないときは 投げる（そのときは 生の 映像だけ）
+    static func remux(sourceURL: URL, outputURL: URL, voice: VoiceTrack) async throws {
+        let source = AVURLAsset(url: sourceURL)
+        let voiceAsset = AVURLAsset(url: voice.url)
+        let composition = AVMutableComposition()
+        let duration = try await source.load(.duration)
+        guard let sourceVideo = try await source.loadTracks(withMediaType: .video).first,
+              let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+        else { throw CompositorError.noVideoTrack }
+        try video.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: sourceVideo, at: .zero)
+        video.preferredTransform = try await sourceVideo.load(.preferredTransform)
+
+        guard let voiceAudio = try await voiceAsset.loadTracks(withMediaType: .audio).first,
+              let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        else { throw CompositorError.exportFailed("voice unreadable") }
+        // SoundMixer と おなじ：映像より まえの 声は きりおとし、あとから はじまった 声は その ぶん うしろへ
+        func at(_ s: Double) -> CMTime { CMTime(seconds: s, preferredTimescale: 48000) }
+        let voiceLength = try await voiceAudio.load(.timeRange).duration.seconds
+        let trim = max(0, voice.leadSeconds)
+        let placeAt = max(0, -voice.leadSeconds)
+        let length = min(voiceLength - trim, duration.seconds - placeAt)
+        guard length > 0 else { throw CompositorError.exportFailed("voice does not overlap the video") }
+        if placeAt > 0 { audio.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: at(placeAt))) }
+        try audio.insertTimeRange(CMTimeRange(start: at(trim), duration: at(length)), of: voiceAudio, at: at(placeAt))
+
+        // パススルーは .mov（声は そのまま PCM で 入る。mp4 には 入らない）
+        guard let export = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+            throw CompositorError.exportFailed("could not create passthrough session")
+        }
+        export.outputFileType = .mov
+        export.outputURL = outputURL
+        try? FileManager.default.removeItem(at: outputURL)
+        do {
+            try await ExportWatchdog.run(export)
+        } catch {
+            try? FileManager.default.removeItem(at: outputURL)
+            throw CompositorError.exportFailed(error.localizedDescription)
+        }
+        withExtendedLifetime((source, voiceAsset)) {}
     }
 
     /// The fallback when the overlay burn fails: the same sound mix into the raw
