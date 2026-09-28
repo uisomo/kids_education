@@ -45,6 +45,8 @@
 		9E38FB9655CB8D98866ED88A /* LiveMotionTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E90CA206DF9C1855A8C33D1 /* LiveMotionTracker.swift */; };
 		FCC7E14A863A318F48D69651 /* OverlayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E72F3C8EB0E4F87BAF7270 /* OverlayViews.swift */; };
 		D68EA34C8B50C771316E1F99 /* LiveMotionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */; };
+		811A1054677CB861A0B767E1 /* AlanSuitePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F043F8C23658CC472900A4 /* AlanSuitePlugin.swift */; };
+		16E6C0041830F7A2311D4D65 /* AlanSharedAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD096B18E71506B5CEB18046 /* AlanSharedAccount.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -89,6 +91,9 @@
 		5E90CA206DF9C1855A8C33D1 /* LiveMotionTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMotionTracker.swift; sourceTree = "<group>"; };
 		13E72F3C8EB0E4F87BAF7270 /* OverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayViews.swift; sourceTree = "<group>"; };
 		BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMotionOverlay.swift; sourceTree = "<group>"; };
+		C1F043F8C23658CC472900A4 /* AlanSuitePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlanSuite/AlanSuitePlugin.swift; sourceTree = "<group>"; };
+		BD096B18E71506B5CEB18046 /* AlanSharedAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlanSuite/AlanSharedAccount.swift; sourceTree = "<group>"; };
+		FBFC1FCFC44EA5C4C235EBD0 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -167,6 +172,9 @@
 			isa = PBXGroup;
 			children = (
 				410B9B429ECFFFAEC60AE00F /* MainViewController.swift */,
+				FBFC1FCFC44EA5C4C235EBD0 /* App.entitlements */,
+				BD096B18E71506B5CEB18046 /* AlanSharedAccount.swift */,
+				C1F043F8C23658CC472900A4 /* AlanSuitePlugin.swift */,
 				3957B42183355344E740F6B0 /* KarateRecorder */,
 				91865E84A57E2927C2CBA75F /* PracticeMotionFX */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
@@ -296,6 +304,8 @@
 				A1B2C3D4E5F60718293A4B01 /* PendingSaves.swift in Sources */,
 				BA1E5729EA5256D633DDD8AF /* AudioController.swift in Sources */,
 				08072516F2003B9439A7ECBF /* MainViewController.swift in Sources */,
+				16E6C0041830F7A2311D4D65 /* AlanSharedAccount.swift in Sources */,
+				811A1054677CB861A0B767E1 /* AlanSuitePlugin.swift in Sources */,
 				8825437B40DB2AED4BCF5573 /* CameraSession.swift in Sources */,
 				BED791C491F404DDB2592885 /* KarateRecorderPlugin.swift in Sources */,
 				0AECBCA4337B2C65C0DC1EB0 /* Catalog.swift in Sources */,
@@ -685,6 +695,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = "アランの空手";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 5PBG36CV85;
@@ -710,6 +721,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = "アランのピアノ";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Piano";
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5PBG36CV85;
@@ -735,6 +747,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = test;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 5PBG36CV85;
@@ -760,6 +773,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = "ピアノtest";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Piano";
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5PBG36CV85;
@@ -784,6 +798,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = "アランの空手";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 5PBG36CV85;
@@ -807,6 +822,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = "アランのピアノ";
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Piano";
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5PBG36CV85;

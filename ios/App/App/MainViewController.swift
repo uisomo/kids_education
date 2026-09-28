@@ -9,6 +9,7 @@ import UIKit
 /// that rejects every call with "not implemented on ios".
 class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
+        bridge?.registerPluginInstance(AlanSuitePlugin())
         bridge?.registerPluginInstance(KarateRecorderPlugin())
         hideKeyboardAccessoryBar()
         // One line in the device log confirms the bridge can resolve the plugin by
