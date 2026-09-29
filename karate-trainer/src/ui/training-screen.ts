@@ -1,7 +1,8 @@
 import type { CheerClip } from "../character-store";
 import type { Drill } from "../types";
 import { icon, iconButton, type IconName } from "../alan/alan-icons.js";
-import { CHARACTERS, CHARACTER_IDS, type CharacterId } from "../character-store";
+import { CHARACTERS, CHARACTER_IDS, characterName, cheerClipsFor, type CharacterId } from "../character-store";
+import { appLang, type Lang } from "../i18n";
 import type { Decor } from "../decor-store";
 import { hookPalette, hookFill, HOOK_COLOR_MODE } from "../hook-style";
 
@@ -47,6 +48,7 @@ export function renderTrainingScreen(
   // The piano app: no countdown on screen, and a 次へ button — the child
   // moves on when the piece is done (おわり on the last one).
   untimed = false,
+  lang: Lang = appLang(),
 ): TrainingView {
   root.textContent = "";
   root.className = untimed ? "screen training untimed" : "screen training";
@@ -370,7 +372,8 @@ export function renderTrainingScreen(
       // the words that clip says, so text and voice always match.
       const cheerId = CHARACTER_IDS[Math.floor(Math.random() * CHARACTER_IDS.length)];
       const cheerInfo = CHARACTERS[cheerId] ?? CHARACTERS.alan;
-      const clip = cheerInfo.cheerClips[Math.floor(Math.random() * cheerInfo.cheerClips.length)];
+      const clips = cheerClipsFor(cheerInfo, lang);
+      const clip = clips[Math.floor(Math.random() * clips.length)];
       if (!cheerVideo.src.endsWith(clip.src)) {
         cheerVideo.src = clip.src;
       }
@@ -379,7 +382,7 @@ export function renderTrainingScreen(
         // jsdom's play() returns undefined and logs "not implemented"; guard it.
         void Promise.resolve(cheerVideo.play?.()).catch(() => { /* autoplay blocked */ });
       } catch { /* ignore synchronously throwing play() */ }
-      speechBubble.textContent = `${cheerInfo.name}: ${clip.text}`;
+      speechBubble.textContent = `${characterName(cheerInfo, lang)}: ${clip.text}`;
       companionOverlay.classList.add("cheering");
 
       if (cueTimeout) clearTimeout(cueTimeout);

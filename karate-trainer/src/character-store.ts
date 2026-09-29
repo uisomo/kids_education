@@ -1,3 +1,5 @@
+import type { Lang } from "./i18n";
+
 export type CharacterId = "alan" | "leo" | "izzy";
 
 export interface CharacterInfo {
@@ -16,6 +18,9 @@ export interface CharacterInfo {
    * transparency in WebKit and showed the green background.
    */
   cheerClips: CheerClip[];
+  /** The English cast: same characters, their own English recordings. */
+  nameEn: string;
+  cheerClipsEn: CheerClip[];
 }
 
 /** One cheer clip and the words spoken in it, shown in the speech bubble. */
@@ -26,13 +31,25 @@ export interface CheerClip {
 }
 
 // Phrases transcribed from each clip with on-device Japanese recognition, in
-// clip order: phrase N is /characters/cheer/<id>-N.mov.
-const cheerClips = (id: CharacterId, phrases: string[]): CheerClip[] =>
+// clip order: phrase N is /characters/cheer/<id>-N.mov. English clips live in
+// /characters/cheer/en/, cut by tools/make-cheer.swift; their text is the
+// script the recordings were made from.
+const cheerClips = (id: CharacterId, phrases: string[], dir = "/characters/cheer"): CheerClip[] =>
   phrases.map((text, i) => ({
-    src: `/characters/cheer/${id}-${i + 1}.mov`,
-    audio: `/characters/cheer/${id}-${i + 1}.m4a`,
+    src: `${dir}/${id}-${i + 1}.mov`,
+    audio: `${dir}/${id}-${i + 1}.m4a`,
     text,
   }));
+const EN = "/characters/cheer/en";
+
+/** The clips (and so the voice) for the app's language. */
+export function cheerClipsFor(info: CharacterInfo, lang: Lang): CheerClip[] {
+  return lang === "en" && info.cheerClipsEn.length > 0 ? info.cheerClipsEn : info.cheerClips;
+}
+
+export function characterName(info: CharacterInfo, lang: Lang): string {
+  return lang === "en" ? info.nameEn : info.name;
+}
 
 /** All companion ids, for picking a random cheerleader during training. */
 export const CHARACTER_IDS: CharacterId[] = ["alan", "leo", "izzy"];
@@ -51,6 +68,11 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
       "応援するよ", "がんばれー", "君ならできる", "ファイト",
       "応援してるからね", "最高だよ", "その調子", "ずっと応援してるよ",
     ]),
+    nameEn: "Alan",
+    cheerClipsEn: cheerClips("alan", [
+      "Yeah!", "Let's go!", "Woo-hoo! You're the best!", "Come on, everybody, cheer with me!",
+      "Yeah, we did it!", "Keep going!", "Hooray!", "You're all amazing!", "Yippee, what a victory!",
+    ], EN),
   },
   leo: {
     id: "leo",
@@ -62,6 +84,11 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     avatarNormal: "/characters/leo.jpg",
     avatarCheer: "/characters/leo_cheer.jpg",
     cheerClips: cheerClips("leo", ["応援するよ", "頑張って", "君ならできる", "信じてるからね"]),
+    nameEn: "Leo",
+    cheerClipsEn: cheerClips("leo", [
+      "You can do it!", "I believe in you!", "Keep on going!", "You're doing great!",
+      "Don't give up!", "You got this!", "I'm cheering for you!",
+    ], EN),
   },
   izzy: {
     id: "izzy",
@@ -76,6 +103,10 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     cheerClips: cheerClips("izzy", [
       "応援するよ", "どんな時も味方だよ", "一緒に頑張ろう", "君ならできる", "信じてるからね", "ファイト",
     ]),
+    nameEn: "Izzy",
+    cheerClipsEn: cheerClips("izzy", [
+      "Yay!", "Let's cheer!", "Woo-hoo!", "You're awesome!", "Go for it!", "Hooray!", "Yeah!", "Keep it up!",
+    ], EN),
   },
 };
 
