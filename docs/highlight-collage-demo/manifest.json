@@ -39,8 +39,8 @@
         ],
         "fontRole": "reference-specific",
         "fontFamilies": [
-          "Hiragino Sans",
           "Hiragino Mincho ProN",
+          "Hiragino Sans",
           "Helvetica Neue"
         ],
         "partsRecognized": true
@@ -59,8 +59,8 @@
         ],
         "fontRole": "reference-specific",
         "fontFamilies": [
-          "Hiragino Sans",
           "Hiragino Mincho ProN",
+          "Hiragino Sans",
           "Helvetica Neue"
         ],
         "partsRecognized": true
@@ -91,9 +91,9 @@
         ],
         "fontRole": "reference-specific",
         "fontFamilies": [
-          "Helvetica Neue",
+          "Yomogi",
           "Hiragino Sans",
-          "Yomogi"
+          "Helvetica Neue"
         ],
         "partsRecognized": true
       },
@@ -112,9 +112,9 @@
         ],
         "fontRole": "reference-specific",
         "fontFamilies": [
-          "Helvetica Neue",
+          "Yomogi",
           "Hiragino Sans",
-          "Yomogi"
+          "Helvetica Neue"
         ],
         "partsRecognized": true
       },
@@ -538,8 +538,8 @@
         ],
         "fontRole": "reference-specific",
         "fontFamilies": [
-          "Hiragino Sans",
           "Six Caps",
+          "Hiragino Sans",
           "Helvetica Neue"
         ],
         "partsRecognized": true
@@ -557,8 +557,8 @@
         ],
         "fontRole": "reference-specific",
         "fontFamilies": [
-          "Hiragino Sans",
           "Six Caps",
+          "Hiragino Sans",
           "Helvetica Neue"
         ],
         "partsRecognized": true

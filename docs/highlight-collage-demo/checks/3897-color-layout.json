@@ -1,9 +1,8 @@
 {
   "hookColors": [
-    "#fb0880",
-    "#0bf9e9",
-    "#fb690b"
+    "#fa197f"
   ],
+  "hookColorSource": "single independent color for neutral design",
   "allRenderedText": [
     "正拳突き",
     "09.25",
@@ -39,11 +38,11 @@
     "突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 332.90103911970164,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -289,7 +288,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#696b69",
       "clip": "rectangle",
       "rotation": 0,
       "z": 0
@@ -526,7 +525,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#696b69",
       "clip": "rectangle",
       "rotation": 0,
       "z": 1
@@ -763,7 +762,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#696b69",
       "clip": "rectangle",
       "rotation": 0,
       "z": 2
@@ -1000,7 +999,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#696b69",
       "clip": "rectangle",
       "rotation": 0,
       "z": 3
@@ -1237,7 +1236,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#696b69",
       "clip": "rectangle",
       "rotation": 0,
       "z": 4
@@ -1474,7 +1473,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#696b69",
       "clip": "rectangle",
       "rotation": 0,
       "z": 5

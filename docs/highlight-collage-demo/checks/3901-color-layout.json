@@ -1,19 +1,18 @@
 {
   "hookColors": [
-    "#fb08b0",
-    "#0bf9b9",
-    "#fb390b"
+    "#ee304c"
   ],
+  "hookColorSource": "#d68d43",
   "allRenderedText": [
     "正拳",
     "突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 320.8810460144133,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -496,7 +495,7 @@
           ]
         ]
       },
-      "background": "#131313",
+      "background": "#121313",
       "clip": "rectangle",
       "rotation": 0,
       "z": 1
@@ -753,7 +752,7 @@
           ]
         ]
       },
-      "background": "#f90b5c",
+      "background": "#df2a68",
       "clip": "rectangle",
       "rotation": 0,
       "z": 3
@@ -990,7 +989,7 @@
           ]
         ]
       },
-      "background": "#131313",
+      "background": "#121313",
       "clip": "rectangle",
       "rotation": 0,
       "z": 4

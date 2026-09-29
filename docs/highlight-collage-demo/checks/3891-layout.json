@@ -1,9 +1,8 @@
 {
   "hookColors": [
-    "#fb1208",
-    "#0b8af9",
-    "#fbe90b"
+    "#fa2b19"
   ],
+  "hookColorSource": "single independent color for neutral design",
   "allRenderedText": [
     "正拳突き  09.25  正拳突き  2026.09.25",
     "正拳突き  09.25  正拳突き  2026.09.25",
@@ -57,11 +56,11 @@
     "正拳突き  09.25  正拳突き  2026.09.25"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 4.816215582712697,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -307,7 +306,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": -5,
       "z": 0
@@ -544,7 +543,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 3,
       "z": 1
@@ -781,7 +780,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 0,
       "z": 2
@@ -1018,7 +1017,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 7,
       "z": 3
@@ -1255,7 +1254,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": -5,
       "z": 4
@@ -1492,7 +1491,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 3,
       "z": 5
@@ -1729,7 +1728,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 0,
       "z": 6
@@ -1966,7 +1965,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 7,
       "z": 7
@@ -2203,7 +2202,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": -5,
       "z": 8
@@ -2440,7 +2439,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 3,
       "z": 9
@@ -2677,7 +2676,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 0,
       "z": 10
@@ -2914,7 +2913,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#ece7df",
       "clip": "rectangle",
       "rotation": 7,
       "z": 11

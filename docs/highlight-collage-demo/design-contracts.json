@@ -173,11 +173,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 2.698333060272291,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -613,11 +613,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 39.71826287602752,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -632,7 +632,7 @@
             132,
             177
           ],
-          "tone": "#f6f6f6"
+          "tone": "#d9d9d3"
         },
         {
           "asset": "leo-stand",
@@ -642,7 +642,7 @@
             132,
             177
           ],
-          "tone": "#f6f6f6"
+          "tone": "#d9d9d3"
         },
         {
           "asset": "alan-stand",
@@ -652,7 +652,7 @@
             132,
             177
           ],
-          "tone": "#f6f6f6"
+          "tone": "#d9d9d3"
         },
         {
           "asset": "leo-cheer",
@@ -662,7 +662,7 @@
             132,
             177
           ],
-          "tone": "#f6f6f6"
+          "tone": "#d9d9d3"
         },
         {
           "asset": "alan-cheer",
@@ -672,7 +672,7 @@
             132,
             177
           ],
-          "tone": "#f6f6f6"
+          "tone": "#d9d9d3"
         },
         {
           "asset": "leo-stand",
@@ -682,7 +682,7 @@
             132,
             177
           ],
-          "tone": "#f6f6f6"
+          "tone": "#d9d9d3"
         }
       ],
       "panels": null,
@@ -715,7 +715,7 @@
             397,
             542
           ],
-          "background": "#f6f6f6",
+          "background": "#84817b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 0,
@@ -739,7 +739,7 @@
             359,
             504
           ],
-          "background": "#f6f6f6",
+          "background": "#84817b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -763,7 +763,7 @@
             437,
             429
           ],
-          "background": "#f6f6f6",
+          "background": "#84817b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -787,7 +787,7 @@
             334,
             476
           ],
-          "background": "#f6f6f6",
+          "background": "#84817b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 3,
@@ -811,7 +811,7 @@
             402,
             420
           ],
-          "background": "#f6f6f6",
+          "background": "#84817b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 4,
@@ -835,7 +835,7 @@
             355,
             386
           ],
-          "background": "#f6f6f6",
+          "background": "#84817b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 5,
@@ -859,7 +859,7 @@
             279,
             265
           ],
-          "background": "#f6f6f6",
+          "background": "#b2aba1",
           "clip": "mask",
           "rotation": 0,
           "z": 6,
@@ -883,7 +883,7 @@
             247,
             310
           ],
-          "background": "#f6f6f6",
+          "background": "#b2aba1",
           "clip": "mask",
           "rotation": 0,
           "z": 7,
@@ -907,7 +907,7 @@
             290,
             324
           ],
-          "background": "#f6f6f6",
+          "background": "#b2aba1",
           "clip": "mask",
           "rotation": 0,
           "z": 8,
@@ -931,7 +931,7 @@
             288,
             276
           ],
-          "background": "#f6f6f6",
+          "background": "#b2aba1",
           "clip": "mask",
           "rotation": 0,
           "z": 9,
@@ -950,11 +950,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 207.92377697463775,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -1039,7 +1039,7 @@
             299,
             190
           ],
-          "background": "#181818",
+          "background": "#171919",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -1085,11 +1085,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 64.85845572843759,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -1294,11 +1294,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 244.29519357862637,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -1770,11 +1770,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 54.44777255642705,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -2051,11 +2051,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 147.87526352278405,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -2177,11 +2177,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 299.59096326094493,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -2251,11 +2251,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 14.877703381683878,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -2270,7 +2270,7 @@
             356,
             398
           ],
-          "tone": "#fa8110"
+          "tone": "#eba25d"
         },
         {
           "asset": "leo-cheer",
@@ -2280,7 +2280,7 @@
             302,
             326
           ],
-          "tone": "#09a0f7"
+          "tone": "#1d8ecf"
         }
       ],
       "panels": null,
@@ -2370,11 +2370,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 164.789646364891,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -2389,7 +2389,7 @@
             277,
             489
           ],
-          "tone": "#138cfb"
+          "tone": "#7cbbf5"
         },
         {
           "asset": "leo-stand",
@@ -2399,7 +2399,7 @@
             254,
             397
           ],
-          "tone": "#138cfb"
+          "tone": "#7cbbf5"
         },
         {
           "asset": "alan-cheer",
@@ -2409,7 +2409,7 @@
             237,
             328
           ],
-          "tone": "#138cfb"
+          "tone": "#7cbbf5"
         },
         {
           "asset": "leo-cheer",
@@ -2419,7 +2419,7 @@
             250,
             303
           ],
-          "tone": "#138cfb"
+          "tone": "#7cbbf5"
         }
       ],
       "panels": null,
@@ -2476,7 +2476,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -2500,7 +2500,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -2524,7 +2524,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 3,
@@ -2548,7 +2548,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 4,
@@ -2572,7 +2572,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 5,
@@ -2596,7 +2596,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 6,
@@ -2620,7 +2620,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 7,
@@ -2644,7 +2644,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 8,
@@ -2668,7 +2668,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 9,
@@ -2692,7 +2692,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 10,
@@ -2716,7 +2716,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 11,
@@ -2740,7 +2740,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 12,
@@ -2764,7 +2764,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 13,
@@ -2788,7 +2788,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 14,
@@ -2812,7 +2812,7 @@
             180,
             142
           ],
-          "background": "#0a7df6",
+          "background": "#2270c4",
           "clip": "rectangle",
           "rotation": 0,
           "z": 15,
@@ -2836,7 +2836,7 @@
             180,
             142
           ],
-          "background": "#fbf50b",
+          "background": "#f1ed2b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 16,
@@ -2855,11 +2855,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 20.320984853067205,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -3103,11 +3103,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 133.0896301026985,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -3438,11 +3438,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 291.6516216255017,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -3671,11 +3671,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 285.7930668414293,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -3712,7 +3712,7 @@
             253,
             312
           ],
-          "background": "#f6f6f6",
+          "background": "#d4d4d2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 0,
@@ -3736,7 +3736,7 @@
             249,
             306
           ],
-          "background": "#f6f6f6",
+          "background": "#c6c6c1",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -3760,7 +3760,7 @@
             253,
             330
           ],
-          "background": "#ec0df9",
+          "background": "#d83de2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -3923,11 +3923,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 303.0670996558457,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -3990,7 +3990,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#09fa66",
+          "tone": "#1ee66b",
           "polygon": null,
           "id": "photo-2",
           "candidateRule": "distinct frame with required anatomical region",
@@ -4014,7 +4014,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#09fa66",
+          "tone": "#1ee66b",
           "polygon": null,
           "id": "photo-3",
           "candidateRule": "distinct frame with required anatomical region",
@@ -4038,7 +4038,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#09fa66",
+          "tone": "#1ee66b",
           "polygon": null,
           "id": "photo-4",
           "candidateRule": "distinct frame with required anatomical region",
@@ -4055,11 +4055,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 307.1820382648752,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -4548,11 +4548,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 221.32960764958645,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -4622,11 +4622,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 142.1789177942176,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -4663,7 +4663,7 @@
             329,
             208
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": -5,
           "z": 0,
@@ -4687,7 +4687,7 @@
             270,
             165
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 3,
           "z": 1,
@@ -4711,7 +4711,7 @@
             420,
             111
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -4735,7 +4735,7 @@
             393,
             173
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 7,
           "z": 3,
@@ -4759,7 +4759,7 @@
             335,
             151
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": -5,
           "z": 4,
@@ -4783,7 +4783,7 @@
             351,
             159
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 3,
           "z": 5,
@@ -4807,7 +4807,7 @@
             332,
             109
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 0,
           "z": 6,
@@ -4831,7 +4831,7 @@
             379,
             139
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 7,
           "z": 7,
@@ -4855,7 +4855,7 @@
             301,
             112
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": -5,
           "z": 8,
@@ -4879,7 +4879,7 @@
             310,
             220
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 3,
           "z": 9,
@@ -4903,7 +4903,7 @@
             336,
             171
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 0,
           "z": 10,
@@ -4927,7 +4927,7 @@
             391,
             237
           ],
-          "background": "#f6f6f6",
+          "background": "#ece7df",
           "clip": "rectangle",
           "rotation": 7,
           "z": 11,
@@ -4946,11 +4946,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 4.816215582712697,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -5013,7 +5013,7 @@
           ],
           "clip": "master-person-alpha + polygon",
           "colorPattern": "full",
-          "tone": "#670af8",
+          "tone": "#6a23d6",
           "polygon": [
             [
               0,
@@ -5078,7 +5078,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "right-half",
-          "tone": "#f97609",
+          "tone": "#df741c",
           "polygon": null,
           "id": "photo-4",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5102,7 +5102,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#670af8",
+          "tone": "#6a23d6",
           "polygon": null,
           "id": "photo-5",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5191,7 +5191,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "gradient",
-          "tone": "#0a21fa",
+          "tone": "#2336ef",
           "polygon": null,
           "id": "photo-8",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5215,7 +5215,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "right-half",
-          "tone": "#f97609",
+          "tone": "#df741c",
           "polygon": null,
           "id": "photo-9",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5239,7 +5239,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "diagonal",
-          "tone": "#670af8",
+          "tone": "#6a23d6",
           "polygon": null,
           "id": "photo-10",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5304,7 +5304,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "left-half",
-          "tone": "#0a21fa",
+          "tone": "#2336ef",
           "polygon": null,
           "id": "photo-12",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5328,7 +5328,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#f62e0e",
+          "tone": "#c34f3c",
           "polygon": null,
           "id": "photo-13",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5352,7 +5352,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "left-half",
-          "tone": "#f62e0e",
+          "tone": "#c34f3c",
           "polygon": null,
           "id": "photo-14",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5400,7 +5400,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#0a21fa",
+          "tone": "#2336ef",
           "polygon": null,
           "id": "photo-16",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5417,11 +5417,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 203.5250801402231,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -5484,7 +5484,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#9e0cfa",
+          "tone": "#a432eb",
           "polygon": null,
           "id": "photo-2",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5508,7 +5508,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "left-half",
-          "tone": "#d3fa0d",
+          "tone": "#cae63b",
           "polygon": null,
           "id": "photo-3",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5556,7 +5556,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#d3fa0d",
+          "tone": "#cae63b",
           "polygon": null,
           "id": "photo-5",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5580,7 +5580,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "left-half",
-          "tone": "#9e0cfa",
+          "tone": "#a432eb",
           "polygon": null,
           "id": "photo-6",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5604,7 +5604,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#d3fa0d",
+          "tone": "#cae63b",
           "polygon": null,
           "id": "photo-7",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5628,7 +5628,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#9e0cfa",
+          "tone": "#a432eb",
           "polygon": null,
           "id": "photo-8",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5652,7 +5652,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "right-half",
-          "tone": "#9e0cfa",
+          "tone": "#a432eb",
           "polygon": null,
           "id": "photo-9",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5676,7 +5676,7 @@
           ],
           "clip": "master-person-alpha",
           "colorPattern": "full",
-          "tone": "#d3fa0d",
+          "tone": "#cae63b",
           "polygon": null,
           "id": "photo-10",
           "candidateRule": "distinct frame with required anatomical region",
@@ -5768,11 +5768,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 240.05828830423985,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -5787,7 +5787,7 @@
             181,
             271
           ],
-          "tone": "#9e0cfa"
+          "tone": "#a432eb"
         },
         {
           "asset": "leo-stand",
@@ -5797,7 +5797,7 @@
             156,
             286
           ],
-          "tone": "#d3fa0d"
+          "tone": "#cae63b"
         },
         {
           "asset": "izzy-cheer",
@@ -5807,7 +5807,7 @@
             136,
             228
           ],
-          "tone": "#d3fa0d"
+          "tone": "#cae63b"
         }
       ],
       "panels": null,
@@ -6036,11 +6036,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 119.30614597846183,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -6101,7 +6101,7 @@
             165,
             310
           ],
-          "background": "#f6f6f6",
+          "background": "#97a08b",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -6125,7 +6125,7 @@
             187,
             259
           ],
-          "background": "#f613ab",
+          "background": "#c369a6",
           "clip": "mask",
           "rotation": 0,
           "z": 2,
@@ -6149,7 +6149,7 @@
             202,
             235
           ],
-          "background": "#f6f6f6",
+          "background": "#91b8bf",
           "clip": "rectangle",
           "rotation": 0,
           "z": 3,
@@ -6173,7 +6173,7 @@
             240,
             379
           ],
-          "background": "#e015f9",
+          "background": "#d68ede",
           "clip": "rectangle",
           "rotation": 0,
           "z": 4,
@@ -6197,7 +6197,7 @@
             202,
             263
           ],
-          "background": "#f6f6f6",
+          "background": "#86a6aa",
           "clip": "rectangle",
           "rotation": 0,
           "z": 5,
@@ -6269,7 +6269,7 @@
             240,
             379
           ],
-          "background": "#f6f6f6",
+          "background": "#a7beb5",
           "clip": "rectangle",
           "rotation": 0,
           "z": 8,
@@ -6874,11 +6874,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 231.56780542466205,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -6915,7 +6915,7 @@
             203,
             226
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 0,
@@ -6939,7 +6939,7 @@
             141,
             123
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -6964,7 +6964,7 @@
             132,
             145
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -6988,7 +6988,7 @@
             171,
             150
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 3,
@@ -7012,7 +7012,7 @@
             162,
             177
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 4,
@@ -7037,7 +7037,7 @@
             170,
             172
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 5,
@@ -7061,7 +7061,7 @@
             190,
             155
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 6,
@@ -7085,7 +7085,7 @@
             152,
             163
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 7,
@@ -7110,7 +7110,7 @@
             177,
             186
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 8,
@@ -7134,7 +7134,7 @@
             163,
             206
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 9,
@@ -7158,7 +7158,7 @@
             159,
             178
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 10,
@@ -7183,7 +7183,7 @@
             169,
             165
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 11,
@@ -7207,7 +7207,7 @@
             156,
             172
           ],
-          "background": "#f6f6f6",
+          "background": "#a4a5a2",
           "clip": "rectangle",
           "rotation": 0,
           "z": 12,
@@ -7305,11 +7305,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 318.9986818709592,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -7346,7 +7346,7 @@
             340,
             395
           ],
-          "background": "#f6f6f6",
+          "background": "#696b69",
           "clip": "rectangle",
           "rotation": 0,
           "z": 0,
@@ -7370,7 +7370,7 @@
             340,
             395
           ],
-          "background": "#f6f6f6",
+          "background": "#696b69",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -7394,7 +7394,7 @@
             340,
             395
           ],
-          "background": "#f6f6f6",
+          "background": "#696b69",
           "clip": "rectangle",
           "rotation": 0,
           "z": 2,
@@ -7418,7 +7418,7 @@
             340,
             395
           ],
-          "background": "#f6f6f6",
+          "background": "#696b69",
           "clip": "rectangle",
           "rotation": 0,
           "z": 3,
@@ -7442,7 +7442,7 @@
             340,
             395
           ],
-          "background": "#f6f6f6",
+          "background": "#696b69",
           "clip": "rectangle",
           "rotation": 0,
           "z": 4,
@@ -7466,7 +7466,7 @@
             340,
             395
           ],
-          "background": "#f6f6f6",
+          "background": "#696b69",
           "clip": "rectangle",
           "rotation": 0,
           "z": 5,
@@ -7485,11 +7485,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 198.96845921682512,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -7558,11 +7558,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 321.8539600131973,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -7776,11 +7776,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 332.6759712004646,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -7795,7 +7795,7 @@
             253,
             472
           ],
-          "tone": "#f6f6f6"
+          "tone": "#ebe3cc"
         },
         {
           "asset": "izzy-stand",
@@ -7805,7 +7805,7 @@
             220,
             246
           ],
-          "tone": "#f6f6f6"
+          "tone": "#ebe3cc"
         }
       ],
       "panels": null,
@@ -8014,11 +8014,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 130.31885634110125,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -8079,7 +8079,7 @@
             180,
             266
           ],
-          "background": "#131313",
+          "background": "#121313",
           "clip": "rectangle",
           "rotation": 0,
           "z": 1,
@@ -8127,7 +8127,7 @@
             207,
             282
           ],
-          "background": "#f9860b",
+          "background": "#df882a",
           "clip": "rectangle",
           "rotation": 0,
           "z": 3,
@@ -8151,7 +8151,7 @@
             260,
             245
           ],
-          "background": "#131313",
+          "background": "#121313",
           "clip": "rectangle",
           "rotation": 0,
           "z": 4,
@@ -8197,11 +8197,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 12.562884401138845,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -8257,11 +8257,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 183.91915563333683,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -8653,11 +8653,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 194.62167548945632,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -9097,11 +9097,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 182.71297364349357,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -9171,11 +9171,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 173.80076761789832,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -9303,11 +9303,11 @@
       ],
       "typography": [],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 111.4002244900909,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",
@@ -9377,11 +9377,11 @@
         }
       ],
       "palette": {
-        "selection": "random bright brand palette per render",
+        "selection": "random hue per selection, retained on revision",
         "brandBase": "#ffd166",
         "hueRotation": 40.32887617247846,
         "space": "HSV (logo vividness); OKLab only for neutral classification",
-        "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+        "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
       },
       "textPolicy": {
         "alphabet": "replace with source-grounded Japanese",

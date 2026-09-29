@@ -5,7 +5,7 @@ from pathlib import Path
 import json,math,random
 import numpy as np
 from PIL import Image,ImageFont,ImageDraw,ImageOps,ImageFilter,ImageEnhance,ImageChops
-from palette import rotate_palette,bright_palette,BRAND_BRIGHT
+from palette import rotate_palette,bright_palette,BRAND_BRIGHT,BASE_ROLES,hook_base
 O=Path(__file__).resolve().parents[2]/'docs/highlight-collage-demo';A=O/'assets-v2';W,H=720,1280
 PARTS={r['frame']:r for r in json.loads((A/'parts.json').read_text())['frames']}
 F={
@@ -94,6 +94,9 @@ class Layout:
   global PAINT_MAP
   DRAWN_TEXT.clear()
   self.brandBase='#ffd166';self.randomHue=random.SystemRandom().uniform(0,360)
+  # Keep the selected hue for a revision/retry; do not change composition and hue together.
+  previous=O/'checks'/f'{ident}{"-color" if variant else ""}-layout.json'
+  if previous.exists():self.randomHue=json.loads(previous.read_text())['palette']['hueRotation']
   transformed,self.paletteAngle=bright_palette([tuple(bytes.fromhex(c[1:])) for c in RAW_COLORS],self.randomHue)
   PAINT_MAP=dict(zip(RAW_COLORS,['#%02x%02x%02x'%c for c in transformed]))
   self.characters=[];self.variant=variant;self.ident=ident;self.im=Image.new('RGBA',(W,H),paint('#c7c3ba'));self.slots=[];self.types=[];self.used=set();self.subjectMask=Image.new('L',(W,H))
@@ -146,7 +149,7 @@ class Layout:
   self.im.convert('RGB').save(O/'frames'/f'{self.ident}{"-color" if self.variant else ""}.jpg',quality=96)
   # Palette-only variant: retain subject photos; color paper/ink is handled in template render later.
 
-  metadata={'hookColors':[PAINT_MAP[c] for c in ['#e9222a','#368bc0','#dbc340']],'allRenderedText':list(DRAWN_TEXT),'palette':{'selection':'random bright brand palette per render','brandBase':self.brandBase,'hueRotation':self.paletteAngle,'space':'HSV (logo vividness); OKLab only for neutral classification','relationship':'shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation'},'characters':self.characters,'textPolicy':{'alphabet':'replace with source-grounded Japanese','decorativeNumbers':'recording date 2026.09.25'},'template':self.ident,'name':name,'canvas':[W,H],'slots':self.slots,'typography':self.types,'privacyDemo':{'room':True,'face':getattr(self,'faceMasked',False),'background':'black design background; source room removed'},'fontTransform':'uniform font point size only','layoutRevision':3,'defaultLayerOrder':['background','shapes-and-text','cutout-person'],'cutoutDefault':True}
+  metadata={'hookColors':[hook_base(self.ident,PAINT_MAP,self.paletteAngle)],'hookColorSource':BASE_ROLES[self.ident] or 'single independent color for neutral design','allRenderedText':list(DRAWN_TEXT),'palette':{'selection':'random hue per selection, retained on revision','brandBase':self.brandBase,'hueRotation':self.paletteAngle,'space':'HSV (logo vividness); OKLab only for neutral classification','relationship':'shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged'},'characters':self.characters,'textPolicy':{'alphabet':'replace with source-grounded Japanese','decorativeNumbers':'recording date 2026.09.25'},'template':self.ident,'name':name,'canvas':[W,H],'slots':self.slots,'typography':self.types,'privacyDemo':{'room':True,'face':getattr(self,'faceMasked',False),'background':'black design background; source room removed'},'fontTransform':'uniform font point size only','layoutRevision':3,'defaultLayerOrder':['background','shapes-and-text','cutout-person'],'cutoutDefault':True}
   (O/'checks'/f'{self.ident}{"-color" if self.variant else ""}-layout.json').write_text(json.dumps(metadata,ensure_ascii=False,indent=2))
   return metadata
 

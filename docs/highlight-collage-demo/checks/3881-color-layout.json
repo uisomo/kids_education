@@ -1,9 +1,8 @@
 {
   "hookColors": [
-    "#fb08a3",
-    "#0bf9c7",
-    "#fb470b"
+    "#eb5d91"
   ],
+  "hookColorSource": "#d18c77",
   "allRenderedText": [
     "正拳突き  09.25  2026.09.25",
     "正拳突き  09.25  2026.09.25",
@@ -111,11 +110,11 @@
     "正拳突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 324.2607235877174,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [
     {
@@ -126,7 +125,7 @@
         356,
         398
       ],
-      "tone": "#fa1065"
+      "tone": "#eb5d91"
     },
     {
       "asset": "leo-cheer",
@@ -136,7 +135,7 @@
         302,
         326
       ],
-      "tone": "#09f786"
+      "tone": "#1dcf7a"
     }
   ],
   "textPolicy": {

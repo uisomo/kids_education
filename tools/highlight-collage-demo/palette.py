@@ -32,12 +32,31 @@ def bright_palette(p,brand):
  for c in p:
   L,C,_=rgb_to_ok(c)
   if C<.045:
-   value=round(255*.965) if L>.45 else round(sum(c)/3)
-   result.append((value,value,value));continue
+   result.append(tuple(c));continue
   h,s,v=colorsys.rgb_to_hsv(*(x/255 for x in c))
-  # Logo samples: saturated bright pixels median S=.973, V=.988.
-  # Fix each role's S/V; rotate only H. No palette-wide chroma compression.
-  saturation=.90+.08*s
-  value=.94+.05*v
+  # Shared monotonic brightening preserves S/V ordering and leaves soft roles soft.
+  # Exact S/V distances and perceptual contrast are not claimed to be preserved.
+  saturation=s**.6
+  value=v**.4
   result.append(tuple(round(255*x) for x in colorsys.hsv_to_rgb((h+brand/360)%1,saturation,value)))
  return result,brand%360
+
+# Reference design primary colors, explicitly chosen from each layout's own paints.
+# None means a monochrome design: a single independent vivid Hook color is allowed.
+BASE_ROLES = {
+ '3870':'#e8a1bb','3871':None,'3872':'#96383d','3873':None,
+ '3877':'#38866a','3878':None,'3879':'#dbc340',
+ '3880':'#e9262c','3881':'#d18c77','3882':'#ce711c',
+ '3883':'#ec4051','3884':'#78bfd4','3885':None,'3886':'#eddb46',
+ '3887':'#bc4d59','3888':'#299bc4','3889':'#fc7b18',
+ '3890':'#b85c47','3891':None,'3892':'#24aeb7','3893':'#4db1c4',
+ '3894':'#b44b58','3895':'#2496c2','3896':'#e1cc3b',
+ '3897':None,'3898':None,'3899':'#e9222a',
+ '3900':'#5264b3','3901':'#d68d43','3902':None,'3903':'#e9222a',
+ '3904':'#368bc0','3905':'#e9222a','3907':'#dbc340','3908':'#ce711c'
+}
+def hook_base(ident,mapping,angle):
+ import colorsys
+ source=BASE_ROLES[ident]
+ if source is not None:return mapping[source]
+ return '#%02x%02x%02x'%tuple(round(v*255) for v in colorsys.hsv_to_rgb((angle/360)%1,.9,.98))

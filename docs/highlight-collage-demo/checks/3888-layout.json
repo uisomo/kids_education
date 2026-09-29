@@ -1,9 +1,8 @@
 {
   "hookColors": [
-    "#fb08e8",
-    "#0bf983",
-    "#fb0b13"
+    "#1ee66b"
   ],
+  "hookColorSource": "#299bc4",
   "allRenderedText": [
     "正拳突き　空手　09.25",
     "正拳突き　空手　09.25",
@@ -28,11 +27,11 @@
     "き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 307.1820382648752,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -300,7 +299,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "full",
-      "tone": "#09fa66",
+      "tone": "#1ee66b",
       "polygon": null
     },
     {
@@ -320,7 +319,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "full",
-      "tone": "#09fa66",
+      "tone": "#1ee66b",
       "polygon": null
     },
     {
@@ -340,7 +339,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "full",
-      "tone": "#09fa66",
+      "tone": "#1ee66b",
       "polygon": null
     }
   ],

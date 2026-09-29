@@ -10,7 +10,8 @@ for ident in [e['id'] for e in m['renders']]:
  layout=json.loads((q/f'{ident}-layout.json').read_text())
  assert not any(re.search(r'[A-Za-z]',t) for t in layout['allRenderedText']),ident
  assert all(n in {'2026','09','25'} for t in layout['allRenderedText'] for n in re.findall(r'\d+',t)),ident
- assert layout['palette']['selection']=='random bright brand palette per render'
+ assert layout['palette']['selection']=='random hue per selection, retained on revision'
+ assert len(layout['hookColors'])==1
  assert all(t['scaleX']==t['scaleY']==1 for t in layout['typography'])
  assert len({slot['sourceFrame'] for slot in layout['slots']})==len(layout['slots'])
  if ident=='3903':assert len(layout['slots'])==15

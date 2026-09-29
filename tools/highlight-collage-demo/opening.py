@@ -28,7 +28,7 @@ def compose(base,frame,t,ident,style=None):
   for j,line in enumerate(HOOK_TEXT):
    box=d.textbbox((0,0),line,font=f,stroke_width=7)
    x=(720-f.getlength(line))/2;y=610+(j-1)*(size+22)-(box[1]+box[3])/2
-   fill=fills[j%len(fills)]
+   fill=fills[0]
    d.text((x+5,y+9),line,font=f,fill=fill,stroke_width=10,stroke_fill=fill)
    d.text((x,y),line,font=f,fill=fill,stroke_width=6,stroke_fill='#171717')
   d.rounded_rectangle((537,834,710,1157),radius=9,fill='#14151a')

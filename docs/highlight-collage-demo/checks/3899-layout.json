@@ -1,18 +1,17 @@
 {
   "hookColors": [
-    "#fb0881",
-    "#0bf9e8",
-    "#fb680b"
+    "#f61685"
   ],
+  "hookColorSource": "#e9222a",
   "allRenderedText": [
     "正拳突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 332.6759712004646,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [
     {
@@ -23,7 +22,7 @@
         253,
         472
       ],
-      "tone": "#f6f6f6"
+      "tone": "#ebe3cc"
     },
     {
       "asset": "izzy-stand",
@@ -33,7 +32,7 @@
         220,
         246
       ],
-      "tone": "#f6f6f6"
+      "tone": "#ebe3cc"
     }
   ],
   "textPolicy": {

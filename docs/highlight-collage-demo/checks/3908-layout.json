@@ -1,18 +1,17 @@
 {
   "hookColors": [
-    "#fba208",
-    "#180bf9",
-    "#7ffb0b"
+    "#caea14"
   ],
+  "hookColorSource": "#ce711c",
   "allRenderedText": [
     "2026.09.25"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 40.32887617247846,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {

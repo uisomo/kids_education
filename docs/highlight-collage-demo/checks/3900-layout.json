@@ -1,9 +1,8 @@
 {
   "hookColors": [
-    "#08fb28",
-    "#f90b75",
-    "#0bf7fb"
+    "#dd4446"
   ],
+  "hookColorSource": "#5264b3",
   "allRenderedText": [
     "正拳突き",
     "09.25",
@@ -16,11 +15,11 @@
     "2026.09.25"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 130.31885634110125,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {

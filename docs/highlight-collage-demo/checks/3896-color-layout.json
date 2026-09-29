@@ -1,9 +1,8 @@
 {
   "hookColors": [
-    "#fb0823",
-    "#0baef9",
-    "#fbc50b"
+    "#f3cb28"
   ],
+  "hookColorSource": "#e1cc3b",
   "allRenderedText": [
     "正",
     "拳",
@@ -13,11 +12,11 @@
     "2026"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 355.86022874776876,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -263,7 +262,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 0
@@ -500,7 +499,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 1,
@@ -738,7 +737,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 2
@@ -975,7 +974,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 3
@@ -1212,7 +1211,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 4,
@@ -1450,7 +1449,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 5
@@ -1687,7 +1686,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 6
@@ -1924,7 +1923,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 7,
@@ -2162,7 +2161,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 8
@@ -2399,7 +2398,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 9
@@ -2636,7 +2635,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 10,
@@ -2874,7 +2873,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 11
@@ -3111,7 +3110,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#a4a5a2",
       "clip": "rectangle",
       "rotation": 0,
       "z": 12

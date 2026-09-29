@@ -1,18 +1,17 @@
 {
   "hookColors": [
-    "#08fb45",
-    "#f90b58",
-    "#0bdafb"
+    "#19fa5a"
   ],
+  "hookColorSource": "single independent color for neutral design",
   "allRenderedText": [
     "正拳突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 137.41534530447078,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {

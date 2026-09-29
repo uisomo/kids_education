@@ -1,18 +1,17 @@
 {
   "hookColors": [
-    "#0894fb",
-    "#f9d50b",
-    "#550bfb"
+    "#328ece"
   ],
+  "hookColorSource": "#96383d",
   "allRenderedText": [
     "正拳突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 207.92377697463775,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -258,7 +257,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#84817b",
       "clip": "rectangle",
       "rotation": 0,
       "z": 0
@@ -495,7 +494,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#84817b",
       "clip": "rectangle",
       "rotation": 0,
       "z": 1
@@ -732,7 +731,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#84817b",
       "clip": "rectangle",
       "rotation": 0,
       "z": 2
@@ -969,7 +968,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#84817b",
       "clip": "rectangle",
       "rotation": 0,
       "z": 3
@@ -1206,7 +1205,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#84817b",
       "clip": "rectangle",
       "rotation": 0,
       "z": 4
@@ -1443,7 +1442,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#84817b",
       "clip": "rectangle",
       "rotation": 0,
       "z": 5
@@ -1680,7 +1679,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#b2aba1",
       "clip": "mask",
       "rotation": 0,
       "z": 6
@@ -1917,7 +1916,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#b2aba1",
       "clip": "mask",
       "rotation": 0,
       "z": 7
@@ -2154,7 +2153,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#b2aba1",
       "clip": "mask",
       "rotation": 0,
       "z": 8
@@ -2391,7 +2390,7 @@
           ]
         ]
       },
-      "background": "#f6f6f6",
+      "background": "#b2aba1",
       "clip": "mask",
       "rotation": 0,
       "z": 9

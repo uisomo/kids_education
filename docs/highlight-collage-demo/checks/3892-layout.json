@@ -1,18 +1,17 @@
 {
   "hookColors": [
-    "#08a6fb",
-    "#f9c40b",
-    "#440bfb"
+    "#df741c"
   ],
+  "hookColorSource": "#24aeb7",
   "allRenderedText": [
     "正拳突き"
   ],
   "palette": {
-    "selection": "random bright brand palette per render",
+    "selection": "random hue per selection, retained on revision",
     "brandBase": "#ffd166",
     "hueRotation": 203.5250801402231,
     "space": "HSV (logo vividness); OKLab only for neutral classification",
-    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
   },
   "characters": [],
   "textPolicy": {
@@ -280,7 +279,7 @@
       ],
       "clip": "master-person-alpha + polygon",
       "colorPattern": "full",
-      "tone": "#670af8",
+      "tone": "#6a23d6",
       "polygon": [
         [
           0,
@@ -337,7 +336,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "right-half",
-      "tone": "#f97609",
+      "tone": "#df741c",
       "polygon": null
     },
     {
@@ -357,7 +356,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "full",
-      "tone": "#670af8",
+      "tone": "#6a23d6",
       "polygon": null
     },
     {
@@ -434,7 +433,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "gradient",
-      "tone": "#0a21fa",
+      "tone": "#2336ef",
       "polygon": null
     },
     {
@@ -454,7 +453,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "right-half",
-      "tone": "#f97609",
+      "tone": "#df741c",
       "polygon": null
     },
     {
@@ -474,7 +473,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "diagonal",
-      "tone": "#670af8",
+      "tone": "#6a23d6",
       "polygon": null
     },
     {
@@ -531,7 +530,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "left-half",
-      "tone": "#0a21fa",
+      "tone": "#2336ef",
       "polygon": null
     },
     {
@@ -551,7 +550,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "full",
-      "tone": "#f62e0e",
+      "tone": "#c34f3c",
       "polygon": null
     },
     {
@@ -571,7 +570,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "left-half",
-      "tone": "#f62e0e",
+      "tone": "#c34f3c",
       "polygon": null
     },
     {
@@ -611,7 +610,7 @@
       ],
       "clip": "master-person-alpha",
       "colorPattern": "full",
-      "tone": "#0a21fa",
+      "tone": "#2336ef",
       "polygon": null
     }
   ],
