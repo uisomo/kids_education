@@ -15,7 +15,7 @@ import { renderDoneScreen, type BeltMissReason, type DoneBeltResult } from "./ui
 import { COUNTDOWN_SOUNDS, playCountdownIntro } from "./ui/countdown-intro";
 import { renderLoadingScreen } from "./ui/loading-screen";
 import {
-  latestKufu, kufuNotes, addKufu, canAddKufu, removeKufu, removeKufuAt, clearAllKufu, countKufu,
+  kufuNotes, addKufu, canAddKufu, removeKufu, removeKufuAt, clearAllKufu, countKufu,
   renameKufu, pruneKufu, type KufuCaps,
 } from "./kufu-store";
 import { BELTS, beltLabel } from "./belt-store";
@@ -592,9 +592,8 @@ export class KarateApp {
         }
         this.showSetup();
       },
-      // 鳴らない理由が「イヤフォンが無い」ことでも 🔇 に見えるように、
-      // 選んだ設定ではなく いま鳴るかどうかを渡す（bgm-gate.ts）。
-      bgmMuted: this.deps.bgm ? this.deps.bgm.isMuted() : undefined,
+      // BGMボタンは完成動画に入れる選択設定。ライブ出力の制限は別表示。
+      bgmMuted: this.deps.bgm ? getBgmMuted(this.base()) : undefined,
       bgmNeedsHeadphones: bgmGate(this.deps.bgm)?.mutedByHeadphones(),
       onToggleBgm: this.deps.bgm
         ? () => {
@@ -1302,7 +1301,7 @@ export class KarateApp {
     this.holds = new Set();
     this.sessionEnding = false;
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
-    view.setBgmMuted(this.deps.bgm?.isMuted() ?? false);
+    view.setBgmMuted(getBgmMuted(this.base()));
 
     // 🪝 read-aloud hook: the words appear one by one (zoom-out + beep) before
     // anything else, so the saved video opens with the kid reading them.
@@ -1345,13 +1344,24 @@ export class KarateApp {
     this.deps.bgm?.play();
     if (this.deps.bgm) {
       this.overlayLog?.logSound({
-        kind: "bgm", playing: !this.deps.bgm.isMuted(), restart: true, src: this.deps.bgm.src,
+        kind: "bgm", playing: !getBgmMuted(this.base()), restart: true, src: this.deps.bgm.src,
       });
     }
     this.startRecTimer(view);
 
     const cuePlayer = new CuePlayer(this.deps.voiceStore, this.deps.audioSink);
 
+    let captionTick = 0;
+    let captions: string[] = [];
+    let shownCaption = "";
+    const showCaption = () => {
+      const beat = Math.floor(captionTick / 3) % (captions.length + 1);
+      const caption = beat === 0 ? captions.join("\n") : captions[beat - 1] ?? "";
+      if (caption === shownCaption) return;
+      shownCaption = caption;
+      view.setCaption(caption);
+      this.overlayLog?.setState({ caption });
+    };
     const handlers: SchedulerHandlers = {
       onDrillStart: (drill: Drill, index: number) => {
         this.currentRow = index;
@@ -1359,8 +1369,12 @@ export class KarateApp {
         // and counting it made a menu look twice as long as it practises.
         view.setDrill(drill, this.drillNumberAt(index), this.drillTotal());
         // Show + burn the drill name and its saved 工夫 reminder.
-        const caption = this.captionFor(drill);
+        captions = this.captionFor(drill).split("\n").filter(Boolean);
+        captionTick = 0;
+        shownCaption = "";
+        const caption = captions.join("\n");
         view.setCaption(caption);
+        shownCaption = caption;
         this.overlayLog?.setState({ drill: drill.name, caption, drillIndex: index });
         void cuePlayer.announce();
         const next = this.menu[index + 1];
@@ -1368,6 +1382,8 @@ export class KarateApp {
       },
       onTick: (secondsLeft: number) => {
         view.setTime(secondsLeft);
+        captionTick++;
+        showCaption();
         this.overlayLog?.setState({ seconds: secondsLeft });
       },
       onEncourage: () => {
@@ -1442,18 +1458,13 @@ export class KarateApp {
         return;
       }
       this.deps.bgm?.setMuted(next);
-      // 「入」にしても イヤフォンが無ければ鳴らない。記録するのは *鳴ったか* —
-      // ここで next を使うと、鳴っていない音楽が保存する動画に入ってしまう。
-      const audible = !(this.deps.bgm?.isMuted() ?? true);
-      view.setBgmMuted(!audible);
-      this.overlayLog?.logSound({ kind: "bgm", playing: audible });
+      // 画面は実際に鳴る状態、完成動画は本人が選んだBGM設定に従う。
+      view.setBgmMuted(next);
+      this.overlayLog?.logSound({ kind: "bgm", playing: !next });
     });
-    // 稽古のとちゅうで イヤフォンを抜いた/さした。音は gate が止めている（native の
-    // 一時停止）ので、ここでは 保存する動画の記録だけ合わせる。
-    this.bgmGateOff = bgmGate(this.deps.bgm)?.onHeadphoneChange((audible) => {
-      view.setBgmMuted(!audible);
-      if (this.paused) return;
-      this.overlayLog?.logSound({ kind: "bgm", playing: audible });
+    // Headphones control live monitoring; the saved soundtrack follows the chosen setting.
+    this.bgmGateOff = bgmGate(this.deps.bgm)?.onHeadphoneChange(() => {
+      view.setBgmMuted(getBgmMuted(this.base()));
     });
 
     this.scheduler = scheduler;
@@ -1492,10 +1503,11 @@ export class KarateApp {
     this.doneVideoUrl = null;
   }
 
-  // 工夫 caption for a drill: the child's latest saved note for this 種目,
+  // 工夫 caption for a drill: all three available notes for this 種目,
   // shown on-screen and burned into the recording.
   private captionFor(drill: Drill): string {
-    return latestKufu(drill.name, this.mem(), this.kufuCaps());
+    const notes = kufuNotes(drill.name, this.mem(), this.kufuCaps()).slice(0, 3);
+    return notes.map((note, i) => `${i + 1}. ${note}`).join("\n");
   }
 
   private startRecTimer(view: TrainingView): void {

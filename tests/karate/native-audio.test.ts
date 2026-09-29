@@ -97,8 +97,8 @@ it("audioRouteChanged で 出入りを追いかけ、変わったときだけ知
   expect(watcher.connected()).toBe(false);
 });
 
-it("audioRoute() の無い古い native ビルドでは、これまでどおり流す", () => {
+it("audioRoute() が無い場合はBGMを止める", () => {
   const { plugin } = fakePlugin();
   const watcher = makeNativeHeadphoneWatcher(plugin);
-  expect(watcher.connected()).toBe(true);
+  expect(watcher.connected()).toBe(false);
 });

@@ -89,7 +89,7 @@ export function renderTrainingScreen(
   bgmBtn.dataset.bgmToggle = "";
   bgmBtn.className = "bgm-toggle-btn";
   label(bgmBtn, "sound", "BGM", true);
-  bgmBtn.setAttribute("aria-label", "練習BGM on/off");
+  bgmBtn.setAttribute("aria-label", "動画のBGM on/off。練習中はイヤフォンで聞けます");
   // No BGM player (the piano app): the button would switch nothing.
   bgmBtn.hidden = !showBgm;
 
@@ -402,9 +402,18 @@ export function renderTrainingScreen(
     setCaption(text: string) {
       // No 「工夫:」 prefix on screen: the pill is narrow beside Next and the
       // child knows what it is. The saved video still labels it 💡 工夫.
+      if (captionEl.textContent === text) return;
       captionEl.textContent = text;
+      captionEl.style.whiteSpace = "pre-line";
+      if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        captionEl.animate?.([
+          { transform: "translateX(12px) scale(1.18)", opacity: 0 },
+          { transform: "translateX(0) scale(1)", opacity: 1 },
+        ], { duration: 320, easing: "ease-out" });
+      }
       captionEl.classList.toggle("show", !!text);
       fitCaption();
+      captionEl.style.whiteSpace = "pre-line";
     },
     setRecElapsed(text: string) {
       recEl.textContent = text;
@@ -412,6 +421,7 @@ export function renderTrainingScreen(
     setBgmMuted(muted: boolean) {
       label(bgmBtn, muted ? "mute" : "sound", "BGM", true);
       bgmBtn.classList.toggle("muted", muted);
+      bgmBtn.setAttribute("aria-pressed", String(!muted));
     },
     onPieceDone(cb: () => void) {
       pieceBtn.addEventListener("click", cb);

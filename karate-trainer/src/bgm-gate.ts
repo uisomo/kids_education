@@ -13,7 +13,7 @@
 import type { BgmPlayer } from "./app";
 
 export interface HeadphoneWatcher {
-  /// いまイヤフォンかどうか。分からないとき（ブラウザ）は true を返す。
+  /// いまイヤフォンかどうか。分からないとき（ブラウザ）は false を返す。
   connected(): boolean;
   /// さした/抜いたときに呼ばれる。返り値は購読をやめる関数。
   onChange(cb: (connected: boolean) => void): () => void;
@@ -28,7 +28,7 @@ export interface GatedBgmPlayer extends BgmPlayer {
   mutedByHeadphones(): boolean;
   /// イヤフォンの有無だけで鳴る/鳴らないが変わったときに呼ばれる。
   /// 子どもがボタンを押したときは呼ばれない（押した側で記録しているから）。
-  /// 稽古のとちゅうに抜いたことを、保存する動画の音の記録に残すために要る。
+  /// 画面のモニター状態だけを更新する。書き出し用の選択設定は変えない。
   onHeadphoneChange(cb: (audible: boolean) => void): () => void;
 }
 
@@ -88,9 +88,8 @@ export function withHeadphoneGate(
   };
 }
 
-/// ブラウザ用。出口が読めないので、いつも「つないでいる」とみなす
-/// （dev サーバーと Web 版で BGM が確かめられなくなるのを避ける）。
-export const alwaysConnected: HeadphoneWatcher = {
-  connected: () => true,
+/// 出口を確認できないブラウザではBGMを停止する。
+export const unknownOutputRoute: HeadphoneWatcher = {
+  connected: () => false,
   onChange: () => () => { /* 変わらない */ },
 };

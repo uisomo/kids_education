@@ -4,7 +4,7 @@
 // あいだは鳴らないが、さし直したら 子どもの選んだとおりに戻る。
 import { describe, expect, it } from "vitest";
 import {
-  alwaysConnected,
+  unknownOutputRoute,
   withHeadphoneGate,
   type HeadphoneWatcher,
 } from "../../karate-trainer/src/bgm-gate";
@@ -147,16 +147,16 @@ describe("BGM のイヤフォンゲート", () => {
 
   it("src と stop() はそのまま通る（保存する動画が同じ曲を混ぜられるように）", () => {
     const player = fakePlayer();
-    const bgm = withHeadphoneGate(player, alwaysConnected);
+    const bgm = withHeadphoneGate(player, unknownOutputRoute);
     expect(bgm.src).toBe("/characters/one-more-rounds.m4a");
     bgm.stop();
     expect(player.stops).toBe(1);
   });
 
-  it("ブラウザ（出口が読めない）ではこれまでどおり鳴る", () => {
+  it("ブラウザ（出口が読めない）ではBGMを止める", () => {
     const player = fakePlayer();
-    const bgm = withHeadphoneGate(player, alwaysConnected);
-    expect(bgm.isMuted()).toBe(false);
-    expect(bgm.mutedByHeadphones()).toBe(false);
+    const bgm = withHeadphoneGate(player, unknownOutputRoute);
+    expect(bgm.isMuted()).toBe(true);
+    expect(bgm.mutedByHeadphones()).toBe(true);
   });
 });

@@ -777,7 +777,19 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             if Self.parsePrivacy(saved["privacy"] as? [String: Any]).settings.isOn {
                 result["privacyPending"] = true
             } else {
-                result["rawUri"] = PendingSaves.url(job.rawName).absoluteString
+                let rawURL = PendingSaves.url(job.rawName)
+                var previewURL = rawURL
+                if let voiceName = job.voiceName {
+                    let preview = FileManager.default.temporaryDirectory.appendingPathComponent("\(id)-preview.mov")
+                    do {
+                        try await OverlayCompositor.remux(sourceURL: rawURL, outputURL: preview,
+                            voice: .init(url: PendingSaves.url(voiceName), leadSeconds: job.voiceLeadSeconds))
+                        previewURL = preview
+                    } catch {
+                        print("[KarateRecorder] voice preview unavailable: \(error)")
+                    }
+                }
+                result["rawUri"] = previewURL.absoluteString
             }
             if let reason = self.interruptionReason { result["interruption"] = reason }
             if job.voiceName != nil, let capture {

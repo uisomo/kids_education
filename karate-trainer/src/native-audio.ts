@@ -55,12 +55,12 @@ export function makeNativeBgm(
 //
 // 読めるまでは **つないでいない** とみなす: 分からないうちに スピーカーから
 // 音楽が鳴り出すほうが困る。古い native ビルドに audioRoute() が無いときは、
-// これまでどおり流す（イヤフォンの決まりが入る前の動き）。
+// 安全側に倒して停止する。
 export function makeNativeHeadphoneWatcher(
   plugin: KarateRecorderPluginLike = karateRecorderPlugin(),
 ): HeadphoneWatcher {
   const unsupported = typeof plugin.audioRoute !== "function";
-  let connected = unsupported;
+  let connected = false;
   const listeners = new Set<(connected: boolean) => void>();
   const update = (next: boolean) => {
     if (next === connected) return;

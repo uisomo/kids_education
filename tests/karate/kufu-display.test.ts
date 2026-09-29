@@ -4,6 +4,10 @@ import { it, expect, vi, beforeEach } from "vitest";
 import { KarateApp } from "../../karate-trainer/src/app";
 import { VoiceStore, type KvAdapter } from "../../karate-trainer/src/voice-store";
 import { withHeadphoneGate, type HeadphoneWatcher } from "../../karate-trainer/src/bgm-gate";
+import { addKufu } from "../../karate-trainer/src/kufu-store";
+import { setPlan } from "../../karate-trainer/src/plan-store";
+import { getActiveId } from "../../karate-trainer/src/member-store";
+import { scopedStorage } from "../../karate-trainer/src/scoped-storage";
 import type { BgmPlayer } from "../../karate-trainer/src/app";
 
 function memKv(): KvAdapter {
@@ -52,6 +56,7 @@ async function runSession(headphones: boolean) {
   const stop = vi.fn().mockResolvedValue(new Blob(["v"]));
   const hp = watcher(headphones);
   const bgm = withHeadphoneGate(fakePlayer(), hp.hp);
+  setPlan("suite");
   const app = new KarateApp(root, {
     voiceStore: store,
     audioSink: { playUrl: vi.fn().mockResolvedValue(undefined), beep: vi.fn().mockResolvedValue(undefined), speak: vi.fn().mockResolvedValue(undefined) },
@@ -67,63 +72,36 @@ async function runSession(headphones: boolean) {
     shareRecording: vi.fn().mockResolvedValue(undefined),
     bgm,
     introStepMs: 0,
-    menuOverride: [{ id: "a", name: "前蹴り", seconds: 3, kind: "drill" }],
+    menuOverride: [{ id: "a", name: "前蹴り", seconds: 15, kind: "drill" }],
   });
   await app.start();
+  const member = scopedStorage(localStorage, getActiveId());
+  for (const note of ["ひざを上げる", "目を見る", "手をもどす"]) addKufu("前蹴り", note, member);
   root.querySelector<HTMLButtonElement>("[data-start]")!.click();
   await new Promise((r) => setTimeout(r, 0));   // camera
   await new Promise((r) => setTimeout(r, 0));   // intro → Go!!
   return {
     root, stop, hp, bgm,
+    tick() { loopCb!(1000); },
     async finish() {
-      for (let t = 0; t < 3500; t += 250) loopCb!(250);
+      for (let t = 0; t < 15500; t += 250) loopCb!(250);
       await new Promise((r) => setTimeout(r, 0));
       return (stop.mock.calls[0][3] ?? []) as { kind: string; playing?: boolean; t: number }[];
     },
   };
 }
 
-const bgmEvents = (sounds: { kind: string; playing?: boolean }[]) =>
-  sounds.filter((s) => s.kind === "bgm").map((s) => s.playing);
-
-it("イヤフォンなしでも、選んだBGMを動画用に記録する", async () => {
+it("3つの工夫を全件・個別で表示し、同じ内容を動画へ記録する", async () => {
   const s = await runSession(false);
-  const sounds = await s.finish();
-  expect(bgmEvents(sounds)).toEqual([true, false]);
-  expect(s.bgm.isMuted()).toBe(true);
-});
-
-it("イヤフォンがあれば、これまでどおり「鳴っている」と記録する", async () => {
-  const s = await runSession(true);
-  const sounds = await s.finish();
-  expect(bgmEvents(sounds)[0]).toBe(true);
-});
-
-it("イヤフォンなしの切・入操作も、動画用設定に記録する", async () => {
-  const s = await runSession(false);
-  const btn = s.root.querySelector<HTMLButtonElement>("[data-bgm-toggle]")!;
-  // いまは「切」の状態（bgm-store は空 = 入 なので、1回目の押しで「切」になる）。
-  btn.click();   // 切
-  btn.click();   // 入 ← イヤフォンが無いので鳴らない
-  const sounds = await s.finish();
-  expect(bgmEvents(sounds)).toEqual([true, false, true, false]);
-  // 中の player も鳴らされていない。
-  expect(s.bgm.isMuted()).toBe(true);
-});
-
-it("イヤフォンを抜いても動画のBGMを途中で切らない", async () => {
-  const s = await runSession(true);
-  expect(s.bgm.isMuted()).toBe(false);
-  s.hp.set(false);                       // 抜いた
-  expect(s.bgm.isMuted()).toBe(true);
-  const sounds = await s.finish();
-  const events = bgmEvents(sounds);
-  expect(events).toEqual([true, false]); // Only start and session end, no route-change event.
-});
-
-it("途中でイヤフォンを挿しても動画のBGMを再開・重複させない", async () => {
-  const s = await runSession(false);
-  s.hp.set(true);
-  expect(s.bgm.isMuted()).toBe(false);
-  expect(bgmEvents(await s.finish())).toEqual([true, false]);
+  const caption = () => s.root.querySelector("[data-caption]")?.textContent ?? "";
+  const notes = ["ひざを上げる", "目を見る", "手をもどす"];
+  notes.forEach((note) => expect(caption()).toContain(note));
+  const seen = new Set<string>();
+  for (let t = 0; t < 12; t++) { s.tick(); seen.add(caption()); }
+  for (const note of notes) expect([...seen].some((text) => text.includes(note) && !text.includes("\n"))).toBe(true);
+  await s.finish();
+  const events = s.stop.mock.calls[0][0] as { patch: { caption?: string } }[];
+  const recorded = events.map((e) => e.patch.caption).filter((s): s is string => !!s);
+  expect(recorded.some((text) => notes.every((note) => text.includes(note)))).toBe(true);
+  for (const note of notes) expect(recorded.some((text) => text.includes(note) && !text.includes("\n"))).toBe(true);
 });

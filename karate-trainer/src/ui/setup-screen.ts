@@ -96,7 +96,7 @@ export interface SetupDeps {
   onRenameKufu?(from: string, to: string): void;
   // Practice BGM on/off, shown next to the drill total. Omit bgmMuted/onToggleBgm
   // together to hide the button (e.g. no bgm player configured).
-  // bgmMuted is 「いま鳴らない」 — which includes イヤフォンが無いこと.
+  // bgmMuted is the chosen movie soundtrack setting; monitoring is separate.
   bgmMuted?: boolean;
   // 鳴らない理由が イヤフォンが無いことのとき true。ボタンに 🎧 を出して、
   // 「押しても鳴らない」ではなく「つければ鳴る」と分かるようにする。
@@ -520,9 +520,10 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
     bgmBtn.append(deps.bgmMuted || needsHeadphones ? plainIcon(bgmIcon, "s") : icon(bgmIcon, "ic", "dark"), BGM_LABEL);
     bgmBtn.setAttribute(
       "aria-label",
-      needsHeadphones ? "練習BGM — イヤフォンをつけると流れます" : "練習BGM on/off",
+      needsHeadphones ? "動画のBGMはオン。練習中はイヤフォンで聞けます" : "動画のBGM on/off",
     );
-    if (needsHeadphones) bgmBtn.title = "イヤフォンをつけると BGM が流れます";
+    if (needsHeadphones) bgmBtn.title = "動画にはBGMが入ります。練習中はイヤフォンで聞けます";
+    bgmBtn.setAttribute("aria-pressed", String(!deps.bgmMuted));
     bgmBtn.addEventListener("click", () => deps.onToggleBgm!());
     controls.append(bgmBtn);
   }

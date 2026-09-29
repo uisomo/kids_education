@@ -97,7 +97,7 @@ public enum VideoEffectsExporter {
         }
         guard session.supportedFileTypes.contains(.mp4) else { throw FXError.unsupported("MP4 export is not supported for this source.") }
         session.outputURL = destinationURL; session.outputFileType = .mp4
-        session.videoComposition = composition; session.shouldOptimizeForNetworkUse = true
+        session.videoComposition = composition; session.shouldOptimizeForNetworkUse = false // Local playback: avoid a post-export fast-start rewrite.
         session.metadata = []
         let cancellation = ExportCancellation()
         let poll = Task.detached(priority: .utility) {

@@ -376,10 +376,10 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       // ものと保存されたものが違う動画になる。
       setSaveEnabled(false);
       void fx.apply((phase, fraction) => {
-        const pct = Math.floor(fraction * 100);
+        const pct = Math.min(99, Math.floor(fraction * 100));
         // ピアノは **音** を聞いて作る（体は見ない）ので、言葉を変える。
         status.textContent = phase === "exporting"
-          ? `✨ ${fx.name} を つけているよ… ${pct}%`
+          ? (fraction >= 0.99 ? "動画ファイルを しあげているよ…" : `✨ ${fx.name} を つけているよ… ${pct}%`)
           : `${IS_PIANO ? "音を 聞いているよ" : "うごきを 見ているよ"}… ${pct}%`;
       }).then((result) => {
         made = result;
@@ -476,8 +476,8 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
     dl.dataset.finishStatus = "";
     dl.classList.add("is-finishing");
     const paint = (fraction: number) => {
-      const pct = Math.floor(fraction * 100);
-      dlText.textContent = `仕上げ中… ${pct}%`;
+      const pct = Math.min(99, Math.floor(fraction * 100));
+      dlText.textContent = fraction >= 0.99 ? "動画ファイルを確認中…" : `仕上げ中… ${pct}%`;
       dlFill.style.width = `${pct}%`;
     };
     const finished = () => {

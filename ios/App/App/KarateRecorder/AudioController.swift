@@ -32,6 +32,27 @@ enum AudioRoute {
 final class AudioController {
     private let engine = AVAudioEngine()
     private let musicNode = AVAudioPlayerNode()
+    private var monitoredMusicVolume: Float = 0
+    private var musicRouteObserver: NSObjectProtocol?
+    private static var musicHeadphonesConnected: Bool {
+        let ports: Set<AVAudioSession.Port> = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio]
+        return AVAudioSession.sharedInstance().currentRoute.outputs.contains { ports.contains($0.portType) }
+    }
+    private func updateMonitoredMusic() {
+        musicNode.volume = Self.musicHeadphonesConnected ? monitoredMusicVolume : 0
+    }
+    private func observeMusicRoute() {
+        guard musicRouteObserver == nil else { return }
+        musicRouteObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification, object: nil, queue: nil
+        ) { [weak self] _ in
+            self?.queue.async { [weak self] in self?.updateMonitoredMusic() }
+        }
+    }
+    deinit {
+        if let musicRouteObserver { NotificationCenter.default.removeObserver(musicRouteObserver) }
+    }
+
     private let clipNodes = [AVAudioPlayerNode(), AVAudioPlayerNode()]
     private var nextClipNode = 0
     /// Bumped on every play/stop so a stale completion callback (stop() fires
@@ -240,7 +261,9 @@ final class AudioController {
             musicGeneration += 1
             musicNode.stop()
             engine.connect(musicNode, to: engine.mainMixerNode, format: file.processingFormat)
-            musicNode.volume = volume
+            monitoredMusicVolume = volume
+            observeMusicRoute()
+            updateMonitoredMusic()
             scheduleMusic(file, generation: musicGeneration)
             if !engine.isRunning { try engine.start() }
             musicNode.play()

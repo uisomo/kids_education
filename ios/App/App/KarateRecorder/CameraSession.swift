@@ -394,7 +394,9 @@ final class CameraSession: NSObject {
             let stale = self.previewGeneration != generation
             self.stateLock.unlock()
             if !stale {
-                try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+                let audio = AVAudioSession.sharedInstance()
+                try? audio.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try? audio.setActive(true)
             }
         }
         previewView?.removeFromSuperview()

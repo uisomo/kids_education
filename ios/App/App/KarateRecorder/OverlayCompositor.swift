@@ -687,7 +687,7 @@ enum OverlayCompositor {
         let width = designPanelWidth * scale
         let shadow = textShadow(scale)
         let titleFont = playfulFont(24 * scale)
-        let bodyFont = playfulFont(27 * scale, heavy: false)
+        let bodyFont = playfulFont((text.contains("\n") ? 23 : 27) * scale, heavy: false)
 
         // Word wrapping, truncated only on the last line that fits (see the
         // draw options): .byTruncatingTail alone forced a single line, which
@@ -716,7 +716,7 @@ enum OverlayCompositor {
         } else {
             content = body
         }
-        let maxLines: CGFloat = inline ? 2 : 5
+        let maxLines: CGFloat = text.contains("\n") ? (inline ? 4 : 9) : (inline ? 2 : 5)
         let textWidth = width - pad * 2
         let maxBodyH = ceil(bodyFont.lineHeight * maxLines + wrapping.lineSpacing * (maxLines - 1))
         let bodyH = min(maxBodyH, ceil(content.boundingRect(
@@ -1175,6 +1175,16 @@ enum OverlayCompositor {
                     layer = labelLayer(text: text, style: itemStyle, renderSize: renderSize)
                 }
                 applyVisibility(to: layer, windows: spans, totalMs: totalDurationMs)
+                if region == .caption, !UIAccessibility.isReduceMotionEnabled {
+                    for (index, span) in spans.enumerated() {
+                        let zoom = CABasicAnimation(keyPath: "transform.scale")
+                        zoom.fromValue = 1.18
+                        zoom.toValue = 1
+                        zoom.beginTime = AVCoreAnimationBeginTimeAtZero + span.start / 1000
+                        zoom.duration = min(0.32, (span.end - span.start) / 1000)
+                        layer.add(zoom, forKey: "kufuZoom-\(index)")
+                    }
+                }
                 container.addSublayer(layer)
             }
         }

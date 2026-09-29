@@ -57,7 +57,14 @@ export function renderOverlayFrame(
     });
   });
   if (cue) drawLabel(ctx, cue, CANVAS_W / 2, CANVAS_H / 2, 72, "#ffd166", "rgba(214,48,49,0.85)");
-  if (caption) drawLabel(ctx, caption, CANVAS_W / 2, CANVAS_H - 90, 34, "#1a162b", "rgba(255,209,102,0.92)");
+  if (caption) {
+    const notes = caption.split("\n");
+    notes.forEach((note, i) => {
+      const font = Math.min(24, 270 / Math.max(1, [...note].length));
+      drawLabel(ctx, note, CANVAS_W * 0.75, CANVAS_H - 170 + i * 44,
+        font, "#1a162b", "rgba(255,209,102,0.92)");
+    });
+  }
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

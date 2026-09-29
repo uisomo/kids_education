@@ -12,7 +12,7 @@ import {
 } from "./native-recorder";
 import { makeBackupScheduler, mirroredStorage, nativeBackupFile, restoreIfEmpty } from "./storage-backup";
 import { makeNativeBgm, makeNativeHeadphoneWatcher, playNativeClip } from "./native-audio";
-import { alwaysConnected, withHeadphoneGate } from "./bgm-gate";
+import { unknownOutputRoute, withHeadphoneGate } from "./bgm-gate";
 import { Capacitor } from "@capacitor/core";
 import { appBilling } from "./billing";
 import { TEST_BUILD_MARKER, TEST_MODE } from "./test-mode";
@@ -130,7 +130,7 @@ function makeBgm(): BgmPlayer {
 function makeGatedBgm(): BgmPlayer {
   return isNative
     ? withHeadphoneGate(makeNativeBgm(BGM_SRC, BGM_GAIN), makeNativeHeadphoneWatcher())
-    : withHeadphoneGate(makeBgm(), alwaysConnected);
+    : withHeadphoneGate(makeBgm(), unknownOutputRoute);
 }
 
 const tickLoop = makeTickLoop();
