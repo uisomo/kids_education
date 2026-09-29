@@ -185,7 +185,7 @@ export function trialLength(unit, count) {
  * アプリの 課金を つくる。
  *   app       APPS の key（"kimochi" など）
  *   apiKey    RevenueCat の 公開キー（appl_… 本番 / test_… Test Store）。"" なら 売らない（未設定）。iPhone の 中 でなければ つかわない
- *   testBuild テスト版：お店に つながず、プランは スイート（ぜんぶ ためせる）
+ *   testBuild テスト版：お店に つながず、プランは ファミリー（子ども5人・ぜんぶ ためせる）
  *   loadSdk   RevenueCat の Purchases を かえす（Vite：() => import("@revenuecat/purchases-capacitor").then(m => m.Purchases)）
  *             わたさなければ window.Capacitor の プラグイン（バンドラーの ない おかね）
  *   aliases   お店の 商品ID → アプリの中の 名前（空手の RevenueCat Test Store の monthly など）
@@ -203,7 +203,7 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
     let saved = null;
     try { saved = localStorage.getItem(planKey); } catch { /* ignore */ }
     if (isPlan(saved)) return saved;
-    return testBuild ? "suite" : "free";
+    return testBuild ? "family" : "free";
   };
   const setPlan = (plan) => {
     try { localStorage.setItem(planKey, plan); } catch { /* ignore */ }
