@@ -17,6 +17,10 @@ karate-trainer/public/characters/*.wav
 .claude/worktrees/
 .serena/cache/
 
+# Local iOS build output: xcodebuild -derivedDataPath (build/dd*) と
+# ビルドログ (prod.log / test.log)。すべて再生成できるのでコミットしない。
+build/
+
 # Local env (RevenueCat SDK keys)
 *.local
 
