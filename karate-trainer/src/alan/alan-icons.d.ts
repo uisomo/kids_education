@@ -4,7 +4,10 @@ export type IconName =
   | "pause" | "random" | "share" | "save" | "add" | "check" | "star" | "flame"
   | "gift" | "new" | "film" | "chart" | "child" | "family" | "letter" | "idea"
   | "mic" | "headphones" | "trash" | "lock" | "settings" | "sound" | "mute" | "help"
-  | "sparkle";
+  | "sparkle" | "frame" | "why" | "split" | "empathy" | "system" | "diverge" | "decide"
+  | "future" | "experiment" | "situation" | "prep" | "claim" | "ladder" | "persuade" | "bridge"
+  | "burden" | "swan" | "fallacy" | "hammer" | "rebut" | "steelman" | "impact" | "megaphone"
+  | "swap";
 
 export type GlossyColor =
   | "grey" | "cyan" | "blue" | "green" | "pink" | "orange" | "yellow" | "purple" | "red" | "white" | "brand";

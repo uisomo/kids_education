@@ -28,7 +28,7 @@
   --a-btn-ink: #1d1b18;    /* 白い ボタン（.a-btn）の 文字。暗い 地の アプリでも かえない */
   --a-series: #e5243b;     /* アランの 色（キャラの 赤）。「アランの〇〇」の しるし・ロゴの ピル */
   /* スイート（アランの アプリ ぜんぶ）＝ アプリの 色を ぜんぶ ならべた にじ（SERIES_GUIDE 5.2f） */
-  --a-suite: linear-gradient(90deg, #ffd166, #ff8a3d, #e5243b, #ff7aa8, #b04fd6, #6c4ee0, #3f8fd6, #14a89c, #58cc02);
+  --a-suite: linear-gradient(90deg, #ffd166, #ff8a3d, #e5243b, #ff7aa8, #d345bc, #b04fd6, #6c4ee0, #3f8fd6, #14a89c, #1fad42, #58cc02);
   --a-font: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Hiragino Sans", system-ui, sans-serif;
   --a-r-pill: 999px;
   --a-r-card: 20px;        /* カード 18〜22 */

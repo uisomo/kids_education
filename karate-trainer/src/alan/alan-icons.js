@@ -62,6 +62,32 @@ export const ICONS = {
   mute:     { color: "grey",   label: "おと なし", svg: `<path d="M4 9.4h3.4L12 5.4v13.2l-4.6-4H4z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M15.6 9.4l5 5M20.6 9.4l-5 5" ${S} stroke-width="2.4"/>` },
   help:     { color: "blue",   label: "あそびかた", svg: `<path d="M9 9.2a3 3 0 1 1 4.4 2.7c-.9.5-1.4 1.1-1.4 2.1v.6" ${S} stroke-width="2.8"/><circle cx="12" cy="18.2" r="1.7" fill="currentColor"/>` },
   sparkle:  { color: "pink",   label: "えんしゅつ", svg: `<path d="M10 3.5l1.7 4.8 4.8 1.7-4.8 1.7L10 16.5l-1.7-4.8L3.5 10l4.8-1.7z" fill="currentColor"/><path d="M17.5 13.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" fill="currentColor"/>` },
+  // ── 考え方の 道具（アランの解決。PLAN 1章） ──
+  frame:    { color: "red",    label: "ほんとうの もんだい", svg: `<circle cx="12" cy="12" r="8" ${S} stroke-width="2.6"/><circle cx="12" cy="12" r="4.4" ${S} stroke-width="2.4"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>` },
+  why:      { color: "blue",   label: "なぜを ほる", svg: `<circle cx="10.4" cy="10.4" r="5.4" ${S} stroke-width="2.8"/><path d="M14.6 14.6l5 5" ${S} stroke-width="3.2"/>` },
+  split:    { color: "orange", label: "わけてみる", svg: `<path d="M5 9h3.2a2.2 2.2 0 1 1 4.4 0H16v3.4a2.2 2.2 0 1 1 0 4.4V20H5z" fill="currentColor"/>` },
+  empathy:  { color: "pink",   label: "その人に なる", svg: `<path d="M12 20.2s-7.6-4.6-7.6-10a4.2 4.2 0 0 1 7.6-2.5 4.2 4.2 0 0 1 7.6 2.5c0 5.4-7.6 10-7.6 10z" fill="currentColor"/>` },
+  system:   { color: "purple", label: "つながり", svg: `<path d="M12 5.6 5.6 17.4h12.8z" ${S} stroke-width="2.2"/><circle cx="12" cy="5.6" r="2.6" fill="currentColor"/><circle cx="5.6" cy="17.4" r="2.6" fill="currentColor"/><circle cx="18.4" cy="17.4" r="2.6" fill="currentColor"/>` },
+  diverge:  { color: "yellow", label: "アイデアを たくさん", svg: `<path d="M12 20v-9M12 11 7 6M12 11l5-5M12 11V4" ${S} stroke-width="2.6"/>` },
+  decide:   { color: "green",  label: "えらぶ", svg: `<path d="M12 4v15M6 7h12M8.6 19.4h6.8" ${S} stroke-width="2.4"/><path d="M3.4 12.6 6 7l2.6 5.6zM15.4 12.6 18 7l2.6 5.6z" fill="currentColor"/>` },
+  future:   { color: "cyan",   label: "そのあと", svg: `<circle cx="12" cy="10.4" r="6.4" fill="currentColor"/><path d="M7.4 19.6h9.2l-1.2-3H8.6z" fill="currentColor"/>` },
+  experiment: { color: "green", label: "ためす", svg: `<path d="M10 3.6h4M10.6 3.6v5.2L6 17a2.4 2.4 0 0 0 2.1 3.4h7.8A2.4 2.4 0 0 0 18 17l-4.6-8.2V3.6" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>` },
+  situation: { color: "grey",  label: "どんな もんだい", svg: `<circle cx="12" cy="12" r="8.2" ${S} stroke-width="2.4"/><path d="M12 5.8l1.6 4.6 4.6 1.6-4.6 1.6-1.6 4.6-1.6-4.6-4.6-1.6 4.6-1.6z" fill="currentColor"/>` },
+  // ── ディベートの わざ（アランのディベート。PLAN 1章。Issue Tree＝split・Weighing＝decide は 上の ものを つかう） ──
+  prep:     { color: "orange", label: "サンドイッチで 話す", svg: `<rect x="4" y="5" width="16" height="4.4" rx="2.2" fill="currentColor"/><rect x="4" y="10.4" width="16" height="3" rx="1.5" fill="currentColor"/><rect x="4" y="14.6" width="16" height="4.4" rx="2.2" fill="currentColor"/>` },
+  claim:    { color: "red",    label: "しょうこで ささえる", svg: `<path d="M6 21V4" ${S} stroke-width="2.6"/><path d="M6.8 4.6c3-1.4 5.4 1.6 11.6 0v8.2c-6.2 1.6-8.6-1.4-11.6 0z" fill="currentColor"/>` },
+  ladder:   { color: "yellow", label: "しょうこの はしご", svg: `<path d="M8 3.5v17M16 3.5v17M8 7.5h8M8 12h8M8 16.5h8" ${S} stroke-width="2.4"/>` },
+  persuade: { color: "pink",   label: "3つの ちから", svg: `<path d="M12 12V3.6A8.4 8.4 0 0 1 19.3 16.2z" fill="currentColor"/><path d="M11.2 12.8 18.5 17A8.4 8.4 0 0 1 4 16.9z" fill="currentColor"/><path d="M11 11.6 3.6 15.9A8.4 8.4 0 0 1 11 3.6z" fill="currentColor"/>` },
+  bridge:   { color: "blue",   label: "ささえの 6ピース", svg: `<path d="M3 17c3-6 15-6 18 0" ${S} stroke-width="2.8"/><path d="M5 12.6V19M19 12.6V19" ${S} stroke-width="2.6"/>` },
+  burden:   { color: "purple", label: "なにを しょうめい する", svg: `<path d="M9 8.2V7a3 3 0 0 1 6 0v1.2" ${S} stroke-width="2.4"/><circle cx="12" cy="14.4" r="6.4" fill="currentColor"/>` },
+  swan:     { color: "cyan",   label: "ほんとうに ぜんぶ", svg: `<path d="M9.2 9.6c0-3.2 1.4-5.2 3.4-5.2 1.6 0 2.4 1.2 2.4 2.2l2 .6-2.2.6c-.6 1.8-2.4 2.8-2.4 5.2 0 1 .8 1.6 2 1.6h4.4c-.4 3.2-3.4 5-7 5-3.8 0-6.6-2-6.6-4.6 0-2 1.6-3.4 4-3.4z" fill="currentColor"/>` },
+  fallacy:  { color: "green",  label: "ろんりの わな", svg: `<ellipse cx="12" cy="13.6" rx="5.2" ry="6.4" fill="currentColor"/><circle cx="12" cy="6.4" r="2.6" fill="currentColor"/><path d="M6.8 11 3.8 9.6M6.8 15H3.4M7.4 18.4l-2.6 1.8M17.2 11l3-1.4M17.2 15h3.4M16.6 18.4l2.6 1.8M10.6 4.4 9.2 2.6M13.4 4.4l1.4-1.8" ${S} stroke-width="1.8"/>` },
+  hammer:   { color: "grey",   label: "じぶんの 意見を テスト", svg: `<rect x="9.2" y="3.6" width="11" height="6.4" rx="2.2" transform="rotate(45 14.7 6.8)" fill="currentColor"/><path d="M11.6 11.4 4.6 18.4" ${S} stroke-width="3.2"/>` },
+  rebut:    { color: "red",    label: "はんろん", svg: `<path d="M18.6 4v9" ${S} stroke-width="2.6"/><path d="M3.6 8.2h11.2a2.6 2.6 0 0 1 2.6 2.6 2.6 2.6 0 0 1-2.6 2.6H5" ${S} stroke-width="2.6"/><path d="M8.2 10.2 5 13.4l3.2 3.2" ${S} stroke-width="2.6"/>` },
+  steelman: { color: "purple", label: "あいてを つよく する", svg: `<path d="M5 20c-.6-4.4.4-8.4 2.6-11.4l1.8-3.4 3 .8-1.4 3c1.6-.8 3.6-.6 4.6.6 1.8-.4 3.6.8 3.6 3 0 4-3.4 7.4-8.6 7.4z" fill="currentColor"/>` },
+  impact:   { color: "cyan",   label: "だから なに", svg: `<path d="M12 3.4c1.8 2.6 3 4.2 3 5.8a3 3 0 0 1-6 0c0-1.6 1.2-3.2 3-5.8z" fill="currentColor"/><ellipse cx="12" cy="17" rx="8.4" ry="3.2" ${S} stroke-width="2"/><ellipse cx="12" cy="17" rx="3.8" ry="1.3" fill="currentColor"/>` },
+  megaphone: { color: "pink",  label: "つたわる ことば", svg: `<path d="M4 9.6h3.4l8.6-4.8v14.4l-8.6-4.8H4z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.4 14.4 9 19.4" ${S} stroke-width="2.6"/><path d="M19 9.6v4.8" ${S} stroke-width="2.4"/>` },
+  swap:     { color: "orange", label: "ぎゃくの がわ", svg: `<path d="M5.4 10a7 7 0 0 1 12.2-3.2" ${S} stroke-width="2.6"/><path d="M18.4 3.6v3.8h-3.8" ${S} stroke-width="2.6"/><path d="M18.6 14a7 7 0 0 1-12.2 3.2" ${S} stroke-width="2.6"/><path d="M5.6 20.4v-3.8h3.8" ${S} stroke-width="2.6"/>` },
 };
 
 /** @typedef {keyof typeof ICONS} IconName */
