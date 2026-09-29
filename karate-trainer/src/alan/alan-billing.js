@@ -48,6 +48,7 @@ export const APPS = {
   eigo:    { name: "アランの英語",     bundleId: "com.alan.eigo",         prefix: "eigo_",    brand: "#14a89c", sells: ["premium", "family", "suite"], released: false },
   voice:   { name: "アランのボイス",   bundleId: "com.alan.voice",        prefix: "voice_",   brand: "#ff8a3d", sells: ["premium", "family", "suite"], released: false },
   dotoku:  { name: "アランの道徳",     bundleId: "com.alan.dotoku",       prefix: "dotoku_",  brand: "#6c4ee0", sells: ["premium", "family", "suite"], released: false },
+  kioku:   { name: "アランの記憶",     bundleId: "com.alan.kioku",        prefix: "kioku_",   brand: "#b04fd6", sells: ["premium", "family", "suite"], released: false },
   // ことばクラッシュは まだ 子どもごとに 分けていない（5.12 ⬜）→ ファミリーは 分けてから
   kotoba:  { name: "ことばクラッシュ", bundleId: "com.uk.kotobacrash",    prefix: "kotoba_",  brand: "#3f8fd6", sells: ["premium", "suite"], released: false },
 };

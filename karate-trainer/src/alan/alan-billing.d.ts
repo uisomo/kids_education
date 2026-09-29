@@ -3,7 +3,7 @@ export type Plan = "free" | "premium" | "family" | "suite";
 export type PaidPlan = Exclude<Plan, "free">;
 export type Period = "monthly" | "yearly";
 export type ProductId = `${PaidPlan}_${Period}`;
-export type AppKey = "karate" | "piano" | "kimochi" | "okane" | "eigo" | "voice" | "dotoku" | "kotoba";
+export type AppKey = "karate" | "piano" | "kimochi" | "okane" | "eigo" | "voice" | "dotoku" | "kioku" | "kotoba";
 
 export interface PlanInfo { label: string; members: number; rank: number; monthly: string | null; yearly: string | null }
 export interface AppInfo { name: string; bundleId: string; prefix: string; brand: string; sells: PaidPlan[]; released: boolean }
