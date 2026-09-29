@@ -1,0 +1,485 @@
+{
+  "hookColors": [
+    "#085dfb",
+    "#e8f90b",
+    "#8b0bfb"
+  ],
+  "allRenderedText": [
+    "正拳突き",
+    "正拳突き",
+    "正拳",
+    "突き",
+    "正拳",
+    "突き",
+    "正拳",
+    "突き",
+    "正拳",
+    "正拳",
+    "突き",
+    "09.25",
+    "2026.09.25"
+  ],
+  "palette": {
+    "selection": "random bright brand palette per render",
+    "brandBase": "#ffd166",
+    "hueRotation": 221.32960764958645,
+    "space": "HSV (logo vividness); OKLab only for neutral classification",
+    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+  },
+  "characters": [],
+  "textPolicy": {
+    "alphabet": "replace with source-grounded Japanese",
+    "decorativeNumbers": "recording date 2026.09.25"
+  },
+  "template": "3889",
+  "name": "中央を囲む7枠／切り抜き人物だけが枠を越える",
+  "canvas": [
+    720,
+    1280
+  ],
+  "slots": [
+    {
+      "sourceFrame": 19,
+      "part": "chest",
+      "destination": [
+        88,
+        250,
+        166,
+        297
+      ],
+      "sourceCrop": [
+        294.1291630268097,
+        32.61009183951785,
+        607.2569961547852,
+        614.133210505758
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        88,
+        250,
+        166,
+        297
+      ],
+      "personRect": [
+        80,
+        209,
+        182,
+        338
+      ],
+      "headRegionInPerson": [
+        4.630057476163252,
+        29.045056359902336,
+        186.79378223037398,
+        230.38390421539293
+      ],
+      "z": 0,
+      "background": "transparent person over halftone card"
+    },
+    {
+      "sourceFrame": 43,
+      "part": "chest",
+      "destination": [
+        269,
+        165,
+        253,
+        233
+      ],
+      "sourceCrop": [
+        116.4528522531865,
+        131.1768045425415,
+        486.539427276385,
+        519.7018566131592
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        269,
+        165,
+        253,
+        233
+      ],
+      "personRect": [
+        255,
+        103,
+        281,
+        295
+      ],
+      "headRegionInPerson": [
+        36.71523426493124,
+        -16.321270478850728,
+        243.45132699704047,
+        212.17651622505946
+      ],
+      "z": 1,
+      "background": "transparent person over halftone card"
+    },
+    {
+      "sourceFrame": 50,
+      "part": "chest",
+      "destination": [
+        469,
+        414,
+        211,
+        266
+      ],
+      "sourceCrop": [
+        198.46298439841013,
+        160.76645421981812,
+        488.5260897125747,
+        532.4490480422974
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        469,
+        414,
+        211,
+        266
+      ],
+      "personRect": [
+        459,
+        384,
+        231,
+        296
+      ],
+      "headRegionInPerson": [
+        7.029471715699065,
+        -15.55017141636101,
+        203.99832047894245,
+        202.15222841269315
+      ],
+      "z": 2,
+      "background": "transparent person over halftone card"
+    },
+    {
+      "sourceFrame": 47,
+      "part": "chest",
+      "destination": [
+        42,
+        567,
+        210,
+        294
+      ],
+      "sourceCrop": [
+        161.46265697479248,
+        220.82881494852032,
+        404.0337637066841,
+        538.8452659001736
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        42,
+        567,
+        210,
+        294
+      ],
+      "personRect": [
+        20,
+        528,
+        254,
+        333
+      ],
+      "headRegionInPerson": [
+        -6.345492828109675,
+        -11.960057382967948,
+        234.78323464005797,
+        254.55065974704738
+      ],
+      "z": 3,
+      "background": "transparent person over halftone card"
+    },
+    {
+      "sourceFrame": 23,
+      "part": "chest",
+      "destination": [
+        267,
+        412,
+        196,
+        451
+      ],
+      "sourceCrop": [
+        251.33440017700195,
+        -74.45080078731883,
+        585.4289174079895,
+        697.0038117278706
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        267,
+        412,
+        196,
+        451
+      ],
+      "personRect": [
+        255,
+        355,
+        220,
+        508
+      ],
+      "headRegionInPerson": [
+        0.44183028918621553,
+        79.25930595419604,
+        202.404298849584,
+        302.4809949192888
+      ],
+      "z": 4,
+      "background": "transparent person over halftone card"
+    },
+    {
+      "sourceFrame": 52,
+      "part": "chest",
+      "destination": [
+        468,
+        697,
+        164,
+        297
+      ],
+      "sourceCrop": [
+        225.01448929309845,
+        98.01219148981954,
+        470.08074939250946,
+        549.9354560817442
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        468,
+        697,
+        164,
+        297
+      ],
+      "personRect": [
+        457,
+        651,
+        186,
+        343
+      ],
+      "headRegionInPerson": [
+        -4.556035389632293,
+        23.075522499341968,
+        173.98302125604553,
+        220.40816785513675
+      ],
+      "z": 5,
+      "background": "transparent person over halftone card"
+    },
+    {
+      "sourceFrame": 21,
+      "part": "chest",
+      "destination": [
+        200,
+        935,
+        250,
+        180
+      ],
+      "sourceCrop": [
+        111.41895801137235,
+        70.458909034729,
+        713.2109005420373,
+        522.9172954559326
+      ],
+      "clip": "frame rectangle + detected head overflow + declared arm overflow",
+      "frameRect": [
+        200,
+        935,
+        250,
+        180
+      ],
+      "personRect": [
+        190,
+        912,
+        270,
+        203
+      ],
+      "headRegionInPerson": [
+        62.999980683354885,
+        -10.73025777363214,
+        198.91657610074859,
+        139.4933510572178
+      ],
+      "z": 6,
+      "background": "transparent person over halftone card"
+    }
+  ],
+  "typography": [
+    {
+      "text": "正拳突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 68,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 40,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 49,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 34,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 7
+    },
+    {
+      "text": "突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 34,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 7
+    },
+    {
+      "text": "09.25",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 37,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 7
+    },
+    {
+      "text": "2026.09.25",
+      "font": [
+        "Helvetica Neue",
+        "Condensed Black"
+      ],
+      "pointSize": 26,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 7
+    }
+  ],
+  "privacyDemo": {
+    "room": true,
+    "face": false,
+    "background": "black design background; source room removed"
+  },
+  "fontTransform": "uniform font point size only",
+  "layoutRevision": 3,
+  "defaultLayerOrder": [
+    "background",
+    "shapes-and-text",
+    "cutout-person"
+  ],
+  "cutoutDefault": true
+}

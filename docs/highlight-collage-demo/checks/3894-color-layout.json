@@ -1,0 +1,219 @@
+{
+  "hookColors": [
+    "#fb2f08",
+    "#0b6df9",
+    "#effb0b"
+  ],
+  "allRenderedText": [
+    "正拳",
+    "突き",
+    "正拳突き"
+  ],
+  "palette": {
+    "selection": "random bright brand palette per render",
+    "brandBase": "#ffd166",
+    "hueRotation": 12.125629623318858,
+    "space": "HSV (logo vividness); OKLab only for neutral classification",
+    "relationship": "shared HSV hue rotation; fixed logo-derived saturation/value per role; neutrals preserved; no global desaturation"
+  },
+  "characters": [],
+  "textPolicy": {
+    "alphabet": "replace with source-grounded Japanese",
+    "decorativeNumbers": "recording date 2026.09.25"
+  },
+  "template": "3894",
+  "name": "主役の顔を残す分割シルエット／一部だけ別写真",
+  "canvas": [
+    720,
+    1280
+  ],
+  "slots": [
+    {
+      "sourceFrame": 19,
+      "part": "waist",
+      "sourceCrop": [
+        232.0244534263071,
+        107.32446193695068,
+        669.3617057552877,
+        820.5205965042114
+      ],
+      "destination": [
+        35,
+        185,
+        650,
+        1060
+      ],
+      "clip": "master foreground person alpha",
+      "role": "hero face retained",
+      "faceInCanvas": [
+        249.46718303913397,
+        319.8398134708832,
+        245.16330430686176,
+        245.16329721978764
+      ],
+      "z": 0
+    },
+    {
+      "sourceFrame": 43,
+      "part": "chest",
+      "sourceCrop": [
+        57.928404075845236,
+        131.1768045425415,
+        545.0638754537263,
+        519.7018566131592
+      ],
+      "destination": [
+        35,
+        583,
+        247,
+        197
+      ],
+      "clip": "master person silhouette intersection",
+      "z": 1
+    },
+    {
+      "sourceFrame": 47,
+      "part": "face",
+      "sourceCrop": [
+        75.69402653565868,
+        239.70677661895755,
+        465.39032619604603,
+        436.0499250411988
+      ],
+      "destination": [
+        294,
+        583,
+        391,
+        197
+      ],
+      "clip": "master person silhouette intersection",
+      "z": 2
+    },
+    {
+      "sourceFrame": 50,
+      "part": "chest",
+      "sourceCrop": [
+        8.095244058540857,
+        160.76645421981812,
+        678.893830052444,
+        532.4490480422974
+      ],
+      "destination": [
+        35,
+        792,
+        379,
+        210
+      ],
+      "clip": "master person silhouette intersection",
+      "z": 3
+    },
+    {
+      "sourceFrame": 52,
+      "part": "face",
+      "sourceCrop": [
+        212.94502143859864,
+        159.36769723892212,
+        460.3142678260803,
+        359.9373564720154
+      ],
+      "destination": [
+        426,
+        792,
+        259,
+        210
+      ],
+      "clip": "master person silhouette intersection",
+      "z": 4
+    },
+    {
+      "sourceFrame": 21,
+      "part": "chest",
+      "sourceCrop": [
+        216.2496284941832,
+        70.458909034729,
+        608.3802300592264,
+        522.9172954559326
+      ],
+      "destination": [
+        35,
+        1014,
+        182,
+        210
+      ],
+      "clip": "master person silhouette intersection",
+      "z": 5
+    },
+    {
+      "sourceFrame": 23,
+      "part": "face",
+      "sourceCrop": [
+        121.43770957946782,
+        86.26888465881348,
+        689.2755434417725,
+        347.77315025329585
+      ],
+      "destination": [
+        229,
+        1014,
+        456,
+        210
+      ],
+      "clip": "master person silhouette intersection",
+      "z": 6
+    }
+  ],
+  "typography": [
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 70,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 70,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 18,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 7
+    }
+  ],
+  "privacyDemo": {
+    "room": true,
+    "face": false,
+    "background": "black design background; source room removed"
+  },
+  "fontTransform": "uniform font point size only",
+  "layoutRevision": 3,
+  "defaultLayerOrder": [
+    "background",
+    "shapes-and-text",
+    "cutout-person"
+  ],
+  "cutoutDefault": true
+}

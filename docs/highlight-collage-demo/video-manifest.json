@@ -1,0 +1,258 @@
+{
+  "status": "layout-motion-prototype",
+  "hookSeconds": 4,
+  "hookAudio": "source voice at output 0; removed 0.2645s leading silence; preview audio muted during Hook",
+  "hookLines": "three centered lines simultaneously from frame zero",
+  "hookFont": "M PLUS Rounded 1c ExtraBold",
+  "hookColor": "sampled from selected collage",
+  "sparkles": "decorative prototype, not existing pose-tracked effect",
+  "selection": "manual demonstration only",
+  "sourceRanges": [
+    [
+      8,
+      11
+    ],
+    [
+      12,
+      15
+    ],
+    [
+      22,
+      26
+    ]
+  ],
+  "outputRanges": [
+    [
+      0,
+      3
+    ],
+    [
+      3,
+      6
+    ],
+    [
+      6,
+      10
+    ]
+  ],
+  "bodyStart": 10,
+  "bodySourceStart": 4,
+  "previewStartsAt": 0,
+  "previewCount": 1,
+  "hookEnd": 4.0,
+  "replayAfterExpansion": false,
+  "fps": 30,
+  "rendered": [
+    {
+      "id": "3878",
+      "file": "videos/3878.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3895",
+      "file": "videos/3895.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3894",
+      "file": "videos/3894.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3889",
+      "file": "videos/3889.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3900",
+      "file": "videos/3900.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3901",
+      "file": "videos/3901.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3879",
+      "file": "videos/3879.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3880",
+      "file": "videos/3880.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3881",
+      "file": "videos/3881.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3882",
+      "file": "videos/3882.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3883",
+      "file": "videos/3883.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3884",
+      "file": "videos/3884.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3885",
+      "file": "videos/3885.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3886",
+      "file": "videos/3886.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3887",
+      "file": "videos/3887.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3888",
+      "file": "videos/3888.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3890",
+      "file": "videos/3890.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3892",
+      "file": "videos/3892.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3891",
+      "file": "videos/3891.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3893",
+      "file": "videos/3893.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3899",
+      "file": "videos/3899.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3896",
+      "file": "videos/3896.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3898",
+      "file": "videos/3898.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3877",
+      "file": "videos/3877.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3871",
+      "file": "videos/3871.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3872",
+      "file": "videos/3872.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3873",
+      "file": "videos/3873.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3870",
+      "file": "videos/3870.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3897",
+      "file": "videos/3897.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3902",
+      "file": "videos/3902.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3903",
+      "file": "videos/3903.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3904",
+      "file": "videos/3904.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3905",
+      "file": "videos/3905.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3907",
+      "file": "videos/3907.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    },
+    {
+      "id": "3908",
+      "file": "videos/3908.mp4",
+      "frames": 1136,
+      "seconds": 37.86666666666667
+    }
+  ],
+  "desktopGenerationSeconds": 341.66
+}
