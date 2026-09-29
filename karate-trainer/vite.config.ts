@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite";
 import { cpSync, createReadStream, existsSync, rmSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 
@@ -63,7 +63,11 @@ function omitFromBuild(paths: string[]): Plugin {
 export default defineConfig(({ mode }) => ({
   root: "karate-trainer",
   // strictPort so a stale instance can't silently move ports (Talk Quest convention).
-  server: { port: 5273, strictPort: true, host: true }, // host:true → reachable from iPhone on LAN
+  server: {
+    port: 5273, strictPort: true, host: true, // host:true → reachable from iPhone on LAN
+    // @alan/daily（シリーズ共通の部品）は となりの アランの基盤/ に ある。dev でも 読めるように
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), resolve(__dirname, "../../アランの基盤/packages")] },
+  },
   build: { outDir: "dist", emptyOutDir: true },
   // "piano" and "piano-test" — both are the piano app, so both get its art.
   plugins: mode.startsWith("piano")

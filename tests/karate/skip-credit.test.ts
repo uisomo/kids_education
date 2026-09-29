@@ -12,6 +12,7 @@ import { loadMenuBelt, levelOf, beltStateFor, setSelectedPreset } from "../../ka
 import { renderSetupScreen } from "../../karate-trainer/src/ui/setup-screen";
 import { renderDoneScreen } from "../../karate-trainer/src/ui/done-screen";
 import type { Menu } from "../../karate-trainer/src/types";
+import { VIRAL_FX_DEFAULT } from "@alan/daily";
 
 function memKv(): KvAdapter {
   const m = new Map<string, unknown>();
@@ -30,6 +31,8 @@ function memStorage(): Storage {
 const tick = () => new Promise((r) => setTimeout(r, 0));
 // 📅 Burned into every saved video, opposite the 🔥 streak.
 const dateLabel = videoDateLabel(new Date());
+// 🎬 えんしゅつ（5.14）：はじめての子は おすすめの 設定、しるしは アプリの 名前
+const fx = { viralfx: VIRAL_FX_DEFAULT, brandName: "アランの空手" };
 
 beforeEach(() => {
   (globalThis.URL as any).createObjectURL = vi.fn(() => "blob:v");
@@ -121,7 +124,7 @@ it("a 休憩-only menu earns nothing, and an empty menu can't start", async () =
 it("a menu that was never saved earns nothing and says how to start the belt", async () => {
   const { root, mem, stop } = await run(two, (loop) => loop(4500), { saved: false });
   expect(root.querySelector("[data-belt-result]")!.textContent).toBe("メニューを保存すると、帯と積み重ねがたまるよ");
-  expect(stop.mock.calls[0][4]).toEqual({ dateLabel, streakLabel: "🔥 1日間 毎日継続中", decor: "frame" });   // streak still counts, no belt
+  expect(stop.mock.calls[0][4]).toEqual({ dateLabel, streakLabel: "🔥 1日間 毎日継続中", decor: "frame", ...fx });   // streak still counts, no belt
   expect(mem.getItem("karate.menuBelts")).toBeNull();
 });
 
@@ -141,7 +144,7 @@ it("the video's 特訓一覧 gets each drill's level and the bar it earned", asy
   // After the last drill every row is marked done, so earned bars show.
   expect(events.at(-1).patch).toEqual({ drillIndex: 3 });
   // Today counts for the 🔥 streak; the saved menu's name and belt head the video's list.
-  expect(stop.mock.calls[0][4]).toEqual({ dateLabel, streakLabel: "🔥 1日間 毎日継続中", beltLabel: "⚪ 白帯", menuName: "基本", decor: "frame" });
+  expect(stop.mock.calls[0][4]).toEqual({ dateLabel, streakLabel: "🔥 1日間 毎日継続中", beltLabel: "⚪ 白帯", menuName: "基本", decor: "frame", ...fx });
 });
 
 it("the row toggle turns a drill into a 休憩 and back", () => {

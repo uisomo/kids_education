@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1A0F0C0DE5E1E5000000005 /* ViralFXCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A0F0C0DE5E1E5000000004 /* ViralFXCompositor.swift */; };
 		C63646ED0C8247267A8D5BEB /* SoundMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2153B33D81FD85B22B40B60 /* SoundMixer.swift */; };
 		A1B2C3D4E5F60718293A4B01 /* PendingSaves.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B02 /* PendingSaves.swift */; };
 		BA1E5729EA5256D633DDD8AF /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C86C10695817A0D3A6781C /* AudioController.swift */; };
@@ -50,6 +51,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A1A0F0C0DE5E1E5000000004 /* ViralFXCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViralFXCompositor.swift; sourceTree = "<group>"; };
 		B2153B33D81FD85B22B40B60 /* SoundMixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundMixer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B02 /* PendingSaves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingSaves.swift; sourceTree = "<group>"; };
 		A2C86C10695817A0D3A6781C /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
@@ -117,6 +119,7 @@
 				A2C86C10695817A0D3A6781C /* AudioController.swift */,
 				DC68D22B1E4B715A6295948F /* CameraSession.swift */,
 				EAFA698F6B0DF5653B44E3F8 /* KarateRecorderPlugin.swift */,
+				A1A0F0C0DE5E1E5000000004 /* ViralFXCompositor.swift */,
 				72E0221CAFB91620097F23A0 /* OverlayCompositor.swift */,
 			);
 			path = KarateRecorder;
@@ -308,6 +311,7 @@
 				811A1054677CB861A0B767E1 /* AlanSuitePlugin.swift in Sources */,
 				8825437B40DB2AED4BCF5573 /* CameraSession.swift in Sources */,
 				BED791C491F404DDB2592885 /* KarateRecorderPlugin.swift in Sources */,
+				A1A0F0C0DE5E1E5000000005 /* ViralFXCompositor.swift in Sources */,
 				0AECBCA4337B2C65C0DC1EB0 /* Catalog.swift in Sources */,
 				D5FED17AEB72F19DAEE160AB /* Geometry.swift in Sources */,
 				8BD5C3A9B58A67AA3BE55E87 /* Models.swift in Sources */,
