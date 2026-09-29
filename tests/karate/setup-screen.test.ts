@@ -550,9 +550,11 @@ it("a full 種目's 💡 still opens so a 工夫 can be erased", () => {
 
 it("shows 🔥 N日継続中 at the top right when there is a streak, nothing at 0", () => {
   const root = document.createElement("div");
-  renderSetupScreen(root, deps({ streakDays: 3 }));
+  renderSetupScreen(root, deps({ streak: { kind: "daily", count: 3, label: "3にち れんぞく", short: "3日" } }));
   expect(root.querySelector(".toybox-header [data-streak]")!.textContent).toBe("3日継続中");
-  renderSetupScreen(root, deps({ streakDays: 0 }));
+  renderSetupScreen(root, deps({ streak: { kind: "weekly", count: 2, label: "2しゅう れんぞく", short: "2週" } }));
+  expect(root.querySelector(".toybox-header [data-streak]")!.textContent).toBe("2週継続中");
+  renderSetupScreen(root, deps({ streak: { kind: "none", count: 0, label: "", short: "0日" } }));
   expect(root.querySelector("[data-streak]")).toBeNull();
 });
 

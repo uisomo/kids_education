@@ -14,6 +14,7 @@ import { openHookModal } from "./hook-modal";
 import { openLetterModal } from "./letter-modal";
 import { openHowtoMenu } from "./howto";
 import type { Letter } from "../letter-store";
+import { streakText, type StreakView } from "../streak-store";
 import { glossyIcon, icon, plainIcon } from "../alan/alan-icons.js";
 
 export interface SetupMember {
@@ -69,8 +70,8 @@ export interface SetupDeps {
   // The kid has now seen this letter. Persist only — do NOT re-render, or the
   // card is torn out of the DOM while it is being read.
   onReadLetter?(id: string): void;
-  // 🔥 days in a row the member has practiced; shown top-right when > 0.
-  streakDays?: number;
+  // 🔥 days (or, once a day is missed, weeks) in a row; shown top-right unless none.
+  streak?: StreakView;
   // Member band: every registered kid, so whoever is about to practice can pick
   // themselves. Ungated on purpose — the 家族 tab still gates add/remove/plans.
   members?: SetupMember[];
@@ -201,12 +202,12 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
   }
 
   header.append(title);
-  if (deps.streakDays && deps.streakDays > 0) {
+  if (deps.streak && deps.streak.kind !== "none") {
     const streak = document.createElement("div");
     streak.className = "setup-streak";
     streak.dataset.streak = "";
     streak.classList.add("with-icon");
-    streak.append(plainIcon("flame", "s"), `${deps.streakDays}日継続中`);
+    streak.append(plainIcon("flame", "s"), streakText(deps.streak));
     header.append(streak);
   }
 

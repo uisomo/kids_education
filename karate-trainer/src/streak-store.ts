@@ -1,70 +1,49 @@
-// 🔥 streak: how many days in a row a member has practiced. A day counts once
-// a practice runs to the end with at least one drill finished (see
-// KarateApp.finishSession); a second practice the same day adds nothing, and a
-// missed day starts the count over. Stored per member through mem().
+// 🔥 streak: a practice counts for the day once it runs to the end with at
+// least one drill finished (see KarateApp.finishSession); a second practice the
+// same day adds nothing. Stored per member through mem().
+//
+// The counting and the daily → weekly rule live in the series part
+// (アランの基盤 packages/rewards → src/alan/alan-streak.js, SERIES_GUIDE 5.9):
+// while the kid practices every day we show days in a row; once a day is
+// missed we show weeks in a row (a week counts with one practice) instead of 0.
+// The stored `{ last, days }` from before is read as is.
+
+import {
+  currentStreak as seriesCurrent,
+  recordPractice,
+  setStreakForTest,
+  streakView,
+  type StreakView,
+} from "./alan/alan-streak.js";
 
 const KEY = "karate.streak";
 
-interface StreakState {
-  last: string;   // local date of the last counted practice, YYYY-MM-DD
-  days: number;   // consecutive days ending on `last`
+export type { StreakView };
+
+/** What to show now: 毎日 (daily), 毎週 (weekly) or nothing. */
+export function currentStreakView(storage: Storage = localStorage, now: Date = new Date()): StreakView {
+  return streakView(storage, KEY, now);
 }
 
-function dayKey(d: Date): string {
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-function yesterdayKey(now: Date): string {
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  return dayKey(d);
-}
-
-function load(storage: Storage): StreakState | null {
-  try {
-    const raw = storage.getItem(KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as Partial<StreakState>;
-    if (typeof p.last !== "string" || typeof p.days !== "number" || p.days < 1) return null;
-    return { last: p.last, days: Math.floor(p.days) };
-  } catch {
-    return null;
-  }
-}
-
-// Days in a row that are still alive: practiced today or yesterday, else 0.
+/** Days in a row that are still alive (practiced today or yesterday), else 0. */
 export function currentStreak(storage: Storage = localStorage, now: Date = new Date()): number {
-  const s = load(storage);
-  if (!s) return 0;
-  return s.last === dayKey(now) || s.last === yesterdayKey(now) ? s.days : 0;
+  return seriesCurrent(storage, KEY, now).days;
 }
 
-// Count today's practice and return the streak including today.
-export function recordPracticeDay(storage: Storage = localStorage, now: Date = new Date()): number {
-  const today = dayKey(now);
-  const s = load(storage);
-  let days = 1;
-  if (s?.last === today) days = s.days;
-  else if (s?.last === yesterdayKey(now)) days = s.days + 1;
-  try {
-    storage.setItem(KEY, JSON.stringify({ last: today, days }));
-  } catch {
-    /* ignore storage errors */
-  }
-  return days;
+/** Count today's practice and return what to show including today. */
+export function recordPracticeDay(storage: Storage = localStorage, now: Date = new Date()): StreakView {
+  recordPractice(storage, KEY, now);
+  return streakView(storage, KEY, now);
+}
+
+/** 日継続中 / 週継続中 for the setup header and the video's top-left label. */
+export function streakText(v: StreakView): string {
+  return v.kind === "weekly" ? `${v.count}週継続中` : `${v.count}日継続中`;
 }
 
 // test アプリ only (家族 → テスト用): set the streak to `days` practiced up to
 // YESTERDAY, or clear it with 0. It's a starting point, not a pin: today's
-// practice then counts +1 like in the real app (ending it today would make
-// today's practice add nothing).
+// practice then counts +1 like in the real app.
 export function setStreakDays(days: number, storage: Storage = localStorage, now: Date = new Date()): void {
-  const n = Math.floor(days);
-  try {
-    if (!(n >= 1)) storage.removeItem(KEY);
-    else storage.setItem(KEY, JSON.stringify({ last: yesterdayKey(now), days: n }));
-  } catch {
-    /* ignore storage errors */
-  }
+  setStreakForTest(storage, KEY, days, 0, now);
 }

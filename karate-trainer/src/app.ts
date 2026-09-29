@@ -19,7 +19,7 @@ import {
   renameKufu, pruneKufu, type KufuCaps,
 } from "./kufu-store";
 import { BELTS, beltLabel } from "./belt-store";
-import { currentStreak, recordPracticeDay, setStreakDays } from "./streak-store";
+import { currentStreak, currentStreakView, recordPracticeDay, setStreakDays, streakText } from "./streak-store";
 import {
   loadMenuBelt, beltStateFor, recordPractice, setMenuBelt, removeMenuBelt, levelOf,
   getSelectedPreset, setSelectedPreset, setDrillLevel, drillNames,
@@ -654,7 +654,7 @@ export class KarateApp {
       // Persist only — re-rendering here would rip the 便箋 card out of the DOM
       // while the kid is reading it. The chip catches up on the next render.
       onReadLetter: (id) => { markLetterRead(id, this.mem()); },
-      streakDays: currentStreak(this.mem()),
+      streak: currentStreakView(this.mem()),
       // Member band: kids pick who is practicing, ungated. The 家族 tab keeps
       // its parental gate for adding/removing members and changing plans.
       members: this.usableMembers(),
@@ -1572,7 +1572,7 @@ export class KarateApp {
       // 🔥 A practice that ran to the end with a finished drill counts for today.
       const streak = completed && this.finishedDrills.length > 0
         ? recordPracticeDay(this.mem())
-        : currentStreak(this.mem());
+        : currentStreakView(this.mem());
       // Recorded BEFORE the video is saved: a long save can be cut short (the
       // app killed while 「動画を保存中…」), and the level must not be lost with it.
       // Only a practice run to the end counts (終了 partway adds nothing): each
@@ -1618,7 +1618,8 @@ export class KarateApp {
         // nobody can tell one from another, so the date is burned in — top
         // right, opposite the streak.
         dateLabel: videoDateLabel(new Date()),
-        ...(streak > 0 ? { streakLabel: `🔥 ${streak}日間 毎日継続中` } : {}),
+        ...(streak.kind === "daily" ? { streakLabel: `🔥 ${streak.count}日間 毎日継続中` }
+          : streak.kind === "weekly" ? { streakLabel: `🔥 ${streak.count}週間 毎週継続中` } : {}),
         ...(before ? { beltLabel: beltLabel(before.belt) } : {}),
         // The saved menu's name heads the video's 特訓一覧 panel.
         // Without a name the native side falls back to 特訓一覧, so the piano

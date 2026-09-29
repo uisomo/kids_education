@@ -38,9 +38,9 @@ it("setStreakDays is a starting point: today's practice then grows it as usual, 
   const now = new Date(2026, 8, 17, 9);
   setStreakDays(30, s, now);
   expect(currentStreak(s, now)).toBe(30);
-  expect(recordPracticeDay(s, now)).toBe(31);                               // today counts
-  expect(recordPracticeDay(s, new Date(2026, 8, 17, 20))).toBe(31);         // once a day
-  expect(recordPracticeDay(s, new Date(2026, 8, 18, 9))).toBe(32);          // and the next day
+  expect(recordPracticeDay(s, now).count).toBe(31);                               // today counts
+  expect(recordPracticeDay(s, new Date(2026, 8, 17, 20)).count).toBe(31);         // once a day
+  expect(recordPracticeDay(s, new Date(2026, 8, 18, 9)).count).toBe(32);          // and the next day
   setStreakDays(0, s, now);
   expect(currentStreak(s, now)).toBe(0);
 });
