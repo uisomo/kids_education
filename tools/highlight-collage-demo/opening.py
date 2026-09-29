@@ -1,6 +1,6 @@
 """Compositing contract for the opening: one live portrait preview, no still-only hold."""
 from pathlib import Path
-from PIL import Image,ImageDraw,ImageFont
+from PIL import Image,ImageDraw,ImageFont,ImageColor
 BASE=Path(__file__).resolve().parent
 HOOK_END=4.0  # Review cue boundary; actual word alignment still needs the recording event log.
 TRANSITION=.3
@@ -16,21 +16,23 @@ def hook_style(base):
  chromatic.sort(key=lambda nc:nc[0],reverse=True)
  fills=[c for _,c in chromatic[:3]] or [(255,255,255)]
  return fills
-def compose(base,frame,t,ident,style=None):
+def compose(base,frame,t,ident,style=None,text_style=None):
  """t is elapsed highlight time, including the time shown in the small window."""
  canvas=base.convert('RGB').resize((720,1280));d=ImageDraw.Draw(canvas)
  if t<HOOK_END:
   fills=style or hook_style(base)
+  treatments=text_style or {}
   size=130;f=hook_font(ident,size)
   while max(f.getlength(line) for line in HOOK_TEXT)>640:
    size-=1;f=hook_font(ident,size)
   # All three lines are visible from frame zero, centered as one text block.
   for j,line in enumerate(HOOK_TEXT):
+   treatment=treatments[j] if isinstance(treatments,list) else treatments
    box=d.textbbox((0,0),line,font=f,stroke_width=7)
    x=(720-f.getlength(line))/2;y=610+(j-1)*(size+22)-(box[1]+box[3])/2
-   fill=fills[0]
-   d.text((x+5,y+9),line,font=f,fill=fill,stroke_width=10,stroke_fill=fill)
-   d.text((x,y),line,font=f,fill=fill,stroke_width=6,stroke_fill='#171717')
+   fill=treatment.get('fill',fills[0]);shadow=treatment.get('shadow',fill)
+   d.text((x+5,y+9),line,font=f,fill=shadow,stroke_width=10,stroke_fill=shadow)
+   d.text((x,y),line,font=f,fill=fill,stroke_width=6,stroke_fill=treatment.get('outline','#171717'))
   d.rounded_rectangle((537,834,710,1157),radius=9,fill='#14151a')
   label=ImageFont.truetype('/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc',16)
   d.text((543,844),'今日のハイライト',font=label,fill='white')
@@ -46,3 +48,14 @@ def compose(base,frame,t,ident,style=None):
   canvas.paste(frame.resize((round(w+(720-w)*u),round(h+(1280-h)*u)),Image.Resampling.BILINEAR),(round(x*(1-u)),round(y*(1-u))))
  else:canvas=frame.resize((720,1280),Image.Resampling.LANCZOS)
  return canvas
+
+
+def preferred_treatment(color,pattern):
+ """Approved styles 1/6: one base hue, black middle, white-40% pale outer line."""
+ if pattern not in (1,6):raise ValueError('Hook pattern must be 1 or 6')
+ rgb=ImageColor.getrgb(color) if isinstance(color,str) else color
+ pale=tuple(round(c*.6+255*.4) for c in rgb)
+ normal={'fill':color,'outline':'#171717','shadow':color}
+ soft={'fill':pale,'outline':'#171717','shadow':pale}
+ black={'fill':'#171717','outline':'#ffffff','shadow':'#171717'}
+ return [normal,black,soft] if pattern==1 else [soft,black,normal]

@@ -5,6 +5,7 @@ from PIL import Image,ImageChops,ImageStat,ImageDraw
 root=Path(__file__).resolve().parents[2];p=root/'docs/highlight-collage-demo';m=json.loads((p/'manifest.json').read_text());vm=json.loads((p/'video-manifest.json').read_text());ff=imageio_ffmpeg.get_ffmpeg_exe();q=p/'checks';q.mkdir(exist_ok=True)
 assert len({e['reference'] for e in m['renders']})==35
 assert len(m['renders'])==len(vm['rendered'])==35
+assert all(v.get('hookPattern') in (1,6) for v in vm['rendered'])
 assert not any(e['id'].startswith('3895-') for e in m['renders'])
 for ident in [e['id'] for e in m['renders']]:
  layout=json.loads((q/f'{ident}-layout.json').read_text())

@@ -1,6 +1,6 @@
 {
   "hookColors": [
-    "#66f02d"
+    "#29f600"
   ],
   "hookColorSource": "#dbc340",
   "allRenderedText": [],
@@ -258,6 +258,7 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
+      "flatColor": "#ec4000",
       "z": 0
     },
     {
@@ -495,6 +496,7 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
+      "flatColor": "#1600e4",
       "z": 1
     },
     {
@@ -732,6 +734,7 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
+      "flatColor": "#29f600",
       "z": 2
     },
     {
@@ -969,6 +972,7 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
+      "flatColor": null,
       "z": 3
     }
   ],

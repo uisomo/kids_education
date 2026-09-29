@@ -1,6 +1,6 @@
 {
   "hookColors": [
-    "#16c8f6"
+    "#34cfed"
   ],
   "hookColorSource": "#e9222a",
   "allRenderedText": [],
@@ -17,7 +17,7 @@
     "decorativeNumbers": "recording date 2026.09.25"
   },
   "template": "3903",
-  "name": "十五面の頭部切り抜き・異なる色面と刷り重ね",
+  "name": "十五面・赤を主色に青黄の部分加工と同系色の濃淡",
   "canvas": [
     720,
     1280
@@ -258,7 +258,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 0
+      "flatColor": null,
+      "z": 0,
+      "referenceTreatment": "yellow face bands"
     },
     {
       "sourceFrame": 19,
@@ -495,7 +497,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 1
+      "flatColor": "#34cfed",
+      "z": 1,
+      "referenceTreatment": "red tonal portrait"
     },
     {
       "sourceFrame": 20,
@@ -732,7 +736,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 2
+      "flatColor": null,
+      "z": 2,
+      "referenceTreatment": "red blocks and star"
     },
     {
       "sourceFrame": 21,
@@ -969,7 +975,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 3
+      "flatColor": null,
+      "z": 3,
+      "referenceTreatment": "gray stripes"
     },
     {
       "sourceFrame": 22,
@@ -1206,7 +1214,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 4
+      "flatColor": null,
+      "z": 4,
+      "referenceTreatment": "red and blue bands"
     },
     {
       "sourceFrame": 23,
@@ -1443,7 +1453,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 5
+      "flatColor": null,
+      "z": 5,
+      "referenceTreatment": "yellow face bands"
     },
     {
       "sourceFrame": 24,
@@ -1680,7 +1692,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 6
+      "flatColor": null,
+      "z": 6,
+      "referenceTreatment": "red lower block"
     },
     {
       "sourceFrame": 43,
@@ -1917,7 +1931,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 7
+      "flatColor": null,
+      "z": 7,
+      "referenceTreatment": "red vertical overprint"
     },
     {
       "sourceFrame": 44,
@@ -2154,7 +2170,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 8
+      "flatColor": null,
+      "z": 8,
+      "referenceTreatment": "black stepped frame"
     },
     {
       "sourceFrame": 45,
@@ -2391,7 +2409,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 9
+      "flatColor": null,
+      "z": 9,
+      "referenceTreatment": "red arc and yellow tone"
     },
     {
       "sourceFrame": 46,
@@ -2628,7 +2648,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 10
+      "flatColor": "#832239",
+      "z": 10,
+      "referenceTreatment": "green tonal portrait"
     },
     {
       "sourceFrame": 47,
@@ -2865,7 +2887,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 11
+      "flatColor": "#34cfed",
+      "z": 11,
+      "referenceTreatment": "red tonal portrait"
     },
     {
       "sourceFrame": 48,
@@ -3102,7 +3126,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 12
+      "flatColor": "#d66100",
+      "z": 12,
+      "referenceTreatment": "cyan tonal portrait"
     },
     {
       "sourceFrame": 49,
@@ -3339,7 +3365,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 13
+      "flatColor": "#5ebb3a",
+      "z": 13,
+      "referenceTreatment": "purple tonal portrait and yellow slash"
     },
     {
       "sourceFrame": 50,
@@ -3576,7 +3604,9 @@
       "background": "transparent",
       "clip": "rectangle",
       "rotation": 0,
-      "z": 14
+      "flatColor": null,
+      "z": 14,
+      "referenceTreatment": "red geometric surround"
     }
   ],
   "typography": [],

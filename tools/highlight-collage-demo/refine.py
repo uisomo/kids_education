@@ -4,7 +4,7 @@ Run after build.py. Reference 3895 is one nine-panel composition.
 from pathlib import Path
 import json,math,random
 import numpy as np
-from PIL import Image,ImageFont,ImageDraw,ImageOps,ImageFilter,ImageEnhance,ImageChops
+from PIL import ImageColor,Image,ImageFont,ImageDraw,ImageOps,ImageFilter,ImageEnhance,ImageChops
 from palette import rotate_palette,bright_palette,BRAND_BRIGHT,BASE_ROLES,hook_base
 O=Path(__file__).resolve().parents[2]/'docs/highlight-collage-demo';A=O/'assets-v2';W,H=720,1280
 PARTS={r['frame']:r for r in json.loads((A/'parts.json').read_text())['frames']}
@@ -105,7 +105,7 @@ class Layout:
   layer=Image.new('RGBA',(W,H));meta=letters(layer,*args,**kw)
   if behind:layer.putalpha(ImageChops.multiply(layer.getchannel('A'),ImageOps.invert(self.subjectMask)))
   self.im.alpha_composite(layer);meta['layer']='behind-subject' if behind else 'between-person-layers';meta['afterPhotoCount']=len(self.slots);self.types.append(meta)
- def photo(self,idx,part,box,background='black',mono=False,mask=None,tilt=0,tint=None,tintStrength=.6,outlineColor=None,wash=0):
+ def photo(self,idx,part,box,background='black',mono=False,mask=None,tilt=0,tint=None,tintStrength=.6,outlineColor=None,wash=0,flatColor=None):
   if idx in self.used:raise ValueError('Duplicate source photograph')
   self.used.add(idx);x,y,w,h=box;crop=crop_box(idx,part,w/h)
   p=Image.open(A/f'full-photo-{idx}.png').convert('RGBA')
@@ -117,7 +117,7 @@ class Layout:
   p=p.transform((w,h),Image.Transform.EXTENT,tuple(crop),Image.Resampling.BICUBIC,fillcolor=paint('#080808') if background=='black' else '#00000000' if background=='transparent' else paint('#e8e5dc'))
   if tint:
    tone=ImageOps.colorize(ImageOps.grayscale(p),paint('#141016'),tint).convert('RGBA');tone.putalpha(p.getchannel('A'));p=Image.blend(p,tone,tintStrength)
-  p=grain(p,3.5,idx)
+  p=chromatic_tone(p,flatColor) if flatColor else grain(p,3.5,idx)
   if wash:
    a=p.getchannel('A');p=Image.blend(p,Image.new('RGBA',p.size,paint('#e7dcca')),wash);p.putalpha(a)
   if mask is not None:p.putalpha(ImageChops.multiply(p.getchannel('A'),mask))
@@ -130,7 +130,7 @@ class Layout:
   if tilt:subject=subject.rotate(tilt,expand=True,resample=Image.Resampling.BICUBIC)
   plane=Image.new('L',(W,H));plane.paste(subject,(x,y));self.subjectMask=ImageChops.lighter(self.subjectMask,plane)
   landmarks={key:[[(px-crop[0])*w/(crop[2]-crop[0])+x,(py-crop[1])*h/(crop[3]-crop[1])+y] for px,py in val] for key,val in PARTS[idx]['faces'][0]['landmarks'].items()}
-  self.slots.append({'sourceFrame':idx,'sourceTimeApprox':idx*.5+.233,'part':part,'destination':box,'sourceCrop':crop,'landmarksInCanvas':landmarks,'background':background,'clip':'mask' if mask else 'rectangle','rotation':tilt,'z':len(self.slots)})
+  self.slots.append({'sourceFrame':idx,'sourceTimeApprox':idx*.5+.233,'part':part,'destination':box,'sourceCrop':crop,'landmarksInCanvas':landmarks,'background':background,'clip':'mask' if mask else 'rectangle','rotation':tilt,'flatColor':flatColor,'z':len(self.slots)})
   return landmarks
  def fade(self,box,vertical=False):
   x,y,w,h=box;n=np.random.default_rng(x+y);axis=np.linspace(0,1,h if vertical else w);a=np.repeat(axis[:,None],w,axis=1) if vertical else np.repeat(axis[None,:],h,axis=0)
@@ -462,11 +462,19 @@ def stripe(variant=False):
  l.im=grain(l.im,7,3880);return l.save('人物の後ろに隠れる文字・回転文字・細かな紙面模様')
 
 
-def character(l,name,box,color):
+def chromatic_tone(p,color):
+ # Preserve source luminance with a broad same-hue ramp, never a black endpoint.
+ alpha=p.getchannel('A');rgb=ImageColor.getrgb(color)
+ dark=tuple(round(c*.55) for c in rgb)
+ light=tuple(round(c+(255-c)*.65) for c in rgb)
+ out=ImageOps.colorize(ImageOps.grayscale(p),dark,light).convert('RGBA')
+ out.putalpha(alpha);return out
+
+def character(l,name,box,color,flat=False):
  l.characters.append({'asset':name,'destination':box,'tone':color})
  root=O.parents[2]/'アランの基盤'/'brand'/'characters'
  p=Image.open(root/(name+'.png')).convert('RGBA');alpha=p.getchannel('A')
- p=ImageOps.colorize(ImageOps.grayscale(p),paint('#101616'),color).convert('RGBA');p.putalpha(alpha)
+ p=chromatic_tone(p,color) if flat else ImageOps.colorize(ImageOps.grayscale(p),paint('#101616'),color).convert('RGBA');p.putalpha(alpha)
  p.thumbnail((box[2],box[3]),Image.Resampling.LANCZOS);l.im.alpha_composite(p,(box[0],box[1]))
 
 def layers(variant=False):

@@ -3,21 +3,50 @@
 from refine import *
 from more import ellipse, star
 IDS=[18,19,20,21,22,23,24,43,44,45,46,47,48,49,50,51,52]
-def head_grid(v=False):
- l=Layout('3903',v);paper=paint('#f0e8db');accent=paint('#e9222a');second=paint('#368bc0');third=paint('#dbc340');l.im=Image.new('RGBA',(W,H),paper)
+def head_grid(v=False,hueOverride=None):
+ l=Layout('3903',v)
+ import refine,colorsys
+ if hueOverride is not None:l.paletteAngle=hueOverride
+ for key,source in [('#e9222a','#ed3443'),('#368bc0','#00a9d6'),('#dbc340','#f6d329'),('#38866a','#228354'),('#af82cf','#783abb')]:
+  h,s,value=colorsys.rgb_to_hsv(*(c/255 for c in ImageColor.getrgb(source)))
+  refine.PAINT_MAP[key]='#%02x%02x%02x'%tuple(round(c*255) for c in colorsys.hsv_to_rgb((h+l.paletteAngle/360)%1,s,value))
+ paper=paint('#f0e8db');red=paint('#e9222a');blue=paint('#368bc0');yellow=paint('#dbc340');gray='#c7c7c5'
+ l.im=Image.new('RGBA',(W,H),paper)
+ techniques=['yellow face bands','red tonal portrait','red blocks and star','gray stripes','red and blue bands','yellow face bands','red lower block','red vertical overprint','black stepped frame','red arc and yellow tone','green tonal portrait','red tonal portrait','cyan tonal portrait','purple tonal portrait and yellow slash','red geometric surround']
  for j,idx in enumerate(IDS[:15]):
-  x=8+j%3*238;y=8+j//3*253;w=228;h=243;d=ImageDraw.Draw(l.im);c=[accent,second,third][j%3]
-  if j%5==0:d.polygon([(x,y+12),(x+205,y),(x+228,y+60),(x+207,y+237),(x,y+221)],fill=paint('#c7c3ba'))
-  elif j%5==1:d.rectangle((x+17,y,x+117,y+h),fill=c)
-  elif j%5==2:d.rectangle((x,y,x+w,y+h),fill=c);d.polygon([(x+30,y),(x+204,y),(x+220,y+200),(x+40,y+242)],fill=paper)
-  elif j%5==3:
-   for yy in range(y,y+h,8):d.line((x,yy,x+w,yy),fill=paint('#c7c3ba'),width=3)
-  else:d.ellipse((x+5,y+10,x+218,y+239),fill=c)
-  l.photo(idx,'head',(x+7,y+9,214,227),background='transparent',mono=True,tint=c if j in [0,1,5,7,9,10,11,12,13] else None,tintStrength=.63)
-  if j%4==0:
-   overlay=Image.new('RGBA',(W,H));ImageDraw.Draw(overlay).polygon([(x,y+170),(x+228,y+188),(x+227,y+228),(x,y+208)],fill=c);a=overlay.getchannel('A').point(lambda z:int(z*.53));overlay.putalpha(a);l.im.alpha_composite(overlay)
-  if j in [2,8]:star(l.im,x+70,y+34,24,paper)
- l.im=grain(l.im,4,3903);meta=l.save('十五面の頭部切り抜き・異なる色面と刷り重ね');return meta
+  x=8+j%3*238;y=8+j//3*253;w=228;h=243;d=ImageDraw.Draw(l.im)
+  if j==0:d.polygon([(x+30,y),(x+206,y),(x+228,y+60),(x+211,y+243),(x,y+243),(x,y+48)],fill=gray)
+  if j in [1,7]:d.rectangle((x+20,y,x+118,y+h),fill=red)
+  if j==2:
+   d.rectangle((x,y,x+100,y+h),fill=red);d.rectangle((x+191,y,x+w,y+h),fill=red)
+  if j==3:
+   for yy in range(y,y+h,8):d.line((x,yy,x+w,yy),fill=gray,width=3)
+  if j==4:d.rectangle((x+9,y+9,x+w,y+45),fill=red)
+  if j==5:
+   for k in range(8):d.line((x+4+k*28,y+24,x+30+k*28,y+211),fill=yellow,width=10)
+  if j==6:
+   d.rectangle((x,y,x+w,y+60),fill=gray);d.rectangle((x,y+112,x+w,y+h),fill=red)
+  if j==8:
+   d.rectangle((x,y,x+w,y+h),fill='#111111')
+   for k in range(5):d.rectangle((x+48-k*8,y+10+k*20,x+174+k*8,y+h),fill=paper)
+  if j==9:d.arc((x+5,y-20,x+227,y+265),80,285,fill=red,width=24)
+  if j in [10,12]:d.rectangle((x,y,x+w,y+h),fill=gray)
+  if j==13:d.polygon([(x+156,y),(x+203,y),(x+68,y+h),(x+33,y+h)],fill=yellow)
+  if j==14:
+   d.rectangle((x,y,x+w,y+h),fill=red);d.polygon([(x+61,y),(x+151,y),(x+225,y+99),(x+168,y+h),(x+37,y+h),(x+5,y+158)],fill=paper)
+  tone={1:red,10:paint('#38866a'),11:red,12:blue,13:paint('#af82cf')}.get(j)
+  l.photo(idx,'head',(x+7,y+9,214,227),background='transparent',mono=True,flatColor=tone)
+  l.slots[-1]['referenceTreatment']=techniques[j]
+  # Selected bands color only the foreground alpha; they do not paint a rectangle over the face.
+  regions={0:[(x,y+50,w,47,yellow),(x,y+155,w,33,yellow)],5:[(x,y+69,w,30,yellow),(x,y+133,w,32,yellow)],7:[(x+30,y,90,h,red)],9:[(x,y+80,w,120,yellow)]}.get(j,[])
+  for xx,yy,ww,hh,c in regions:
+   box=(xx,yy,xx+ww,yy+hh);part=l.im.crop(box);part.putalpha(l.subjectMask.crop(box));part=chromatic_tone(part,c);l.im.alpha_composite(part,(xx,yy))
+  d=ImageDraw.Draw(l.im)
+  if j==4:
+   d.polygon([(x,y+145),(x+w,y+176),(x+w,y+217),(x,y+184)],fill=blue)
+  if j==2:star(l.im,x+75,y+37,25,gray)
+ l.im=grain(l.im,2,3903)
+ return l.save('十五面・赤を主色に青黄の部分加工と同系色の濃淡')
 
 def crowd(v=False):
  l=Layout('3904',v);paper=paint('#c7c3ba');accent=paint('#368bc0');l.im=Image.new('RGBA',(W,H),paper)
@@ -43,21 +72,29 @@ def diagram(v=False):
  for x,y in [(344,111),(579,604),(445,850)]:d.polygon([(x-15,y),(x+15,y),(x,y+29)],fill=accent)
  l.im.alpha_composite(overlay);l.type('2026.09.25',(285,44),27,'jp',light,behindSubjects=False);l.im=grain(l.im,3,3905);return l.save('巨大な頭部・円形アクセント・極細の図形と日本語注記')
 
-def echoes(v=False,masked=False):
- l=Layout('3907',v);l.faceMasked=masked;paper=paint('#efefeb');l.im=Image.new('RGBA',(W,H),paper)
+def echoes(v=False,masked=False,referenceColors=False,hueOverride=None):
+ l=Layout('3907',v);l.faceMasked=masked
+ import refine,colorsys
+ if referenceColors:l.paletteAngle=0
+ if hueOverride is not None:l.paletteAngle=hueOverride
+ # Reference CMY family, rotated together only in the randomized version.
+ for key,source in [('#bc4d59','#ec008c'),('#368bc0','#00afe4'),('#dbc340','#f6ee00')]:
+  h,s,value=colorsys.rgb_to_hsv(*(c/255 for c in ImageColor.getrgb(source)))
+  refine.PAINT_MAP[key]='#%02x%02x%02x'%tuple(round(c*255) for c in colorsys.hsv_to_rgb((h+l.paletteAngle/360)%1,s,value))
+ paper=paint('#efefeb');l.im=Image.new('RGBA',(W,H),paper)
  # The privacy selection, never missing feet, determines whether characters are used.
  if masked:
-  character(l,'izzy-cheer',(-130,265,605,925),paint('#bc4d59'))
-  character(l,'leo-cheer',(-37,91,609,1001),paint('#368bc0'))
-  character(l,'alan-cheer',(257,0,603,1069),paint('#dbc340'))
+  character(l,'izzy-cheer',(-130,265,605,925),paint('#bc4d59'),flat=True)
+  character(l,'leo-cheer',(-37,91,609,1001),paint('#368bc0'),flat=True)
+  character(l,'alan-cheer',(257,0,603,1069),paint('#dbc340'),flat=True)
   character(l,'alan-stand',(40,575,640,705),paint('#c7c3ba'))
  else:
-  l.photo(19,'waist',(-133,183,568,1130),background='transparent',mono=True,tint=paint('#bc4d59'),tintStrength=1)
-  l.photo(23,'waist',(-52,79,556,1195),background='transparent',mono=True,tint=paint('#368bc0'),tintStrength=1)
-  l.photo(47,'waist',(278,-11,532,1283),background='transparent',mono=True,tint=paint('#dbc340'),tintStrength=1)
+  l.photo(19,'waist',(-133,183,568,1130),background='transparent',mono=True,flatColor=paint('#bc4d59'))
+  l.photo(23,'waist',(-52,79,556,1195),background='transparent',mono=True,flatColor=paint('#368bc0'))
+  l.photo(47,'waist',(278,-11,532,1283),background='transparent',mono=True,flatColor=paint('#dbc340'))
   l.photo(43,'waist',(126,166,492,1114),background='transparent',mono=True)
 
- l.im=grain(l.im,2,3907);return l.save('人物切り抜き・三つの色付きポーズと白黒の主役')
+ return l.save('人物切り抜き・三つの色付きポーズと白黒の主役')
 
 def circle_portrait(v=False,masked=False):
  l=Layout('3908',v);l.faceMasked=masked;paper=paint('#c7c3ba');accent=paint('#ce711c');l.im=Image.new('RGBA',(W,H),paper);d=ImageDraw.Draw(l.im);d.ellipse((77,87,644,668),fill=accent)

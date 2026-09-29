@@ -4,9 +4,9 @@ At the provisional Hook end, the CURRENT highlight expands without replay.
 All outputs share the expensive tail. This is desktop demo optimization only.
 """
 from pathlib import Path
-from opening import compose,hook_style,HOOK_END,TRANSITION
+from opening import compose,hook_style,HOOK_END,TRANSITION,preferred_treatment
 from PIL import Image,ImageDraw,ImageFont
-import imageio_ffmpeg,subprocess,json,math,wave,array,time,concurrent.futures
+import imageio_ffmpeg,subprocess,json,math,wave,array,time,concurrent.futures,sys,random
 R=Path(__file__).resolve().parents[2];O=R/'docs/highlight-collage-demo';V=O/'videos';T=O/'staging';V.mkdir(exist_ok=True);T.mkdir(exist_ok=True)
 F=imageio_ffmpeg.get_ffmpeg_exe();M=json.loads((O/'manifest.json').read_text());S=M['source'];W,H,FPS=540,960,30
 font=lambda s:ImageFont.truetype('/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc',s)
@@ -69,23 +69,32 @@ for k in range(round(duration*rate)):
 with wave.open(str(T/'sfx.wav'),'wb') as wav:wav.setparams((1,2,rate,len(samples),'NONE',''));wav.writeframes(samples.tobytes())
 af='[0:a]asplit=5[a0][a1][a2][a3][voice];'+''.join(f'[a{i}]atrim=start={s}:end={e},asetpts=PTS-STARTPTS,apad,atrim=duration={e-s}[b{i}];' for i,(s,e) in enumerate([(8,11),(12,15),(22,26),(4,956/30)]))+'[b0][b1][b2][b3]concat=n=4:v=0:a=1,volume=0:enable=lt(t\\,4)[a];[voice]atrim=start=0.2645:end=4,asetpts=PTS-STARTPTS,apad,atrim=duration=4[hook];[1:a]volume=0:enable=lt(t\\,4)[fx];[a][hook][fx]amix=inputs=3:normalize=0,alimiter=limit=0.9[aout]'
 run(['-i',S,'-i',str(T/'sfx.wav'),'-filter_complex',af,'-map','[aout]','-t',str(duration),'-c:a','aac','-b:a','128k',str(T/'audio.m4a')])
+pattern_file=O/'checks/hook-patterns.json'
+patterns=json.loads(pattern_file.read_text()) if pattern_file.exists() else {}
+for entry in M['renders']:
+ if entry['id'] not in patterns:patterns[entry['id']]=random.SystemRandom().choice([1,6])
+pattern_file.write_text(json.dumps(patterns,indent=2))
 def one(e):
  path=V/f'{e["id"]}.mp4';intro=T/f'{e["id"]}-intro.mp4';base=Image.open(O/e['original']['file']).convert('RGB').resize((W,H))
  base=Image.open(O/'plates'/f'{e["id"]}.jpg').convert('RGB')
  style=json.loads((O/'checks'/f'{e["id"]}-layout.json').read_text())['hookColors']
+ pattern=patterns[e['id']];treatment=preferred_treatment(style[0],pattern)
  enc=writer(intro)
  for k,frame in enumerate(first):
-  im=compose(base,frame,k/FPS,e['id'],style)
+  im=compose(base,frame,k/FPS,e['id'],style,treatment)
   if k==0:
    im.save(O/'frames'/f'{e["id"]}.jpg',quality=96)
    color=Image.open(O/'plates'/f'{e["id"]}-color.jpg')
-   compose(color,frame,0,e['id'],json.loads((O/'checks'/f'{e["id"]}-color-layout.json').read_text())['hookColors']).save(O/'frames'/f'{e["id"]}-color.jpg',quality=96)
+   colorstyle=json.loads((O/'checks'/f'{e["id"]}-color-layout.json').read_text())['hookColors']
+   compose(color,frame,0,e['id'],colorstyle,preferred_treatment(colorstyle[0],pattern)).save(O/'frames'/f'{e["id"]}-color.jpg',quality=96)
   enc.stdin.write(im.resize((W,H),Image.Resampling.LANCZOS).tobytes())
  finish(enc)
  concat=T/f'{e["id"]}.txt';concat.write_text(f"file '{intro.name}'\nfile 'tail.mp4'\n")
  run(['-f','concat','-safe','0','-i',str(concat),'-i',str(T/'audio.m4a'),'-map','0:v','-map','1:a','-c','copy','-movflags','+faststart','-t',str(duration),str(path)])
  print('video '+e['id'],flush=True)
- return {'id':e['id'],'file':str(path.relative_to(O)),'frames':n,'seconds':duration}
-with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(one,M['renders']))
-(O/'video-manifest.json').write_text(json.dumps({'status':'layout-motion-prototype','hookSeconds':4,'hookAudio':'source voice at output 0; removed 0.2645s leading silence; preview audio muted during Hook','hookLines':'three centered lines simultaneously from frame zero','hookFont':'M PLUS Rounded 1c ExtraBold','hookColor':'sampled from selected collage','sparkles':'decorative prototype, not existing pose-tracked effect','selection':'manual demonstration only','sourceRanges':[[8,11],[12,15],[22,26]],'outputRanges':[[0,3],[3,6],[6,10]],'bodyStart':10,'bodySourceStart':4,'previewStartsAt':0,'previewCount':1,'hookEnd':HOOK_END,'replayAfterExpansion':False,'fps':30,'rendered':results,'desktopGenerationSeconds':round(time.perf_counter()-start,2)},ensure_ascii=False,indent=2))
+ return {'id':e['id'],'file':str(path.relative_to(O)),'frames':n,'seconds':duration,'hookPattern':pattern}
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(one,[e for e in M['renders'] if not sys.argv[1:] or e['id'] in sys.argv[1:]]))
+if sys.argv[1:]:
+ prior=json.loads((O/'video-manifest.json').read_text())['rendered'];replacements={r['id']:r for r in results};results=[replacements.get(r['id'],r) for r in prior]
+(O/'video-manifest.json').write_text(json.dumps({'status':'layout-motion-prototype','hookSeconds':4,'hookAudio':'source voice at output 0; removed 0.2645s leading silence; preview audio muted during Hook','hookLines':'three centered lines simultaneously from frame zero','hookFont':'M PLUS Rounded 1c ExtraBold','hookColor':'approved pattern 1 or 6; black middle, template base and white-40% tint outer lines','sparkles':'decorative prototype, not existing pose-tracked effect','selection':'manual demonstration only','sourceRanges':[[8,11],[12,15],[22,26]],'outputRanges':[[0,3],[3,6],[6,10]],'bodyStart':10,'bodySourceStart':4,'previewStartsAt':0,'previewCount':1,'hookEnd':HOOK_END,'replayAfterExpansion':False,'fps':30,'rendered':results,'desktopGenerationSeconds':round(time.perf_counter()-start,2)},ensure_ascii=False,indent=2))
 print(f'All {len(results)} videos complete',flush=True)
