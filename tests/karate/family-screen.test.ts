@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { it, expect, vi } from "vitest";
+import { suiteSaving } from "../../karate-trainer/src/alan/alan-billing.js";
 import { renderFamilyScreen } from "../../karate-trainer/src/ui/family-screen";
 
 const members = [{ id: "m1", name: "じぶん" }, { id: "m2", name: "たろう" }];
@@ -312,7 +313,10 @@ it("plan cards list menus and 工夫 (the caps the app enforces), kids on Family
   expect(feats("suite")).toContain("家族 5人まで");
   // 空手は 1日の 回数で かぎらない
   expect(root.textContent).not.toContain("1日1回");
-  expect(root.querySelector('[data-plan-card="suite"] .a-plan-saving')!.textContent).toMatch(/^ぜんぶ べつべつだと ¥[\d,]+\/月$/);
+  // おとくさは 出ている アプリが ある とき だけ（ない ときは 空の 行を 出さない）
+  const saving = root.querySelector('[data-plan-card="suite"] .a-plan-saving');
+  if (suiteSaving()) expect(saving!.textContent).toBe(suiteSaving());
+  else expect(saving).toBeNull();
 });
 
 it("「工夫をぜんぶけす」 shows the count and asks the app to clear; disabled with none", () => {
@@ -538,4 +542,12 @@ it("billing: a free trial shows its length and the price after it", () => {
   expect(buy.getAttribute("aria-label")).toContain("1週間無料、そのあと ¥980");
   // No trial on the others.
   expect(root.querySelector('[data-buy="premium_yearly"] [data-trial]')).toBeNull();
+});
+
+it("Free's upgrade hint doesn't promise more plays a day (karate limits menus and 工夫)", () => {
+  const root = document.createElement("div");
+  renderFamilyScreen(root, deps({ activePlan: "free" }));
+  const hint = root.querySelector("[data-upgrade-hint]")!.textContent!;
+  expect(hint).toBe("もっと たくさんの メニュー・工夫に");
+  expect(hint).not.toContain("1日");
 });

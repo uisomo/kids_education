@@ -37,17 +37,19 @@ export const SUITE_ENTITLEMENT = "alan_suite";
  *  prefix：お店の 商品IDの 前ぶん（App Store Connect の 商品IDは Apple アカウントで 1つだけ なので アプリごとに かえる）。
  *          空手だけ むかしから 前ぶん なし（premium_monthly）。スイートは どの アプリも `<key>_suite_<period>`
  *  sells：この アプリで 売る プラン（スイートは どの アプリでも 売る）
- *  brand：アプリの 色（SERIES_GUIDE 5.2f） */
+ *  brand：アプリの 色（SERIES_GUIDE 5.2f）
+ *  released：App Store に 出ている（スイートの カードの「〇つ」「べつべつだと ¥」は 出ている アプリだけで 数える。
+ *            まだ 出ていない アプリを 数えると 宣伝が うそに なる ＝ 審査 3.1.2）。出したら true に */
 export const APPS = {
-  karate:  { name: "アランの空手",     bundleId: "com.alan.karate",       prefix: "",         brand: "#ffd166", sells: ["premium", "family", "suite"] },
-  piano:   { name: "アランのピアノ",   bundleId: "com.alan.piano",        prefix: "piano_",   brand: "#ff7aa8", sells: ["premium", "family", "suite"] },
-  kimochi: { name: "アランのきもち",   bundleId: "com.alan.kimochi",      prefix: "kimochi_", brand: "#e5243b", sells: ["premium", "family", "suite"] },
-  okane:   { name: "アランのおかね",   bundleId: "com.alan.okane",        prefix: "okane_",   brand: "#58cc02", sells: ["premium", "family", "suite"] },
-  eigo:    { name: "アランの英語",     bundleId: "com.alan.eigo",         prefix: "eigo_",    brand: "#14a89c", sells: ["premium", "family", "suite"] },
-  voice:   { name: "アランのボイス",   bundleId: "com.alan.voice",        prefix: "voice_",   brand: "#ff8a3d", sells: ["premium", "family", "suite"] },
-  dotoku:  { name: "アランの道徳",     bundleId: "com.alan.dotoku",       prefix: "dotoku_",  brand: "#6c4ee0", sells: ["premium", "family", "suite"] },
+  karate:  { name: "アランの空手",     bundleId: "com.alan.karate",       prefix: "",         brand: "#ffd166", sells: ["premium", "family", "suite"], released: false },
+  piano:   { name: "アランのピアノ",   bundleId: "com.alan.piano",        prefix: "piano_",   brand: "#ff7aa8", sells: ["premium", "family", "suite"], released: false },
+  kimochi: { name: "アランのきもち",   bundleId: "com.alan.kimochi",      prefix: "kimochi_", brand: "#e5243b", sells: ["premium", "family", "suite"], released: false },
+  okane:   { name: "アランのおかね",   bundleId: "com.alan.okane",        prefix: "okane_",   brand: "#58cc02", sells: ["premium", "family", "suite"], released: false },
+  eigo:    { name: "アランの英語",     bundleId: "com.alan.eigo",         prefix: "eigo_",    brand: "#14a89c", sells: ["premium", "family", "suite"], released: false },
+  voice:   { name: "アランのボイス",   bundleId: "com.alan.voice",        prefix: "voice_",   brand: "#ff8a3d", sells: ["premium", "family", "suite"], released: false },
+  dotoku:  { name: "アランの道徳",     bundleId: "com.alan.dotoku",       prefix: "dotoku_",  brand: "#6c4ee0", sells: ["premium", "family", "suite"], released: false },
   // ことばクラッシュは まだ 子どもごとに 分けていない（5.12 ⬜）→ ファミリーは 分けてから
-  kotoba:  { name: "ことばクラッシュ", bundleId: "com.uk.kotobacrash",    prefix: "kotoba_",  brand: "#3f8fd6", sells: ["premium", "suite"] },
+  kotoba:  { name: "ことばクラッシュ", bundleId: "com.uk.kotobacrash",    prefix: "kotoba_",  brand: "#3f8fd6", sells: ["premium", "suite"], released: false },
 };
 
 export const PERIODS = ["monthly", "yearly"];
@@ -75,24 +77,39 @@ export function planFeatures(app, plan, content = {}) {
     case "free": return ["子ども 1人", ...(content.daily === false ? [] : ["1日1回"]), ...free, ...(content.recording === false ? [] : ["ろくが・ほぞん OK"])];
     case "premium": return ["子ども 1人", ...(content.daily === false ? [] : ["1日 なんかいでも"]), ...paid];
     case "family": return [`子ども ${n}人まで`, "ひとりずつ プレミアムと おなじ"];
-    case "suite": return [`アランの アプリ ${Object.keys(APPS).length}つ ぜんぶ`, `家族 ${n}人まで`, "あたらしい アプリも"];
+    case "suite": {
+      const k = releasedApps().length;
+      return [k >= 2 ? `アランの アプリ ${k}つ ぜんぶ` : "アランの アプリ ぜんぶ", `家族 ${n}人まで`];
+    }
     default: return [];
   }
 }
 
-/** スイートの おとくさ：「ぜんぶ べつべつだと ¥10,500/月」。 */
+/** App Store に 出ている アプリ。 */
+export const releasedApps = () => Object.keys(APPS).filter((k) => APPS[k].released);
+
+/** スイートの おとくさ：「ぜんぶ べつべつだと ¥4,500/月」。出ている アプリで スイートより 高く なる ときだけ（ほかは ""）。
+ *  ファミリーを 売らない アプリは 数えない（おなじ 5人で くらべる）。 */
 export function suiteSaving() {
   const yen = (s) => Number(String(s).replace(/[^0-9]/g, ""));
-  const each = Object.values(APPS).reduce((sum, a) => sum + yen(PLANS[a.sells.includes("family") ? "family" : "premium"].monthly), 0);
+  const each = releasedApps().filter((k) => APPS[k].sells.includes("family")).reduce((sum) => sum + yen(PLANS.family.monthly), 0);
+  if (each <= yen(PLANS.suite.monthly)) return "";
   return `ぜんぶ べつべつだと ¥${each.toLocaleString("ja-JP")}/月`;
 }
 
-/** つぎの プランへの ひとこと（カードの 上・上限に あたった とき）。plan = いまの プラン。noun = アプリの お題の よびかた（まよい・おはなし）。 */
-export function upgradeHint(app, plan, noun = "お題") {
+/** つぎの プランへの ひとこと（カードの 上・上限に あたった とき）。plan = いまの プラン。noun = アプリの お題の よびかた（まよい・おはなし）。
+ *  opts.daily false：1日の 回数で かぎらない アプリ（空手）。 */
+export function upgradeHint(app, plan, noun = "お題", opts = {}) {
   const sells = APPS[app].sells;
-  if (plan === "free") return sells.includes("premium") ? `1日 なんかいでも・ぜんぶの ${noun}に` : "";
+  if (plan === "free") {
+    if (!sells.includes("premium")) return "";
+    return opts.daily === false ? `もっと たくさんの ${noun}に` : `1日 なんかいでも・ぜんぶの ${noun}に`;
+  }
   if (plan === "premium" && sells.includes("family")) return "あと ¥500/月で きょうだいも（5人まで）";
-  if (plan === "premium" || plan === "family") return `アランの アプリ ぜんぶなら スイート（${suiteSaving()}）`;
+  if (plan === "premium" || plan === "family") {
+    const saving = suiteSaving();
+    return `アランの アプリ ぜんぶなら スイート${saving ? `（${saving}）` : ""}`;
+  }
   return "";
 }
 
@@ -242,7 +259,23 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
 
   // iPhone の アプリの 中 だけ（ブラウザ・テストでは キーが あっても お店に つながない）
   const native = !!globalThis.Capacitor?.isNativePlatform?.();
-  const billing = apiKey && !testBuild && native ? revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer }) : null;
+  // スイートを どの アプリで 買ったか も おぼえる（オフライン・お店の 返事の 前でも「〇〇で 入っています」に して 2重に 買わせない）
+  const fromKey = `${planKey}.from`;
+  const remember = (info) => {
+    try { localStorage.setItem(fromKey, info.plan === "suite" && info.fromApp ? info.fromApp : ""); } catch { /* ignore */ }
+    return info;
+  };
+  /** スイートを ほかの アプリで 買って いる とき その アプリ（APPS の key）。ほかは null。 */
+  const suiteFrom = () => {
+    if (loadPlan() !== "suite") return null;
+    let from = null;
+    try { from = localStorage.getItem(fromKey); } catch { /* ignore */ }
+    return from && from !== app && APPS[from] ? from : null;
+  };
+
+  const billing = apiKey && !testBuild && native
+    ? revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer: (c) => remember(infoFromCustomer(c)), suiteFrom, isFree: () => loadPlan() === "free" })
+    : null;
 
   return {
     app,
@@ -258,6 +291,7 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
     members: (plan = loadPlan()) => PLANS[plan].members,
     toProductId,
     infoFromCustomer,
+    suiteFrom,
     billing,
   };
 }
@@ -283,7 +317,7 @@ export function openExternal(url) {
   window.open(url, "_blank");
 }
 
-function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer }) {
+function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer, suiteFrom, isFree }) {
   const load = loadSdk ?? (async () => globalThis.Capacitor.registerPlugin("Purchases"));
   let sdkPromise = null;
   const sdk = () => {
@@ -292,14 +326,17 @@ function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer }
       if (apiKey.startsWith("test_")) await Purchases.setLogLevel({ level: "DEBUG" }).catch(() => {});
       const appUserID = await sharedUserId();
       await Purchases.configure(appUserID ? { apiKey, appUserID } : { apiKey });
-      // はじめて 共有の ID に した とき 1回：この アプリで 買った ものを その ID へ（匿名の ころの 購入を なくさない）
+      // はじめて 共有の ID に した とき 1回：この アプリで 買った ものを その ID へ（匿名の ころの 購入を なくさない）。
+      // しっぱい（オフライン など）したら しるしを つけず、つぎに ひらいた とき もう一度
       if (appUserID) {
         const key = `alan.suite.synced.${app}`;
         let done = null;
         try { done = localStorage.getItem(key); } catch { /* ignore */ }
         if (done !== appUserID) {
-          await Purchases.syncPurchases().catch(() => {});
-          try { localStorage.setItem(key, appUserID); } catch { /* ignore */ }
+          try {
+            await Purchases.syncPurchases();
+            try { localStorage.setItem(key, appUserID); } catch { /* ignore */ }
+          } catch { /* つぎに */ }
         }
       }
       return Purchases;
@@ -348,21 +385,32 @@ function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer }
       } catch { /* オフライン・未設定 */ }
       return out;
     },
-    // 無料の おためしだけ。もらえるかは Apple が 買う ときに きめる
+    // 無料の おためし。Apple が「この 人は もらえる」と 言った 商品だけ（もらえない 人に「1週間 無料」と 出すと うそ）。
+    // フリーの ときだけ（有料プランの 人は おなじ グループで もう つかっている）
     async trials() {
       const out = {};
+      if (!isFree()) return out;
       try {
         const map = await loadPackages();
-        for (const id of ids) {
-          const intro = map.get(id)?.product.introPrice;
-          if (!intro || intro.price !== 0) continue;
+        const Purchases = await sdk();
+        const withIntro = ids.filter((id) => { const i = map.get(id)?.product.introPrice; return i && i.price === 0; });
+        if (!withIntro.length) return out;
+        const storeIds = withIntro.map((id) => map.get(id).product.identifier);
+        const elig = await Purchases.checkTrialOrIntroductoryPriceEligibility({ productIdentifiers: storeIds });
+        for (const id of withIntro) {
+          const p = map.get(id).product;
+          const st = elig?.[p.identifier]?.status;
+          if (st !== 2 && st !== "INTRO_ELIGIBILITY_STATUS_ELIGIBLE") continue; // 2 = ELIGIBLE
+          const intro = p.introPrice;
           const len = trialLength(intro.periodUnit, intro.periodNumberOfUnits * Math.max(1, intro.cycles));
           if (len) out[id] = len;
         }
-      } catch { /* オフライン */ }
+      } catch { /* オフライン・わからない → 出さない */ }
       return out;
     },
     async purchase(id) {
+      const from = suiteFrom();
+      if (from) return { status: "error", message: `${APPS[from].name}で スイートに 入っています（ここで 買う ひつようは ありません）` };
       try {
         const map = packages?.has(id) ? packages : await loadPackages();
         const pkg = map.get(id);

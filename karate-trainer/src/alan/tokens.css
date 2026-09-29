@@ -24,6 +24,7 @@
   --line: #e6e1d6;         /* しきり線 */
 
   /* ---- シリーズ共通（変えない） ---- */
+  --brand-ink: var(--brand-dark); /* 明るい 地の 上の 小さい 文字の アプリの 色（4.5:1。たりない アプリは 上書き 5.2f） */
   --a-btn-ink: #1d1b18;    /* 白い ボタン（.a-btn）の 文字。暗い 地の アプリでも かえない */
   --a-series: #e5243b;     /* アランの 色（キャラの 赤）。「アランの〇〇」の しるし・ロゴの ピル */
   /* スイート（アランの アプリ ぜんぶ）＝ アプリの 色を ぜんぶ ならべた にじ（SERIES_GUIDE 5.2f） */
@@ -85,7 +86,7 @@
 .gicon.gicon-img { background: none; box-shadow: none; }
 .gicon.gicon-img::before { display: none; }
 .gicon-img > .gicon-pic { width: 100%; height: 100%; display: block; filter: drop-shadow(0 3px 4px rgba(20,20,20,.22)); }
-.gicon-img > .gicon-glyph { position: absolute; left: 23%; top: 23%; width: 54%; height: 54%; object-fit: contain; }
+.gicon > .gicon-glyph { position: absolute; z-index: 1; left: 23%; top: 23%; width: 54%; height: 54%; object-fit: contain; }
 img.ic { object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
 .ic-plain { display: inline-block; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(20,20,20,.18)); }
 .a-tab:not([aria-current="page"]) .gicon-img { filter: grayscale(1) opacity(.55); }
@@ -120,6 +121,7 @@ img.ic { object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
 .a-btn:focus-visible { outline: 3px solid var(--g-sh); outline-offset: 3px; }
 .a-btn.primary { --g-hi: var(--brand-hi); --g-lo: var(--brand); --g-sh: var(--brand-dark); color: var(--on-brand); }
 .a-btn[class*="g-"]:not(.g-white) { color: #fff; }
+.a-btn.g-brand { color: var(--on-brand); } /* 明るい アプリの 色の 上は こい 文字（5.2f） */
 .a-btn.big { min-height: var(--a-tap-big); padding: 16px 32px; font-size: 22px; }
 .a-btn.wide { width: 100%; }
 .a-btn.quiet { background: none; box-shadow: none; color: var(--ink-soft); font-weight: 700; }
@@ -252,11 +254,11 @@ img.ic { object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
 }
 .a-plan-pitch { font-weight: 800; font-size: 15px; }
 .a-plan-feats { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 15px; color: var(--ink-soft); }
-.a-plan-feats li::before { content: "✓ "; color: var(--brand-dark); font-weight: 900; }
+.a-plan-feats li::before { content: "✓ "; color: var(--brand-ink); font-weight: 900; }
 .a-plan-saving { font-size: 13px; color: var(--ink-soft); }
 .a-plan-badge {
   position: absolute; top: -10px; right: 14px; padding: 3px 10px; border-radius: var(--a-r-pill);
   font-size: 13px; font-weight: 900; color: var(--on-brand); background: linear-gradient(180deg, var(--brand-hi), var(--brand));
 }
 .a-plan.suite .a-plan-badge { background: var(--a-suite); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
-.a-plan-hint { font-size: 14px; font-weight: 800; color: var(--brand-dark); }
+.a-plan-hint { font-size: 14px; font-weight: 800; color: var(--brand-ink); }

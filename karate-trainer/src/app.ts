@@ -38,7 +38,7 @@ import { scopedStorage } from "./scoped-storage";
 import { type Member, getActiveId, loadMembers, addMember, removeMember, renameMember, setActive } from "./member-store";
 import { type Plan, type PlanLimits, PLAN_LIMITS, PLAN_META, loadPlan, setPlan } from "./plan-store";
 import { type Decor, canRemoveDecor, effectiveDecor, loadDecor, setDecor } from "./decor-store";
-import { type Billing, type BillingInfo, type ProductId, planOfProduct, renewalText } from "./billing";
+import { type Billing, type BillingInfo, type ProductId, APP_KEY, planOfProduct, renewalText, series } from "./billing";
 import { getAssignedClass, setAssignedClass } from "./class-store";
 import { getBgmMuted, setBgmMuted } from "./bgm-store";
 import type { GatedBgmPlayer } from "./bgm-gate";
@@ -1086,7 +1086,10 @@ export class KarateApp {
       trials: this.billingInfo && this.billingInfo.plan !== "free" ? {} : this.trials,
       currentProduct: this.billingInfo?.plan === "free" ? null : this.billingInfo?.productId ?? null,
       renewal: renewalText(this.billingInfo),
-      fromApp: this.billingInfo?.fromApp ?? null,
+      // スイートを ほかの アプリで 買っている か。お店の 返事の 前（オフライン）は おぼえている 値
+      fromApp: this.billingInfo
+        ? (this.billingInfo.plan === "suite" && this.billingInfo.fromApp !== APP_KEY ? this.billingInfo.fromApp : null)
+        : series.suiteFrom(),
       busy: this.billingBusy,
       status: this.billingStatus,
       onBuy: (id) => { void this.buy(billing, id); },

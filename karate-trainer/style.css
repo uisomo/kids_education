@@ -48,6 +48,7 @@
   --brand-hi: #ff9fc0;
   --brand-dark: #d9487c;
   --on-brand: #4d0a24; /* 白 × ピンクは 2.4:1 → こい ピンク（5.2f） */
+  --brand-ink: #ff9fc0; /* 暗い 地の 上の 小さい 文字 */
 }
 
 /* 暗い地なので --ink は 白。白い グロッシーの 丸（もどる・とじる）の 絵だけは こい色に する。 */
@@ -3064,9 +3065,9 @@ button.family-plan:disabled { cursor: default; }
   min-height: 2.4rem;
   margin-top: 0.15rem;
   padding: 0.3rem 0.2rem;
-  color: #1a162b;
-  background: #ffd166;
-  border: 2px solid #ffd166;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 2px solid var(--brand);
   border-radius: 999px;
   cursor: pointer;
 }
@@ -3079,7 +3080,7 @@ button.family-plan:disabled { cursor: default; }
 .family-plan-buy.current,
 .family-plan-buy.current:disabled {
   opacity: 1;
-  color: #ffd166;
+  color: var(--brand);
   background: transparent;
 }
 
@@ -3092,7 +3093,7 @@ button.family-plan:disabled { cursor: default; }
 .family-billing-status {
   font-size: 0.8rem;
   font-weight: 800;
-  color: #ffd166;
+  color: var(--brand);
 }
 
 .family-billing-actions {
@@ -3651,8 +3652,8 @@ button.family-plan:disabled { cursor: default; }
   margin: 0 auto 0.1rem;
   padding: 0 0.5rem;
   border-radius: 999px;
-  background: #1a162b;
-  color: #ffd166;
+  background: var(--on-brand);
+  color: var(--brand-hi);
   font-size: 0.9em;
 }
 
@@ -4528,7 +4529,6 @@ input[data-gate-input]:disabled,
 .family-jump-chip,
 .family-member-rename,
 .family-add-btn,
-.family-plan-buy,
 .family-comment-save,
 .letter-card-close,
 .kufu-card-save,
@@ -4540,6 +4540,14 @@ input[data-gate-input]:disabled,
   box-shadow: var(--kt-pill-shadow);
 }
 .done-toast { box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.1), 0 3px 0 #c98f10, 0 8px 20px rgba(0, 0, 0, 0.4); }
+/* プランの 買う ボタン：おなじ つやの ピルを アプリの 色で（空手＝金・ピアノ＝ピンク） */
+.family-plan-buy {
+  --kt-lip: var(--brand-dark);
+  background: var(--kt-pill-spec), linear-gradient(180deg, var(--brand-hi) 0%, var(--brand) 45%, var(--brand-dark) 100%);
+  box-shadow: var(--kt-pill-shadow);
+}
+.family-plan-buy.current,
+.family-plan-buy.family-plan-free { background: transparent; box-shadow: none; }
 
 /* ---- red "delete" chips: a tinted glossy pill instead of a flat wash ---- */
 .preset-del,

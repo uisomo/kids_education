@@ -124,7 +124,7 @@ export interface BillingView {
   onRestore(): void;
   onManage(): void;
   onChooseFree(): void;            // Free can't be bought: explains cancelling
-  // スイートを どの アプリで 買ったか。ほかの アランの アプリなら ここでは 買う ボタンを 出さない（2重に 払わせない）
+  // スイートを ほかの アランの アプリで 買っている ときの その アプリ（ここでは 買う ボタンを 出さない。2重に 払わせない）。ほかは null
   fromApp?: AppKey | null;
 }
 
@@ -280,8 +280,7 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
 
   const billing = deps.billing;
   // ほかの アランの アプリで スイートに 入っている（ここでは 買わない）
-  const suiteElsewhere = deps.activePlan === "suite" && !!billing?.fromApp && billing.fromApp !== APP_KEY
-    ? billing.fromApp : null;
+  const suiteElsewhere = billing?.fromApp && billing.fromApp !== APP_KEY ? billing.fromApp : null;
   const planInfo: HTMLElement[] = [];
   if (suiteElsewhere) {
     const elsewhere = document.createElement("div");
@@ -290,7 +289,8 @@ export function renderFamilyScreen(root: HTMLElement, deps: FamilyDeps): void {
     elsewhere.textContent = `${APPS[suiteElsewhere].name}で 入っています（アランの アプリ ぜんぶ つかえます）`;
     planInfo.push(elsewhere);
   } else {
-    const hint = upgradeHint(APP_KEY, deps.activePlan);
+    // 空手の フリーは 1日の 回数で なく メニュー・工夫の 数で かぎる
+    const hint = upgradeHint(APP_KEY, deps.activePlan, "メニュー・工夫", { daily: false });
     if (hint) {
       const el = document.createElement("div");
       el.className = "a-plan-hint";
@@ -745,11 +745,12 @@ function planCardShell(card: HTMLElement, plan: Plan, activePlan: Plan): void {
   });
   card.append(feats);
 
-  if (plan === "suite") {
-    const saving = document.createElement("div");
-    saving.className = "a-plan-saving";
-    saving.textContent = suiteSaving();
-    card.append(saving);
+  const saving = plan === "suite" ? suiteSaving() : "";
+  if (saving) {
+    const el = document.createElement("div");
+    el.className = "a-plan-saving";
+    el.textContent = saving;
+    card.append(el);
   }
 }
 

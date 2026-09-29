@@ -6,7 +6,7 @@ export type ProductId = `${PaidPlan}_${Period}`;
 export type AppKey = "karate" | "piano" | "kimochi" | "okane" | "eigo" | "voice" | "dotoku" | "kotoba";
 
 export interface PlanInfo { label: string; members: number; rank: number; monthly: string | null; yearly: string | null }
-export interface AppInfo { name: string; bundleId: string; prefix: string; brand: string; sells: PaidPlan[] }
+export interface AppInfo { name: string; bundleId: string; prefix: string; brand: string; sells: PaidPlan[]; released: boolean }
 
 export const PLAN_ORDER: Plan[];
 export const PLANS: Record<Plan, PlanInfo>;
@@ -67,6 +67,8 @@ export interface SeriesBilling {
   members(plan?: Plan): number;
   toProductId(storeId: string): ProductId | null;
   infoFromCustomer(customer: unknown): BillingInfo;
+  /** スイートを ほかの アプリで 買って いる とき その アプリ（おぼえている 値。お店の 返事の 前でも つかえる）。ほかは null */
+  suiteFrom(): AppKey | null;
   /** お店に つながる とき だけ（iPhone で キーが ある・テスト版 でない） */
   billing: Billing | null;
 }
@@ -83,4 +85,5 @@ export function createSeriesBilling(opts: {
 
 export function planFeatures(app: AppKey, plan: Plan, content?: { free?: string[]; paid?: string[]; daily?: boolean; recording?: boolean }): string[];
 export function suiteSaving(): string;
-export function upgradeHint(app: AppKey, plan: Plan, noun?: string): string;
+export function releasedApps(): AppKey[];
+export function upgradeHint(app: AppKey, plan: Plan, noun?: string, opts?: { daily?: boolean }): string;

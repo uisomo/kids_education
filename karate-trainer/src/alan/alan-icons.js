@@ -130,6 +130,10 @@ export function glossyIcon(name, size = "m", color) {
   span.className = `gicon gicon-img gicon-${size}`;
   if (!color || color === ICONS[name].color) {
     span.append(img(`${name}.png`, "gicon-pic", name));
+  } else if (color === "brand") {
+    // アプリの 色（--brand）は PNG の 地が ない → CSS の グロッシー（.g-brand）に 白い 絵
+    span.className = `gicon g-brand gicon-${size}`;
+    span.append(img(`glyph/${name}.png`, "gicon-glyph", name));
   } else {
     span.append(img(`base/${color}.png`, "gicon-pic", name), img(`glyph/${name}.png`, "gicon-glyph", name));
   }
