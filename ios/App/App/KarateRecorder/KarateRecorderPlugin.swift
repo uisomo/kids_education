@@ -56,6 +56,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     // Session state. Main-actor confined: every plugin method hops to the main
     // actor before touching it.
     /// いま 録っている 録画の 日記（PendingSaves）の id。startRecording で つくる
+    @MainActor private var recordingOpening: ApprovedOpening.Selection?
     @MainActor private var recordingJobId: String?
     /// startPreview で ページが くれた おへや・かめんの 値（録画の 日記に 書く：落ちたあとも かくす ため）
     @MainActor private var previewPrivacyJSON: [String: Any]?
@@ -260,6 +261,13 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 await self.salvageRecording(reason: "pageReloaded")
             }
             let id = UUID().uuidString
+            let openingApp = (Bundle.main.bundleIdentifier ?? "").contains("piano") ? "piano" : "karate"
+            let previousKey = "opening.\(openingApp).previous"
+            let previous = UserDefaults.standard.object(forKey: previousKey) as? Int
+            if let choice = try? OpeningProfiles.choose(app: openingApp, recordingID: id, color: "#2c0ffe", previous: previous) {
+                self.recordingOpening = choice.selection
+                UserDefaults.standard.set(choice.index, forKey: previousKey)
+            } else { self.recordingOpening = nil }
             let rawName = "\(id)-raw.mov"
             let voiceName = "\(id)-voice.caf"
             self.recordCallHostSeconds = arrivedAt
@@ -281,6 +289,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     shiftMs: timing.shiftMs,
                     options: (try? JSONSerialization.data(withJSONObject: privacy)) ?? Data("{}".utf8),
                     interruption: nil, createdAt: Date(), attempts: 0, state: "recording")
+                job.openingSelection = self.recordingOpening.flatMap { try? JSONEncoder().encode($0) }
                 do {
                     try PendingSaves.save(job)
                 } catch {
@@ -849,6 +858,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var job = journal ?? PendingSave(
             id: id, rawName: rawName, voiceName: nil, voiceLeadSeconds: 0, voiceProcessing: false,
             shiftMs: 0, options: Data("{}".utf8), interruption: nil, createdAt: Date(), attempts: 0)
+        if job.openingSelection == nil { job.openingSelection = recordingOpening.flatMap { try? JSONEncoder().encode($0) } }
         job.rawName = rawName
         job.voiceName = voiceName
         job.voiceLeadSeconds = timing.lead
@@ -1081,7 +1091,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         } else if job.privacyDone {
             privacyShare = 0.5
         }
-        let expected = await VideoCheck.videoSeconds(raw)
+        var expected = await VideoCheck.videoSeconds(raw)
 
         let events = parsed.events.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
         let totalMs = max(0, parsed.totalDurationMs - shiftMs)
@@ -1196,6 +1206,66 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
+        // Common opening consumes the privacy-resolved source and the already decorated body.
+        // Failure/insufficient meaningful scenes keeps that finished body, never reopens originalRawName.
+        var openingStatus = "legacy-recording"
+        var openingTimeOffset: Double?
+        if let data = job.openingSelection,
+           let selection = try? JSONDecoder().decode(ApprovedOpening.Selection.self, from: data) {
+            openingStatus = "needs-finished-body"
+            if exportMode == "burned", let body = output, let duration = expected {
+                do {
+                    let changes = events.filter { ($0.patch["drillIndex"] as? NSNumber) != nil }
+                    let candidates = changes.enumerated().compactMap { index, event -> ApprovedOpening.Candidate? in
+                        guard let row = (event.patch["drillIndex"] as? NSNumber)?.intValue,
+                              row >= 0, row < parsed.menu.count, !parsed.menu[row].isRest else { return nil }
+                        let end = index + 1 < changes.count ? changes[index + 1].t / 1000 : duration
+                        return ApprovedOpening.Candidate(id: "drill-\(row)-\(index)", start: max(0, event.t / 1000),
+                            end: min(duration, end), kind: selection.app == "piano" ? "performance" : "practice",
+                            child: true, privacyProcessed: !privacy.settings.isOn || job.privacyDone)
+                    }
+                    let highlights = try ApprovedOpening.select(app: selection.app, candidates: candidates, sourceDuration: duration)
+                    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: raw))
+                    generator.appliesPreferredTrackTransform = true
+                    generator.maximumSize = CGSize(width: 1080, height: 1920)
+                    generator.requestedTimeToleranceBefore = .zero
+                    generator.requestedTimeToleranceAfter = .zero
+                    let stills = try (0..<7).map { index in
+                        try generator.copyCGImage(at: CMTime(seconds: highlights[index % 3].start + Double(index / 3) * 0.2,
+                                                            preferredTimescale: 600), actualTime: nil)
+                    }
+                    let title = parsed.menu.first(where: { !$0.isRest })?.name ?? ""
+                    let collage = try OpeningCollageCards.make(stills: stills, privacy: privacy.settings,
+                        source: CollageSourcePolicy.required(for: privacy.settings), title: title, date: job.createdAt)
+                    guard let logoURL = Bundle.main.url(forResource: "decor-banner", withExtension: "png", subdirectory: "public/images"),
+                          let logo = UIImage(contentsOfFile: logoURL.path)?.cgImage else {
+                        throw ApprovedOpening.Failure.missingAsset("app logo")
+                    }
+                    let renderer = try OpeningRenderer(selection: selection, collage: collage, logo: logo, thumbnailPreview: stills[0])
+                    let bodyStart = candidates.map(\.start).min() ?? 0
+                    let openingOut = PendingSaves.url("\(job.id)-opening.mp4")
+                    try? fm.removeItem(at: openingOut)
+                    // Body remains intact: existing banners, sparkles and sound all come from body.
+                    try await self.exportRetryingInForeground("KarateRecorderOpening") {
+                        try? fm.removeItem(at: openingOut)
+                        try await OpeningMovie.export(.init(finishedMovie: body, privacyProcessed: true,
+                            highlights: highlights, bodyStart: bodyStart, renderer: renderer), to: openingOut)
+                    }
+                    try await VideoCheck.validate(openingOut, expectedSeconds: duration - bodyStart + ApprovedOpening.duration)
+                    output = openingOut
+                    expected = duration - bodyStart + ApprovedOpening.duration
+                    openingStatus = "ready-template-3889"
+                    openingTimeOffset = ApprovedOpening.duration - bodyStart - shiftMs / 1000
+                } catch ApprovedOpening.Failure.needsHighlights(let available) {
+                    openingStatus = "needs-highlights-\(available)"
+                } catch {
+                    if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
+                    openingStatus = "needs-assets-or-retry"
+                    print("⚡️ [Opening] \(job.id): \(error)")
+                }
+            }
+        }
+
         // できあがりは Application Support/KarateRecorder/finished へ（tmp では ない）。コピーでなく 移す。
         // 生の 映像を そのまま つかう ときも 移す（そのとき 声は 写真に 保存 されるまで のこす）
         if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
@@ -1241,8 +1311,10 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             "exportMode": exportMode,
             "soundMixed": soundMixed,
             "overlayShiftMs": shiftMs,
+            "openingStatus": openingStatus,
             "resumed": resumedJobIds.contains(job.id),
         ]
+        if let openingTimeOffset { result["sourceTimeOffset"] = openingTimeOffset }
         if let burnError { result["burnError"] = burnError }
         if let mixError { result["mixError"] = mixError }
         if let reason = job.interruption { result["interruption"] = reason }

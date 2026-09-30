@@ -21,6 +21,8 @@ struct PendingSave: Codable {
     var shiftMs: Double
     /// stopRecording's options from JS (events, menu, sounds, labels), as JSON.
     var options: Data
+    /// Fixed at capture start; decoded again on retry, never reselected during export.
+    var openingSelection: Data? = nil
     var interruption: String?
     let createdAt: Date
     /// ほんとうに 落ちた 回数（いまの 段で）。バックグラウンドで 失敗した ぶんは かぞえない。

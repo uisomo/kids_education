@@ -39,6 +39,9 @@ export interface NativeStopResult {
 
 // The finished video of one save ("exportFinished").
 export interface NativeSaveResult {
+  /** Explicit opening readiness; insufficient/unsupported scenes are never replaced with unrelated footage. */
+  openingStatus?: string;
+  sourceTimeOffset?: number;
   jobId: string;
   uri: string;
   burnedIn: boolean;
@@ -584,12 +587,14 @@ export class NativeVideoRecorder {
 
   // The finished video (overlay + sound): its playback URL, once the save is
   // done. null when there is no save to wait for. onProgress gets 0…1.
-  async saved(onProgress?: (fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string } | null> {
+  async saved(onProgress?: (fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string; openingStatus?: string; sourceTimeOffset?: number } | null> {
     if (!this.saving) return null;
     if (this.jobId && onProgress) void nativeSaveTracker(this.getPlugin()).watch(this.jobId, onProgress);
     const result = await this.saving;
     if (!result || !this.lastPlaybackUrl || !this.lastUri) return null;
-    return { playbackUrl: this.lastPlaybackUrl, fileUri: this.lastUri };
+    return { playbackUrl: this.lastPlaybackUrl, fileUri: this.lastUri,
+      ...(result.openingStatus ? { openingStatus: result.openingStatus } : {}),
+      ...(result.sourceTimeOffset !== undefined ? { sourceTimeOffset: result.sourceTimeOffset } : {}) };
   }
 
   // The finished video was shown to the child: don't offer it again later.

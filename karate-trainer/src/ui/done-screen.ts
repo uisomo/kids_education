@@ -72,7 +72,7 @@ export interface DoneDeps {
   // being added; `done` resolves with the finished video, which then replaces
   // it. Saving and sending wait for it.
   finishing?: {
-    done: Promise<{ playbackUrl: string; fileUri: string } | null>;
+    done: Promise<{ playbackUrl: string; fileUri: string; openingStatus?: string; sourceTimeOffset?: number } | null>;
     onProgress(fn: (fraction: number) => void): void;
     // The finished video made it onto the screen.
     onShown?(): void;
@@ -215,6 +215,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
   // 工夫 and a 💡 button, so the child writes while watching themselves. The
   // drill name jumps the video to where that drill starts. Many drills scroll
   // inside the column; the video stays put.
+  let openingTimeOffset = 0;
   const kufuOn = deps.kufuEnabled !== false && !!deps.kufuDrills?.length;
   const kufuSection = document.createElement("div");
   kufuSection.className = "kufu-section";
@@ -257,7 +258,7 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
         jump.append(icon("play"), formatAt(at));
         label.append(jump);
         label.addEventListener("click", () => {
-          try { video.currentTime = at; } catch { /* not seekable yet */ }
+          try { video.currentTime = Math.max(0, at + openingTimeOffset); } catch { /* not seekable yet */ }
           void Promise.resolve(video.play()).catch(() => { /* needs a tap */ });
         });
       } else {
@@ -493,10 +494,20 @@ export function renderDoneScreen(root: HTMLElement, deps: DoneDeps): void {
       finished();
       if (!result) return;
       // 仕上がったほうが「もとの動画」になる: ✨キラキラ の「なし」はここへ戻る。
+      if (result.sourceTimeOffset !== undefined && Number.isFinite(result.sourceTimeOffset)) {
+        openingTimeOffset = result.sourceTimeOffset;
+        root.querySelectorAll<HTMLButtonElement>("[data-kufu-jump]").forEach(label => {
+          const at = Math.max(0, Number(label.dataset.kufuJump) + openingTimeOffset);
+          label.querySelector(".kufu-jump")?.replaceChildren(icon("play"), document.createTextNode(formatAt(at)));
+        });
+      }
       originalSrc = result.playbackUrl;
       showVideoSource(result.playbackUrl);
       startFx();
-      showDoneToast(root, "✅ 動画ができたよ！");
+      const openingNotice = result.openingStatus?.startsWith("needs-highlights")
+        ? "見どころが3つそろわなかったため、本編を保存します。"
+        : result.openingStatus?.startsWith("needs-") ? "冒頭を作れなかったため、本編を保存します。" : null;
+      showDoneToast(root, openingNotice ?? "✅ 動画ができたよ！");
       if (video.isConnected) deps.finishing?.onShown?.();
     }).catch(finished);
   }

@@ -127,7 +127,7 @@ export interface VideoRecorderLike {
   playbackUrl?(): string | null;
   // Native only: the overlay and sound are added after stop() returns. Resolves
   // with the finished video (null if there is nothing to wait for).
-  saved?(onProgress?: (fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string } | null>;
+  saved?(onProgress?: (fraction: number) => void): Promise<{ playbackUrl: string; fileUri: string; openingStatus?: string; sourceTimeOffset?: number } | null>;
   // Native only: the finished video was on screen, so it isn't offered again.
   markSeen?(): void;
   // Tear down camera / mic / music without exporting (a failed start or a
