@@ -24,6 +24,9 @@ export interface TrainingView {
   setTexts(grid: string[][] | null, palette?: number): void;
   // Reveal word #i (reading order) with the zoom-out animation.
   revealText(index: number): void;
+  // 🪝 hook の「つづき」（SERIES_GUIDE 5.6）：読み上げの あいだ いつも 出ている
+  // 手で すすめる ボタン。押すと いまの 待ちを すぐ おわらせる（画面だけ。動画には 出ない）。
+  onHookSkip(cb: () => void): void;
   // Returns the cheer clip that started playing, or null.
   showCue(text: string): CheerClip | null;
   setNext(text: string | null): void;
@@ -158,6 +161,16 @@ export function renderTrainingScreen(
   textGrid.className = "text-grid";
   textGrid.hidden = true;
 
+  // 読み上げの あいだの「つづき」（SERIES_GUIDE 5.6）：時間だけで すすめず、
+  // 読みおわったら 自分で 押して すすめる。画面の いちばん下（5.15）。live-only DOM。
+  const hookSkips: Array<() => void> = [];
+  const hookSkipBtn = document.createElement("button");
+  hookSkipBtn.type = "button";
+  hookSkipBtn.dataset.hookSkip = "";
+  hookSkipBtn.className = "a-btn primary hook-skip-btn";
+  hookSkipBtn.hidden = true;
+  hookSkipBtn.addEventListener("click", () => hookSkips.forEach((cb) => cb()));
+
   // Cue toast
   const cueEl = document.createElement("div");
   cueEl.dataset.cue = "";
@@ -193,6 +206,7 @@ export function renderTrainingScreen(
   pieceBtn.dataset.pieceDone = "";
   pieceBtn.className = "piece-done-btn";
   label(pieceBtn, "next", NEXT_LABEL);
+  label(hookSkipBtn, "next", "つづき", true);
   const controls = document.createElement("div");
   controls.className = "training-controls";
   controls.append(pieceBtn);
@@ -259,7 +273,7 @@ export function renderTrainingScreen(
   bottomRow.append(captionEl, nextEl);
 
   root.append(dojoBg, videoEl, topBar, centerContent, cueEl, bottomRow,
-              ...(decor === "none" ? [] : [decorEl]), ...(untimed ? [controls] : []));
+              ...(decor === "none" ? [] : [decorEl]), ...(untimed ? [controls] : []), hookSkipBtn);
 
   // One line when it can: step the font down a little before letting it wrap.
   // The 1px slack keeps WebKit's sub-pixel rounding from shrinking text that fits.
@@ -314,6 +328,7 @@ export function renderTrainingScreen(
       const on = grid !== null && grid.some((line) => line.length > 0);
       readHint.hidden = !on;
       textGrid.hidden = !on;
+      hookSkipBtn.hidden = !on;
       timerEl.hidden = on || untimed;   // no countdown while the hook plays
       // iOS WebKit sometimes keeps painting the composited hook layer after
       // `hidden` alone, leaving the words stuck over the practice. Taking the
@@ -425,6 +440,9 @@ export function renderTrainingScreen(
       label(bgmBtn, muted ? "mute" : "sound", "BGM", true);
       bgmBtn.classList.toggle("muted", muted);
       bgmBtn.setAttribute("aria-pressed", String(!muted));
+    },
+    onHookSkip(cb: () => void) {
+      hookSkips.push(cb);
     },
     onPieceDone(cb: () => void) {
       pieceBtn.addEventListener("click", cb);

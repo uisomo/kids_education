@@ -1170,7 +1170,15 @@ export class KarateApp {
   // video opens the same way; the 読み上げよう hint stays on screen only.
   private async playTextHook(view: TrainingView, grid: string[][], palette = 0): Promise<void> {
     const stepMs = this.deps.hookStepMs ?? 1100;
-    const wait = (ms: number) => new Promise<void>((r) => (ms > 0 ? setTimeout(r, ms) : r()));
+    // 「つづき」（SERIES_GUIDE 5.6）を 押したら、いまの 待ちを すぐ おわらせて 次の 行へ。
+    let skip: (() => void) | null = null;
+    const wait = (ms: number) => new Promise<void>((r) => {
+      if (ms <= 0) { r(); return; }
+      const done = () => { clearTimeout(t); skip = null; r(); };
+      const t = setTimeout(done, ms);
+      skip = done;
+    });
+    view.onHookSkip(() => skip?.());
     view.setTexts(grid, palette);
     try {
       const total = textCount(grid);
