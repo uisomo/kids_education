@@ -21,7 +21,7 @@ export interface TrainingView {
   // 🪝 read-aloud hook (before Ready → Go!!): build the (hidden) word grid and
   // show the 読み上げよう hint; null → hook over (grid removed, timer shown).
   // `palette` picks the HOOK_PALETTES entry the words are painted in.
-  setTexts(grid: string[][] | null, palette?: number): void;
+  setTexts(grid: string[][] | null, palette?: number, showAll?: boolean): void;
   // Reveal word #i (reading order) with the zoom-out animation.
   revealText(index: number): void;
   // 🪝 hook の「つづき」（SERIES_GUIDE 5.6）：読み上げの あいだ いつも 出ている
@@ -323,7 +323,7 @@ export function renderTrainingScreen(
     setTime(secondsLeft: number) {
       timerEl.textContent = String(secondsLeft);
     },
-    setTexts(grid: string[][] | null, palette = 0) {
+    setTexts(grid: string[][] | null, palette = 0, showAll = false) {
       textGrid.textContent = "";
       const on = grid !== null && grid.some((line) => line.length > 0);
       readHint.hidden = !on;
@@ -356,6 +356,7 @@ export function renderTrainingScreen(
         words.forEach((w) => {
           const pill = document.createElement("span");
           pill.className = "text-grid-word";
+          if (showAll) pill.classList.add("show");
           if (HOOK_COLOR_MODE === "char") {
             // One span per character, so the colour can change inside a line.
             // The pill stays the reveal unit (revealText indexes pills).
@@ -378,6 +379,10 @@ export function renderTrainingScreen(
     revealText(index: number) {
       const pill = textGrid.querySelectorAll<HTMLElement>(".text-grid-word")[index];
       pill?.classList.add("show");
+      textGrid.querySelectorAll<HTMLElement>(".text-grid-word").forEach((word) => {
+        word.style.textDecoration = word === pill ? "underline solid #e5243b 2px" : "none";
+        word.style.textUnderlineOffset = "0.18em";
+      });
     },
     showCue(text: string): CheerClip | null {
       cueEl.textContent = text;

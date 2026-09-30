@@ -680,7 +680,14 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 end: min(duration, end), kind: selection.app == "piano" ? "performance" : "practice",
                 child: true, privacyProcessed: true)
         }
-        let highlights = try ApprovedOpening.select(app: selection.app, candidates: candidates, sourceDuration: duration)
+        let firstDrill = candidates.map(\.start).min() ?? 0
+        let hook = try OpeningHookSpeech.recorded(cues: events.filter { $0.t <= firstDrill * 1000 }.compactMap { event in
+            guard let grid = event.patch["texts"] as? [[String]] else { return nil }
+            return .init(time: event.t / 1000, lines: grid.map { $0.joined() })
+        })
+        let maximumDuration = hook.map { ceil(Double($0.bodyStartFrame) / 3) / 30 } ?? Double(40)/30
+        let highlights = try ApprovedOpening.select(app: selection.app, candidates: candidates,
+                                                     sourceDuration: duration, maximumDuration: maximumDuration)
         guard let logoURL = Bundle.main.url(forResource: "decor-banner", withExtension: "png", subdirectory: "public/images"),
               let logo = UIImage(contentsOfFile: logoURL.path)?.cgImage else {
             throw ApprovedOpening.Failure.missingAsset("app logo")
@@ -1307,8 +1314,24 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     let highlights = opening.highlights.map {
                         ApprovedOpening.Highlight(id: $0.id, start: $0.start - bodyStart, sourceDuration: $0.sourceDuration)
                     }
-                    var openingPlan = OpeningClipPlan(selection: opening.selection, highlights: highlights,
+                    // The body has already trimmed the reading. Keep its original voice asset and
+                    // convert recorded text cues to that asset's clock (mic may lead the camera).
+                    let firstDrill = opening.bodyStart * 1000
+                    let hookCues = events.filter { $0.t <= firstDrill }.compactMap { event -> OpeningHookSpeech.Cue? in
+                        guard let grid = event.patch["texts"] as? [[String]] else { return nil }
+                        return .init(time: event.t / 1000 + (voiceURL != nil ? job.voiceLeadSeconds : 0),
+                                     lines: grid.map { $0.joined() })
+                    }
+                    let hook = try OpeningHookSpeech.recorded(cues: hookCues)
+                    let recordedSelection = try ApprovedOpening.Selection(
+                        recordingID: opening.selection.recordingID, app: opening.selection.app,
+                        lines: hook?.lines ?? opening.selection.lines,
+                        pattern: opening.selection.pattern, color: opening.selection.color)
+                    var openingPlan = OpeningClipPlan(selection: recordedSelection, highlights: highlights,
                                                       date: job.createdAt, bodyStart: 0)
+                    openingPlan.hook = hook
+                    // Audio only: never use the original camera frames in the protected opening.
+                    openingPlan.hookAudio = hook == nil ? nil : (voiceURL ?? raw)
                     if privacy.settings.avatar, let track = OpeningAvatarTrack.read(for: hiddenMovie),
                        track.mask == privacy.settings.mask {
                         // アバターの 日記は もとの 録画の 時間。本体は bodyStart から
@@ -1322,11 +1345,11 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                         try await openingPlan.export(finishedMovie: body, privacy: privacy.settings, logo: opening.logo,
                                                      title: opening.title, to: openingOut, joinBody: true)
                     }
-                    try await VideoCheck.validate(openingOut, expectedSeconds: bodySeconds + ApprovedOpening.duration)
+                    try await VideoCheck.validate(openingOut, expectedSeconds: bodySeconds + openingPlan.openingDuration)
                     output = openingOut
-                    expected = bodySeconds + ApprovedOpening.duration
+                    expected = bodySeconds + openingPlan.openingDuration
                     openingStatus = "ready"
-                    openingTimeOffset = ApprovedOpening.duration - bodyStart - shiftMs / 1000
+                    openingTimeOffset = openingPlan.openingDuration - bodyStart - shiftMs / 1000
                     print(String(format: "⚡️ [Opening] %@ joined in %.1f s", job.id, Date().timeIntervalSince(openingStarted)))
                 } catch {
                     if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }

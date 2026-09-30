@@ -1164,7 +1164,7 @@ export class KarateApp {
     this.overlayLog?.logSound({ kind: "clip", src });
   }
 
-  // 🪝 The read-aloud hook, once per practice before Ready → Go!!: one line
+  // 🪝 All three reading lines are visible; the underline cues one line
   // per step, each landing with a ドン (the same one 言えるようになるアプリ
   // uses), then a longer hold on the last. Every reveal is logged so the saved
   // video opens the same way; the 読み上げよう hint stays on screen only.
@@ -1179,7 +1179,7 @@ export class KarateApp {
       skip = done;
     });
     view.onHookSkip(() => skip?.());
-    view.setTexts(grid, palette);
+    view.setTexts(grid, palette, true);
     try {
       const total = textCount(grid);
       for (let k = 0; k < total; k++) {
@@ -1325,7 +1325,7 @@ export class KarateApp {
     this.deps.bgm?.setMuted(getBgmMuted(this.base()));
     view.setBgmMuted(getBgmMuted(this.base()));
 
-    // 🪝 read-aloud hook: the words appear one by one (zoom-out + beep) before
+    // 🪝 read-aloud hook: all lines appear, with a timed reading cue before
     // anything else, so the saved video opens with the kid reading them.
     // 「じどうでえらぶ」 ignores the typed words and draws a different preset
     // question every time, so the videos don't all open the same way.
