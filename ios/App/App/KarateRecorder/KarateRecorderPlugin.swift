@@ -264,7 +264,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             let openingApp = (Bundle.main.bundleIdentifier ?? "").contains("piano") ? "piano" : "karate"
             let previousKey = "opening.\(openingApp).previous"
             let previous = UserDefaults.standard.object(forKey: previousKey) as? Int
-            if let choice = try? OpeningProfiles.choose(app: openingApp, recordingID: id, color: "#2c0ffe", previous: previous) {
+            if let choice = try? OpeningProfiles.choose(app: openingApp, recordingID: id, previous: previous) {
                 self.recordingOpening = choice.selection
                 UserDefaults.standard.set(choice.index, forKey: previousKey)
             } else { self.recordingOpening = nil }
@@ -1225,36 +1225,28 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                             child: true, privacyProcessed: !privacy.settings.isOn || job.privacyDone)
                     }
                     let highlights = try ApprovedOpening.select(app: selection.app, candidates: candidates, sourceDuration: duration)
-                    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: raw))
-                    generator.appliesPreferredTrackTransform = true
-                    generator.maximumSize = CGSize(width: 1080, height: 1920)
-                    generator.requestedTimeToleranceBefore = .zero
-                    generator.requestedTimeToleranceAfter = .zero
-                    let stills = try (0..<7).map { index in
-                        try generator.copyCGImage(at: CMTime(seconds: highlights[index % 3].start + Double(index / 3) * 0.2,
-                                                            preferredTimescale: 600), actualTime: nil)
-                    }
                     let title = parsed.menu.first(where: { !$0.isRest })?.name ?? ""
-                    let collage = try OpeningCollageCards.make(stills: stills, privacy: privacy.settings,
-                        source: CollageSourcePolicy.required(for: privacy.settings), title: title, date: job.createdAt)
                     guard let logoURL = Bundle.main.url(forResource: "decor-banner", withExtension: "png", subdirectory: "public/images"),
                           let logo = UIImage(contentsOfFile: logoURL.path)?.cgImage else {
                         throw ApprovedOpening.Failure.missingAsset("app logo")
                     }
-                    let renderer = try OpeningRenderer(selection: selection, collage: collage, logo: logo, thumbnailPreview: stills[0])
                     let bodyStart = candidates.map(\.start).min() ?? 0
+                    var openingPlan = OpeningClipPlan(selection: selection, highlights: highlights, date: job.createdAt, bodyStart: bodyStart)
+                    if privacy.settings.avatar, let track = OpeningAvatarTrack.read(for: raw), track.mask == privacy.settings.mask {
+                        openingPlan.avatarSegments = [.init(start: 0, track: track)]
+                    }
                     let openingOut = PendingSaves.url("\(job.id)-opening.mp4")
                     try? fm.removeItem(at: openingOut)
                     // Body remains intact: existing banners, sparkles and sound all come from body.
                     try await self.exportRetryingInForeground("KarateRecorderOpening") {
                         try? fm.removeItem(at: openingOut)
-                        try await OpeningMovie.export(.init(finishedMovie: body, privacyProcessed: true,
-                            highlights: highlights, bodyStart: bodyStart, renderer: renderer), to: openingOut)
+                        try await openingPlan.export(finishedMovie: body, privacy: privacy.settings, logo: logo,
+                                                     title: title, to: openingOut)
                     }
                     try await VideoCheck.validate(openingOut, expectedSeconds: duration - bodyStart + ApprovedOpening.duration)
                     output = openingOut
                     expected = duration - bodyStart + ApprovedOpening.duration
-                    openingStatus = "ready-template-3889"
+                    openingStatus = "ready"
                     openingTimeOffset = ApprovedOpening.duration - bodyStart - shiftMs / 1000
                 } catch ApprovedOpening.Failure.needsHighlights(let available) {
                     openingStatus = "needs-highlights-\(available)"
