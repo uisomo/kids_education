@@ -33,9 +33,12 @@ enum OverlayCompositor {
         case frame, icon, banner, none
 
         /// The artwork in the web assets, cut out with alpha by tools/make-decor.swift.
+        /// `.frame` is not laid over the picture any more: the whole finished
+        /// picture (video, labels, progress bar) goes into the 9:16 window of the
+        /// series frame (`frameDecorate`, 基盤 brand/video/karate.png・piano.png).
         var assetPath: String? {
             switch self {
-            case .frame: return "/images/decor-frame.png"
+            case .frame: return nil
             case .icon: return "/images/decor-icon.png"
             case .banner: return "/images/decor-banner.png"
             case .none: return nil
@@ -1300,6 +1303,11 @@ enum OverlayCompositor {
         }
     }
 
+    /// かざり「わく」：できた 絵を まるごと シリーズの 枠の 窓へ（VideoBranding）。ほかの かざりは なにも しない
+    private static func frameDecorate(_ decor: Decor) -> ((CALayer, CGSize) -> Void)? {
+        decor == .frame ? { parent, size in VideoBranding.decorate(parent, size: size) } : nil
+    }
+
     /// 動画の 上に かさねる 文字（`overlayLayer`）を、書き出す 大きさで つくる
     private static func overlayBuilder(
         events: [Event], totalDurationMs: Double, menu: [MenuItem], streakLabel: String?, dateLabel: String?,
@@ -1367,6 +1375,7 @@ enum OverlayCompositor {
                 streakLabel: streakLabel, dateLabel: dateLabel, beltLabel: beltLabel,
                 menuName: menuName, decor: decor)(size),
             progress: progress, sourceStart: startSeconds)
+        frameDecorate(decor)?(parentLayer, size)
         composition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer, in: parentLayer
         )
@@ -1419,7 +1428,8 @@ enum OverlayCompositor {
             overlay: overlayBuilder(events: events, totalDurationMs: totalDurationMs, menu: menu, streakLabel: streakLabel,
                                     dateLabel: dateLabel, beltLabel: beltLabel, menuName: menuName, decor: decor),
             start: startSeconds,
-            bodyProgress: bodyPlan.flatMap { OpeningBodyProgress(plan: $0, duration: duration.seconds - startSeconds) })
+            bodyProgress: bodyPlan.flatMap { OpeningBodyProgress(plan: $0, duration: duration.seconds - startSeconds) },
+            decorate: frameDecorate(decor))
         try await PrivacyExport.export(source: sourceURL, to: outputURL, settings: privacy, background: background,
                                        keep: keep, level: level, finish: finish, onProgress: onProgress)
         withExtendedLifetime((source, asset)) {}

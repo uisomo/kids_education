@@ -47,6 +47,7 @@
 		D68EA34C8B50C771316E1F99 /* LiveMotionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */; };
 		811A1054677CB861A0B767E1 /* AlanSuitePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F043F8C23658CC472900A4 /* AlanSuitePlugin.swift */; };
 		16E6C0041830F7A2311D4D65 /* AlanSharedAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD096B18E71506B5CEB18046 /* AlanSharedAccount.swift */; };
+		E923ADB0B522BFB248A93953 /* VideoBranding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 144F6A34B8D0D02A30547D3C /* VideoBranding.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +94,7 @@
 		BD7F01E8B6257F1A65D478A4 /* LiveMotionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMotionOverlay.swift; sourceTree = "<group>"; };
 		C1F043F8C23658CC472900A4 /* AlanSuitePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlanSuite/AlanSuitePlugin.swift; sourceTree = "<group>"; };
 		BD096B18E71506B5CEB18046 /* AlanSharedAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlanSuite/AlanSharedAccount.swift; sourceTree = "<group>"; };
+		144F6A34B8D0D02A30547D3C /* VideoBranding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlanSuite/VideoBranding.swift; sourceTree = "<group>"; };
 		FBFC1FCFC44EA5C4C235EBD0 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -175,6 +177,7 @@
 				FBFC1FCFC44EA5C4C235EBD0 /* App.entitlements */,
 				BD096B18E71506B5CEB18046 /* AlanSharedAccount.swift */,
 				C1F043F8C23658CC472900A4 /* AlanSuitePlugin.swift */,
+				144F6A34B8D0D02A30547D3C /* VideoBranding.swift */,
 				3957B42183355344E740F6B0 /* KarateRecorder */,
 				91865E84A57E2927C2CBA75F /* PracticeMotionFX */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
@@ -306,6 +309,7 @@
 				08072516F2003B9439A7ECBF /* MainViewController.swift in Sources */,
 				16E6C0041830F7A2311D4D65 /* AlanSharedAccount.swift in Sources */,
 				811A1054677CB861A0B767E1 /* AlanSuitePlugin.swift in Sources */,
+				E923ADB0B522BFB248A93953 /* VideoBranding.swift in Sources */,
 				8825437B40DB2AED4BCF5573 /* CameraSession.swift in Sources */,
 				BED791C491F404DDB2592885 /* KarateRecorderPlugin.swift in Sources */,
 				0AECBCA4337B2C65C0DC1EB0 /* Catalog.swift in Sources */,
