@@ -94,12 +94,12 @@ export const ICONS = {
 /** @typedef {"grey"|"cyan"|"blue"|"green"|"pink"|"orange"|"yellow"|"purple"|"red"|"white"|"brand"} GlossyColor */
 
 // ── 絵（PNG）の 置き場所 ──────────────────────────────
-// 絵は ChatGPT で 作った PNG（art_src/ → png/。SERIES_GUIDE 5.2c ✅）。
-// アプリへは sync_brand.py が png/ を <アプリ>/public/alan/icons/（おかねは www/alan/icons/）に コピーする。
-//   <name>.png        ボタン（意味の 色の 地＋白い 絵）
-//   plain/<name>.png  縁（地）なし・色つき
-//   glyph/<name>.png  白い 絵だけ（色の ある ボタンの 中）
-//   glyph-dark/<name>.png 墨色の 絵だけ（明るい 地で 文字が 黒い ボタンの 中。icon(name, "ic", "dark")）
+// 絵は ChatGPT で 作った PNG（art_src/ → png/ → build_dist.py で dist/icons/（webp）。SERIES_GUIDE 5.2c ✅）。
+// アプリへは sync_brand.py が dist/icons/ を <アプリ>/public/alan/icons/（おかねは www/alan/icons/）に コピーする。
+//   <name>.webp       ボタン（意味の 色の 地＋白い 絵）
+//   plain/<name>.webp 縁（地）なし・色つき
+//   glyph/<name>.webp 白い 絵だけ（色の ある ボタンの 中）
+//   glyph-dark/<name>.webp墨色の 絵だけ（明るい 地で 文字が 黒い ボタンの 中。icon(name, "ic", "dark")）
 //   base/<color>.png  絵なしの 地（色を かえる とき、glyph を かさねる）
 // 下の svg は 絵が 読みこめない ときの 予備（と 見本帳の くらべ用）。
 let BASE = "/alan/icons/";
@@ -131,7 +131,7 @@ function check(name) {
  */
 export function icon(name, cls = "ic", tone = "light") {
   check(name);
-  return img(`${tone === "dark" ? "glyph-dark" : "glyph"}/${name}.png`, cls, name);
+  return img(`${tone === "dark" ? "glyph-dark" : "glyph"}/${name}.webp`, cls, name);
 }
 
 /**
@@ -141,7 +141,7 @@ export function icon(name, cls = "ic", tone = "light") {
  */
 export function plainIcon(name, size = "m") {
   check(name);
-  return img(`plain/${name}.png`, `ic-plain gicon-${size}`, name);
+  return img(`plain/${name}.webp`, `ic-plain gicon-${size}`, name);
 }
 
 /**
@@ -155,13 +155,13 @@ export function glossyIcon(name, size = "m", color) {
   const span = document.createElement("span");
   span.className = `gicon gicon-img gicon-${size}`;
   if (!color || color === ICONS[name].color) {
-    span.append(img(`${name}.png`, "gicon-pic", name));
+    span.append(img(`${name}.webp`, "gicon-pic", name));
   } else if (color === "brand") {
     // アプリの 色（--brand）は PNG の 地が ない → CSS の グロッシー（.g-brand）に 白い 絵
     span.className = `gicon g-brand gicon-${size}`;
-    span.append(img(`glyph/${name}.png`, "gicon-glyph", name));
+    span.append(img(`glyph/${name}.webp`, "gicon-glyph", name));
   } else {
-    span.append(img(`base/${color}.png`, "gicon-pic", name), img(`glyph/${name}.png`, "gicon-glyph", name));
+    span.append(img(`base/${color}.webp`, "gicon-pic", name), img(`glyph/${name}.webp`, "gicon-glyph", name));
   }
   return span;
 }

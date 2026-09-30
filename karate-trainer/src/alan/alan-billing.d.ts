@@ -51,6 +51,8 @@ export interface Billing {
   purchase(id: ProductId): Promise<PurchaseOutcome>;
   restore(): Promise<BillingInfo | null>;
   manage(): Promise<void>;
+  /** スイートに 入っているのに この アプリの プレミアム・ファミリーも 続いているか */
+  doublePaying?(): Promise<boolean>;
   onChange(cb: (info: BillingInfo) => void): void;
 }
 
@@ -69,6 +71,10 @@ export interface SeriesBilling {
   infoFromCustomer(customer: unknown): BillingInfo;
   /** スイートを ほかの アプリで 買って いる とき その アプリ（おぼえている 値。お店の 返事の 前でも つかえる）。ほかは null */
   suiteFrom(): AppKey | null;
+  /** スイートに 入っているのに この アプリの プレミアム・ファミリーも 続いているか（CustomerInfo から。お店に きかない） */
+  alsoOwnPlan(customer: unknown): boolean;
+  /** 2重払いの おしらせを 出すか（お店に きく。ブラウザ・テスト・オフラインは false） */
+  doublePaying(): Promise<boolean>;
   /** お店に つながる とき だけ（iPhone で キーが ある・テスト版 でない） */
   billing: Billing | null;
 }

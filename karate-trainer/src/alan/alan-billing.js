@@ -203,7 +203,8 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
     let saved = null;
     try { saved = localStorage.getItem(planKey); } catch { /* ignore */ }
     if (isPlan(saved)) return saved;
-    return testBuild ? "family" : "free";
+    // テスト版は ファミリー（売らない アプリ＝ことばクラッシュは スイート）。SERIES_GUIDE 変更の記録 2026-09-29
+    return testBuild ? (APPS[app].sells.includes("family") ? "family" : "suite") : "free";
   };
   const setPlan = (plan) => {
     try { localStorage.setItem(planKey, plan); } catch { /* ignore */ }
@@ -260,6 +261,17 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
     return best;
   };
 
+  /** スイートに 入っているのに、この アプリの プレミアム・ファミリーも まだ 続いている（2重に 払っている）か。
+   *  いちばん上の プランしか 見ない infoFromCustomer では わからないので、商品を ぜんぶ 見る。 */
+  const alsoOwnPlan = (customer) => {
+    if (infoFromCustomer(customer).plan !== "suite") return false;
+    const active = Object.values(customer?.entitlements?.active ?? {}).map((e) => e.productIdentifier);
+    return [...(customer?.activeSubscriptions ?? []), ...active].some((storeId) => {
+      const id = toProductId(storeId);
+      return !!id && !id.startsWith("suite_");
+    });
+  };
+
   // iPhone の アプリの 中 だけ（ブラウザ・テストでは キーが あっても お店に つながない）
   const native = !!globalThis.Capacitor?.isNativePlatform?.();
   // スイートを どの アプリで 買ったか も おぼえる（オフライン・お店の 返事の 前でも「〇〇で 入っています」に して 2重に 買わせない）
@@ -277,7 +289,7 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
   };
 
   const billing = apiKey && !testBuild && native
-    ? revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer: (c) => remember(infoFromCustomer(c)), suiteFrom, isFree: () => loadPlan() === "free" })
+    ? revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer: (c) => remember(infoFromCustomer(c)), alsoOwnPlan, suiteFrom, isFree: () => loadPlan() === "free" })
     : null;
 
   return {
@@ -295,6 +307,9 @@ export function createSeriesBilling({ app, apiKey = "", testBuild = false, loadS
     toProductId,
     infoFromCustomer,
     suiteFrom,
+    alsoOwnPlan,
+    /** 2重払いの おしらせを 出すか（お店に きく。ブラウザ・テスト・オフラインは false）。 */
+    doublePaying: async () => (billing?.doublePaying ? billing.doublePaying() : false),
     billing,
   };
 }
@@ -320,7 +335,7 @@ export function openExternal(url) {
   window.open(url, "_blank");
 }
 
-function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer, suiteFrom, isFree }) {
+function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer, alsoOwnPlan, suiteFrom, isFree }) {
   const load = loadSdk ?? (async () => globalThis.Capacitor.registerPlugin("Purchases"));
   let sdkPromise = null;
   const sdk = () => {
@@ -427,6 +442,10 @@ function revenueCat({ app, apiKey, loadSdk, ids, toProductId, infoFromCustomer, 
         if (code === "20") return { status: "pending" }; // 承認と購入のリクエスト（ファミリー共有）待ち
         return { status: "error", message: e instanceof Error ? e.message : String(e) };
       }
+    },
+    async doublePaying() {
+      try { return alsoOwnPlan((await (await sdk()).getCustomerInfo()).customerInfo); }
+      catch { return false; }
     },
     async restore() {
       try { return infoFromCustomer((await (await sdk()).restorePurchases()).customerInfo); }

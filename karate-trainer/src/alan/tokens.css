@@ -7,9 +7,9 @@
    ===================================================================== */
 
 @font-face { font-family: "M PLUS Rounded 1c"; font-weight: 500; font-display: swap;
-  src: local("M PLUS Rounded 1c Medium"), url("/fonts/MPLUSRounded1c-Medium.ttf") format("truetype"); }
+  src: local("M PLUS Rounded 1c Medium"), url("/fonts/MPLUSRounded1c-Medium.woff2") format("woff2"); }
 @font-face { font-family: "M PLUS Rounded 1c"; font-weight: 800 900; font-display: swap;
-  src: local("M PLUS Rounded 1c ExtraBold"), url("/fonts/MPLUSRounded1c-ExtraBold.ttf") format("truetype"); }
+  src: local("M PLUS Rounded 1c ExtraBold"), url("/fonts/MPLUSRounded1c-ExtraBold.woff2") format("woff2"); }
 
 :root {
   /* ---- アプリの色（アプリごとに 上書きするのは ここだけ） ---- */

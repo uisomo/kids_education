@@ -5,14 +5,17 @@
 // - おうちの人：`<アプリ名>.privacy.parent`（家族で 1つ。家族タブ＝ゲートの 奥）。
 //   "child"（まかせる）以外に したら、子どもの 好みを 上書きし、ホームの トグルは さわれない
 // - ネイティブへは `resolvePrivacy()` の 結果（使う 値）だけを わたす。録画を はじめた ときの 値で 書き出す
+// - モードは 2つ（2026-09-29 uk）：おへや＝背景を かえて 人を 切りぬく／かめん＝カメラの 絵は つかわず、背景の 上に アバター。
+//   かめんが オンなら おへやの 値は つかわない（かめんの 背景は いつも おへやの 背景）
 
-export type PrivacyMask = "alan" | "leo" | "izzy";
+// アバター（5.16）は アランと レオ（2026-09-29 uk）。むかし えらんだ "izzy" は アランに もどる
+export type PrivacyMask = "alan" | "leo";
 export type ParentChoice = "child" | "on" | "off";
 
 export interface PrivacySettings {
   /** おへや：人の ほかを 背景の 絵に */
   room: boolean;
-  /** かめん：顔 ぜんぶに キャラの かめん（口だけ 見えると 仮面舞踏会に なるので ぜんぶ） */
+  /** かめん：カメラの 絵は つかわず、背景の 上に キャラ（アバター）。オンなら room は 見ない */
   face: boolean;
   mask: PrivacyMask;
 }
@@ -25,7 +28,6 @@ export interface PrivacyParent {
 export const PRIVACY_MASKS: { id: PrivacyMask; name: string }[] = [
   { id: "alan", name: "アラン" },
   { id: "leo", name: "レオ" },
-  { id: "izzy", name: "イジー" },
 ];
 
 export const PARENT_CHOICES: { id: ParentChoice; name: string }[] = [
