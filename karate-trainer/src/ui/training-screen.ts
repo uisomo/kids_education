@@ -260,12 +260,14 @@ export function renderTrainingScreen(
   centerContent.append(readHint, textGrid);
 
   // Alan's かざり over the camera, exactly where the export burns it.
+  // 「わく」は 出さない：シリーズの 枠は 保存される 動画だけ（SERIES_GUIDE 5.19。書き出しで 映像ごと 窓へ 縮める）
+  const showDecor = decor !== "none" && decor !== "frame";
   const decorEl = document.createElement("img");
   decorEl.dataset.decorPreview = decor;
   decorEl.className = `training-decor training-decor-${decor}`;
   decorEl.alt = "";
   decorEl.setAttribute("aria-hidden", "true");
-  if (decor !== "none") decorEl.src = DECOR_SRC[decor];
+  if (showDecor) decorEl.src = DECOR_SRC[decor as Exclude<Decor, "none">];
 
   // 工夫 on the left, Next on the right: one row, so they can never overlap.
   const bottomRow = document.createElement("div");
@@ -273,7 +275,7 @@ export function renderTrainingScreen(
   bottomRow.append(captionEl, nextEl);
 
   root.append(dojoBg, videoEl, topBar, centerContent, cueEl, bottomRow,
-              ...(decor === "none" ? [] : [decorEl]), ...(untimed ? [controls] : []), hookSkipBtn);
+              ...(showDecor ? [decorEl] : []), ...(untimed ? [controls] : []), hookSkipBtn);
 
   // One line when it can: step the font down a little before letting it wrap.
   // The 1px slack keeps WebKit's sub-pixel rounding from shrinking text that fits.

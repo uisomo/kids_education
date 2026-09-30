@@ -102,6 +102,12 @@ it("shows the かざり over the camera, at the same place the export burns it",
   expect(decor.getAttribute("aria-hidden")).toBe("true");
 });
 
+it("does not show the わく while practicing (the series frame is only in the saved video, 5.19)", () => {
+  const root = document.createElement("div");
+  renderTrainingScreen(root, "alan", "frame");
+  expect(root.querySelector("[data-decor-preview]")).toBeNull();
+});
+
 it("draws no かざり preview when the household turned it off", () => {
   const root = document.createElement("div");
   renderTrainingScreen(root, "alan", "none");
