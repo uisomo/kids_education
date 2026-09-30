@@ -1,0 +1,6 @@
+Use case: style-transfer.
+Asset type: fixed collage background for template 3887, portrait 720x1280 coordinate system.
+Image 1 is the exact layout and color reference. Image 2 supplies glossy resin MATERIAL ONLY; never copy its frames, stars, shapes, palette or composition.
+Keep all coordinates and negative space of image 1. Create shallow, lustrous vivid magenta material ONLY on these three existing filled rectangles: x164 y42 to x410 y354; x432 y378 to x684 y684; x164 y781 to x410 y1088. Keep their straight sides and almost square corners, tiny softened corners at most. These are solid color planes, not hollow photo frames, no thick raised box walls. Restrained upper-left white highlights and deep same-hue shading. Main magenta #d936e4, light #ee65f5, dark #8d1796. Preserve the surrounding pale neutral #e6e7e9.
+The gray rectangles at x431 y42 to x684 y354 and x36 y378 to x285 y684, and the magenta rectangle at x431 y709 to x684 y1039 are PHOTO PLACEHOLDERS: leave them completely flat, same positions/colors, with no gloss or borders. Real photos will replace them in the exact original positions.
+No other shapes. NO TEXT, letters, numbers, photos, faces, people, silhouettes, stars or symbols. No changing the layout or filling whitespace. Render one clean background only, portrait 9:16.

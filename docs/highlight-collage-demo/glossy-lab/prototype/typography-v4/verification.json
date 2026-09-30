@@ -1,0 +1,170 @@
+{
+  "font": "M PLUS Rounded 1c ExtraBold",
+  "templates": 35,
+  "photoGeometry": [
+    {
+      "id": "3870",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3871",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3872",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3873",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3877",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3878",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3879",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3880",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3881",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3882",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3883",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3884",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3885",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3886",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3887",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3888",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3889",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3890",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3891",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3892",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3893",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3894",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3895",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3896",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3897",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3898",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3899",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3901",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3902",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3903",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3904",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3905",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3907",
+      "photoGeometryUnchanged": true
+    },
+    {
+      "id": "3908",
+      "photoGeometryUnchanged": true
+    }
+  ],
+  "3900": "accepted vivid layout retained; differs from historical checks/3900-layout.json",
+  "coverage": [
+    "collage headings",
+    "small annotations",
+    "dates",
+    "3902 photo glyph mask",
+    "First Frame Hook",
+    "First Frame labels",
+    "Hook header and beat counter",
+    "body time and highlight numbers"
+  ],
+  "recordedText": "unchanged; part of source footage",
+  "materialGlyphFill": false,
+  "videoTiming": "0.5s thumbnail + 3 × 40 frames Hook + body at 4.5s",
+  "newGlossyCandidates": [
+    "3872",
+    "3887"
+  ],
+  "fixedReferenceContamination": [
+    "3895",
+    "3903"
+  ],
+  "remaining": [
+    "Other asset candidates remain at their prior state.",
+    "Other interleaved foreground/background assets still need template-specific separation.",
+    "Existing seven generated backgrounds retain previously reported geometry limitations.",
+    "No production or approved-video replacement."
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "0": {
+    "recordingAreaMeanAbsoluteDifference": 1.6922,
+    "note": "Additional H.264 encoding; footer excluded"
+  },
+  "400": {
+    "recordingAreaMeanAbsoluteDifference": 1.8226,
+    "note": "Additional H.264 encoding; footer excluded"
+  },
+  "835": {
+    "recordingAreaMeanAbsoluteDifference": 1.7381,
+    "note": "Additional H.264 encoding; footer excluded"
+  }
+}
