@@ -1333,6 +1333,7 @@ enum OverlayCompositor {
         menuName: String? = nil,
         decor: Decor = .none,
         startSeconds: Double = 0,
+        bodyPlan: OpeningClipPlan? = nil,
         onProgress: ((Float) -> Void)? = nil
     ) async throws -> ExportResult {
         let started = Date()
@@ -1358,15 +1359,14 @@ enum OverlayCompositor {
         }
         composition.renderSize = size
 
-        let parentLayer = CALayer()
-        parentLayer.frame = CGRect(origin: .zero, size: size)
+        let duration = try await source.load(.duration)
+        let progress = bodyPlan.flatMap { OpeningBodyProgress(plan: $0, duration: duration.seconds - startSeconds) }
         let videoLayer = CALayer()
-        videoLayer.frame = parentLayer.frame
-        parentLayer.addSublayer(videoLayer)
-        parentLayer.addSublayer(
-            overlayBuilder(events: events, totalDurationMs: totalDurationMs, menu: menu, streakLabel: streakLabel,
-                           dateLabel: dateLabel, beltLabel: beltLabel, menuName: menuName, decor: decor)(size)
-        )
+        let parentLayer = OpeningBodyProgress.compositionLayer(size: size, video: videoLayer,
+            overlay: overlayBuilder(events: events, totalDurationMs: totalDurationMs, menu: menu,
+                streakLabel: streakLabel, dateLabel: dateLabel, beltLabel: beltLabel,
+                menuName: menuName, decor: decor)(size),
+            progress: progress, sourceStart: startSeconds)
         composition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer, in: parentLayer
         )
@@ -1407,16 +1407,19 @@ enum OverlayCompositor {
         menuName: String? = nil,
         decor: Decor = .none,
         startSeconds: Double = 0,
+        bodyPlan: OpeningClipPlan? = nil,
         onProgress: (@Sendable (Float) -> Void)? = nil
     ) async throws -> ExportResult {
         let started = Date()
         let source = AVURLAsset(url: sourceURL)
         let (asset, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
+        let duration = try await source.load(.duration)
         let finish = PrivacyExport.Finish(
             asset: asset, audioMix: audioMix,
             overlay: overlayBuilder(events: events, totalDurationMs: totalDurationMs, menu: menu, streakLabel: streakLabel,
                                     dateLabel: dateLabel, beltLabel: beltLabel, menuName: menuName, decor: decor),
-            start: startSeconds)
+            start: startSeconds,
+            bodyProgress: bodyPlan.flatMap { OpeningBodyProgress(plan: $0, duration: duration.seconds - startSeconds) })
         try await PrivacyExport.export(source: sourceURL, to: outputURL, settings: privacy, background: background,
                                        keep: keep, level: level, finish: finish, onProgress: onProgress)
         withExtendedLifetime((source, asset)) {}

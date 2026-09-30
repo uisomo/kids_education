@@ -1121,6 +1121,37 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         // 文字つきの 本体だけ ここから（音だけ・そのままの 予備の 道は はじめから）
         let bodyStart = opening?.bodyStart ?? 0
 
+        // One plan supplies both the body markers and the joined opening, in trimmed body time.
+        var bodyPlan: OpeningClipPlan?
+        if let opening {
+            do {
+                let highlights = opening.highlights.map {
+                    ApprovedOpening.Highlight(id: $0.id, start: $0.start - bodyStart, sourceDuration: $0.sourceDuration)
+                }
+                // The body has already trimmed the reading. Keep its original voice asset and
+                // convert recorded text cues to that asset's clock (mic may lead the camera).
+                let firstDrill = opening.bodyStart * 1000
+                let hookCues = events.filter { $0.t <= firstDrill }.compactMap { event -> OpeningHookSpeech.Cue? in
+                    guard let grid = event.patch["texts"] as? [[String]] else { return nil }
+                    return .init(time: event.t / 1000 + (voiceURL != nil ? job.voiceLeadSeconds : 0),
+                                 lines: grid.map { $0.joined() })
+                }
+                let hook = try OpeningHookSpeech.recorded(cues: hookCues)
+                let recordedSelection = try ApprovedOpening.Selection(
+                    recordingID: opening.selection.recordingID, app: opening.selection.app,
+                    lines: hook?.lines ?? opening.selection.lines,
+                    pattern: opening.selection.pattern, color: opening.selection.color)
+                var plan = OpeningClipPlan(selection: recordedSelection, highlights: highlights,
+                                          date: job.createdAt, bodyStart: 0)
+                plan.hook = hook
+                // Audio only: never use the original camera frames in the protected opening.
+                plan.hookAudio = hook == nil ? nil : (voiceURL ?? raw)
+                bodyPlan = plan
+            } catch {
+                openingStatus = "needs-assets-or-retry"
+            }
+        }
+
         // A save that already crashed the app twice skips the overlay, and after
         // that the mix too: a lighter export that succeeds beats one that
         // crashes the app on every launch. (バックグラウンドの 失敗は かぞえない)
@@ -1155,7 +1186,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                             menu: parsed.menu, sounds: mixedSounds, voice: voiceTrack,
                             streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
                             beltLabel: parsed.beltLabel, menuName: parsed.menuName, decor: parsed.decor,
-                            startSeconds: bodyStart,
+                            startSeconds: bodyStart, bodyPlan: bodyPlan,
                             onProgress: { [weak self] p in
                                 self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(p)])
                                 Task { @MainActor in if self?.savingJobId == jobId { self?.saveProgress = Double(p) } }
@@ -1250,7 +1281,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                         streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
                         beltLabel: parsed.beltLabel,
                         menuName: parsed.menuName, decor: parsed.decor,
-                        startSeconds: bodyStart,
+                        startSeconds: bodyStart, bodyPlan: bodyPlan,
                         onProgress: reportProgress
                     )
                 }
@@ -1307,31 +1338,10 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
         // Common opening consumes the privacy-resolved, already decorated body (which starts at bodyStart).
         // Failure keeps that finished body, never reopens originalRawName.
-        if let opening {
+        if let opening, var openingPlan = bodyPlan {
             if exportMode == "burned", let body = output, let bodySeconds = expected {
                 do {
                     let openingStarted = Date()
-                    let highlights = opening.highlights.map {
-                        ApprovedOpening.Highlight(id: $0.id, start: $0.start - bodyStart, sourceDuration: $0.sourceDuration)
-                    }
-                    // The body has already trimmed the reading. Keep its original voice asset and
-                    // convert recorded text cues to that asset's clock (mic may lead the camera).
-                    let firstDrill = opening.bodyStart * 1000
-                    let hookCues = events.filter { $0.t <= firstDrill }.compactMap { event -> OpeningHookSpeech.Cue? in
-                        guard let grid = event.patch["texts"] as? [[String]] else { return nil }
-                        return .init(time: event.t / 1000 + (voiceURL != nil ? job.voiceLeadSeconds : 0),
-                                     lines: grid.map { $0.joined() })
-                    }
-                    let hook = try OpeningHookSpeech.recorded(cues: hookCues)
-                    let recordedSelection = try ApprovedOpening.Selection(
-                        recordingID: opening.selection.recordingID, app: opening.selection.app,
-                        lines: hook?.lines ?? opening.selection.lines,
-                        pattern: opening.selection.pattern, color: opening.selection.color)
-                    var openingPlan = OpeningClipPlan(selection: recordedSelection, highlights: highlights,
-                                                      date: job.createdAt, bodyStart: 0)
-                    openingPlan.hook = hook
-                    // Audio only: never use the original camera frames in the protected opening.
-                    openingPlan.hookAudio = hook == nil ? nil : (voiceURL ?? raw)
                     if privacy.settings.avatar, let track = OpeningAvatarTrack.read(for: hiddenMovie),
                        track.mask == privacy.settings.mask {
                         // アバターの 日記は もとの 録画の 時間。本体は bodyStart から
