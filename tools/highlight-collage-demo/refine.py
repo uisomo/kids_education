@@ -23,6 +23,8 @@ F={
 RAW_COLORS=['#050505', '#080808', '#0a0a0c', '#0b0c0d', '#101010', '#101012', '#101111', '#101315', '#101616', '#111111', '#121313', '#131313', '#141016', '#141414', '#151515', '#151917', '#161315', '#161b20', '#17130e', '#171716', '#171917', '#171919', '#181818', '#1b1b1b', '#202222', '#202d30', '#203533', '#212026', '#228997', '#242322', '#247384', '#2496c2', '#24aeb7', '#25203d', '#252424', '#262323', '#263230', '#263eaa', '#29221c', '#299bc4', '#2c2330', '#353932', '#368bc0', '#38866a', '#3c8371', '#49a9b8', '#4db1c4', '#5264b3', '#63645d', '#696b69', '#6b6454', '#72835f', '#777f79', '#78bfd4', '#84817b', '#86a6aa', '#91b8bf', '#948b62', '#96383d', '#97a08b', '#99bbc7', '#a4a5a2', '#a5a52b', '#a7beb5', '#aed34b', '#af82cf', '#b2aba1', '#b44b58', '#b4b594', '#b75e36', '#b7a67c', '#b7d65a', '#b8442e', '#b85c47', '#bc4d59', '#bd2b1f', '#bea695', '#c6c6c1', '#c7c3ba', '#cc4315', '#ce711c', '#cfcbbd', '#d18c77', '#d19b45', '#d3d0c6', '#d4d4d2', '#d68d43', '#d88732', '#d8d1bd', '#d9c7b1', '#d9d9d3', '#dbc340', '#ddddcf', '#dea43e', '#dedfdd', '#e1cc3b', '#e2ddbb', '#e2ded5', '#e3c9b7', '#e49360', '#e4c438', '#e5e4dc', '#e6e7e9', '#e7d4a0', '#e7dcca', '#e7e0cd', '#e8a1bb', '#e8dfc8', '#e8e5dc', '#e9222a', '#e9262c', '#e9e3d5', '#e9e6df', '#ebe3cc', '#ebe5d3', '#ebe7dc', '#ec4051', '#ecd1a0', '#ece7df', '#ece9e1', '#ecebe5', '#eddb46', '#eee6d3', '#eeebe2', '#eeeee7', '#eeeeee', '#efbf31', '#efe8d8', '#efecdf', '#efefeb', '#f03e40', '#f0e8db', '#f1e5d4', '#f1eee7', '#f2f1ea', '#f3f1e7', '#f4f1e7', '#f5f5ef', '#f8f8f0', '#f9f8ec', '#faf7f0', '#fafaf6', '#fafaf7', '#fafaf8', '#fc7b18', '#fff5e9']
 PAINT_MAP={}
 DRAWN_TEXT=[]
+# Optional material compositor for isolated review renders; production defaults are unchanged.
+MATERIAL_COMPOSITOR=None
 def paint(c):return PAINT_MAP.get(c,c)
 def font(role,size):return ImageFont.truetype(F[role][0],int(size),index=F[role][1])
 def letters(im,s,xy,size,role='sans',fill=paint('#111111'),maxwidth=None,angle=0,strokeColor=None,strokeWidth=0):
@@ -124,7 +126,8 @@ class Layout:
   if tilt:p=p.rotate(tilt,expand=True,resample=Image.Resampling.BICUBIC)
   if outlineColor:
    back=Image.new('RGBA',p.size,outlineColor);back.putalpha(p.getchannel('A').filter(ImageFilter.MaxFilter(11)));self.im.alpha_composite(back,(x,y))
-  self.im.alpha_composite(p,(x,y))
+  if MATERIAL_COMPOSITOR:MATERIAL_COMPOSITOR(self.im,p,(x,y))
+  else:self.im.alpha_composite(p,(x,y))
   subject=Image.open(A/f'full-person-{idx}.png').getchannel('A').transform((w,h),Image.Transform.EXTENT,tuple(crop),Image.Resampling.BICUBIC)
   if mask is not None:subject=ImageChops.multiply(subject,mask)
   if tilt:subject=subject.rotate(tilt,expand=True,resample=Image.Resampling.BICUBIC)
@@ -308,7 +311,10 @@ def cards(variant=False):
   from PIL import ImageChops
   a=ImageChops.multiply(person.getchannel('A'),keep);person.putalpha(a)
   outline=Image.new('RGBA',person.size,paper);outline.putalpha(a.filter(ImageFilter.MaxFilter(7)))
-  l.im.alpha_composite(outline,(tx,ty));l.im.alpha_composite(person,(tx,ty));plane=Image.new('L',(W,H));plane.paste(a,(tx,ty));l.subjectMask=ImageChops.lighter(l.subjectMask,plane)
+  l.im.alpha_composite(outline,(tx,ty))
+  if MATERIAL_COMPOSITOR:MATERIAL_COMPOSITOR(l.im,person,(tx,ty))
+  else:l.im.alpha_composite(person,(tx,ty))
+  plane=Image.new('L',(W,H));plane.paste(a,(tx,ty));l.subjectMask=ImageChops.lighter(l.subjectMask,plane)
   l.used.add(idx);l.slots.append({'sourceFrame':idx,'part':'chest','destination':[x,y,w,h],'sourceCrop':crop,'clip':'frame rectangle + detected head overflow + declared arm overflow','frameRect':[x,y,w,h],'personRect':list(target),'headRegionInPerson':head,'z':j,'background':'transparent person over halftone card'})
  l.type('正拳',(33,883),34,'jp',orange);l.type('突き',(33,930),34,'jp',orange)
  l.type('09.25',(519,1015),37,'jp',orange);l.type('2026.09.25',(36,1183),26,'bold')
@@ -349,7 +355,9 @@ def silhouette(variant=False):
  vx=int(face[0]+face[2]*.64);gd.line((vx,int(face[1]-face[3]*.5),vx,yy),fill=255,width=12)
  gd.line((int(face[0]+face[2]*.59),yy2,int(face[0]+face[2]*.59),start),fill=255,width=12)
  master.putalpha(ImageChops.multiply(sil,ImageOps.invert(gaps)))
- l.im.alpha_composite(grain(master,6,3894));l.subjectMask=sil
+ if MATERIAL_COMPOSITOR:MATERIAL_COMPOSITOR(l.im,grain(master,6,3894),(0,0))
+ else:l.im.alpha_composite(grain(master,6,3894))
+ l.subjectMask=sil
  l.slots.insert(0,{'sourceFrame':idx,'part':'waist','sourceCrop':crop,'destination':list(rect),'clip':'master foreground person alpha','role':'hero face retained','faceInCanvas':face,'z':0})
  l.used={idx,43,47,50,52,21,23};l.type('正拳突き',(28,1246),18,'jp')
  return l.save('主役の顔を残す分割シルエット／一部だけ別写真')
@@ -475,7 +483,9 @@ def character(l,name,box,color,flat=False):
  root=O.parents[2]/'アランの基盤'/'brand'/'characters'
  p=Image.open(root/(name+'.png')).convert('RGBA');alpha=p.getchannel('A')
  p=chromatic_tone(p,color) if flat else ImageOps.colorize(ImageOps.grayscale(p),paint('#101616'),color).convert('RGBA');p.putalpha(alpha)
- p.thumbnail((box[2],box[3]),Image.Resampling.LANCZOS);l.im.alpha_composite(p,(box[0],box[1]))
+ p.thumbnail((box[2],box[3]),Image.Resampling.LANCZOS)
+ if MATERIAL_COMPOSITOR:MATERIAL_COMPOSITOR(l.im,p,(box[0],box[1]))
+ else:l.im.alpha_composite(p,(box[0],box[1]))
 
 def layers(variant=False):
  l=Layout('3881',variant);colors=[paint('#d18c77'),paint('#228997'),paint('#e3c9b7'),paint('#202d30')]

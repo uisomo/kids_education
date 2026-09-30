@@ -1,0 +1,69 @@
+{
+  "reviewOnly": true,
+  "generatedNewAssets": false,
+  "protectedFilesUnchanged": true,
+  "hookSeconds": 4,
+  "transitionSeconds": 0.3,
+  "renders": [
+    {
+      "id": "3889",
+      "frames": 1136,
+      "size": [
+        540,
+        960
+      ],
+      "fps": 30.0,
+      "duration": 37.87,
+      "audio": true,
+      "sourceArt": "glossy-lab/vivid-gallery/3889/art.jpg"
+    },
+    {
+      "id": "3908",
+      "frames": 1136,
+      "size": [
+        540,
+        960
+      ],
+      "fps": 30.0,
+      "duration": 37.87,
+      "audio": true,
+      "sourceArt": "glossy-lab/vivid-gallery/3908/art.jpg"
+    },
+    {
+      "id": "3900",
+      "frames": 1136,
+      "size": [
+        540,
+        960
+      ],
+      "fps": 30.0,
+      "duration": 37.87,
+      "audio": true,
+      "sourceArt": "glossy-lab/whole-gloss/3900-vivid-composite-art.jpg"
+    },
+    {
+      "id": "3897",
+      "frames": 1136,
+      "size": [
+        540,
+        960
+      ],
+      "fps": 30.0,
+      "duration": 37.87,
+      "audio": true,
+      "sourceArt": "glossy-lab/vivid-gallery/3897/art.jpg"
+    },
+    {
+      "id": "3885",
+      "frames": 1136,
+      "size": [
+        540,
+        960
+      ],
+      "fps": 30.0,
+      "duration": 37.87,
+      "audio": true,
+      "sourceArt": "glossy-lab/vivid-gallery/3885/art.jpg"
+    }
+  ]
+}

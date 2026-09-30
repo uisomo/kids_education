@@ -1,0 +1,28 @@
+{
+  "reviewOnly": true,
+  "baselineChecks": [
+    {
+      "template": "3886",
+      "kind": "art",
+      "baselineMeanDifferenceFromJPEG": 1.096
+    },
+    {
+      "template": "3886",
+      "kind": "hook",
+      "baselineMeanDifferenceFromJPEG": 1.495
+    },
+    {
+      "template": "3889",
+      "kind": "art",
+      "baselineMeanDifferenceFromJPEG": 0.964
+    },
+    {
+      "template": "3889",
+      "kind": "hook",
+      "baselineMeanDifferenceFromJPEG": 1.34
+    }
+  ],
+  "staticImages": 12,
+  "reflectionMasks": 4,
+  "faceProtection": "Feathered detected face ellipse reduces reflection; original subject alpha retained."
+}

@@ -62,7 +62,10 @@ def inset(l,idx,part,box,master,tone=None,effect='full',polygon=None):
  clip=master.crop((x,y,x+w,y+h))
  if polygon:
   shape=Image.new('L',(w,h));ImageDraw.Draw(shape).polygon(polygon,fill=255);clip=ImageChops.multiply(clip,shape)
- p.putalpha(clip);l.im.alpha_composite(p,(x,y))
+ p.putalpha(clip)
+ import refine
+ if refine.MATERIAL_COMPOSITOR:refine.MATERIAL_COMPOSITOR(l.im,p,(x,y))
+ else:l.im.alpha_composite(p,(x,y))
  l.slots.append({'sourceFrame':idx,'part':part,'sourceCrop':crop,'destination':list(box),'clip':'master-person-alpha'+(' + polygon' if polygon else ''),'colorPattern':effect,'tone':tone,'polygon':polygon})
 
 def contour(v=False):
@@ -178,8 +181,10 @@ def split(v=False):
  p=Image.open(A/f'full-person-{idx}.png').convert('RGBA');a=p.getchannel('A');p=ImageOps.colorize(ImageOps.grayscale(p),paint('#101010'),paint('#ecebe5')).convert('RGBA');p.putalpha(a);p=p.transform((700,1060),Image.Transform.EXTENT,tuple(box),Image.Resampling.BICUBIC)
  # The cut is anchored to the forehead, not a fixed y that may lie above all hair.
  cut=round((fy+fh*.08-box[1])*1060/(box[3]-box[1]));gap=126
- l.im.alpha_composite(p.crop((0,0,700,cut)),(10,14))
- l.im.alpha_composite(p.crop((0,cut,700,1060)),(10,14+cut+gap))
+ import refine
+ composite=refine.MATERIAL_COMPOSITOR or (lambda canvas,image,xy:canvas.alpha_composite(image,xy))
+ composite(l.im,p.crop((0,0,700,cut)),(10,14))
+ composite(l.im,p.crop((0,cut,700,1060)),(10,14+cut+gap))
  l.slots=[{'sourceFrame':idx,'part':'head','sourceCrop':box,'destination':[10,14,700,1060],'splitAtY':cut,'gap':gap,'clip':'same cutout portrait split at detected forehead, transparent outside person'}]
  l.type('正拳突き',(64,cut+46),37,'serif')
  return l.save('背景を抜いた人物アップ／額で分割し頭頂を離す')

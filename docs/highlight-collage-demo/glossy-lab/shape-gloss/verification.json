@@ -1,0 +1,42 @@
+{
+  "images": 26,
+  "photoInteriorGloss": false,
+  "textGloss": false,
+  "templates": [
+    {
+      "id": "3900",
+      "shapes": 6,
+      "roundedStars": 4
+    },
+    {
+      "id": "3900",
+      "generatedAssets": 6
+    },
+    {
+      "id": "3908",
+      "shapes": 1
+    },
+    {
+      "id": "3908",
+      "existingIconAssets": 1
+    },
+    {
+      "id": "3908",
+      "generatedAssets": 1
+    },
+    {
+      "id": "3872",
+      "roundedStars": 4,
+      "shapes": 4
+    },
+    {
+      "id": "3870",
+      "shapes": 5,
+      "roundedStars": 3
+    },
+    {
+      "id": "3889",
+      "shapes": 7
+    }
+  ]
+}
