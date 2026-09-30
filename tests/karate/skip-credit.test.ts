@@ -12,7 +12,6 @@ import { loadMenuBelt, levelOf, beltStateFor, setSelectedPreset } from "../../ka
 import { renderSetupScreen } from "../../karate-trainer/src/ui/setup-screen";
 import { renderDoneScreen } from "../../karate-trainer/src/ui/done-screen";
 import type { Menu } from "../../karate-trainer/src/types";
-import { VIRAL_FX_DEFAULT } from "@alan/daily";
 
 function memKv(): KvAdapter {
   const m = new Map<string, unknown>();
@@ -31,8 +30,8 @@ function memStorage(): Storage {
 const tick = () => new Promise((r) => setTimeout(r, 0));
 // 📅 Burned into every saved video, opposite the 🔥 streak.
 const dateLabel = videoDateLabel(new Date());
-// 🎬 えんしゅつ（5.14）：はじめての子は おすすめの 設定、しるしは アプリの 名前
-const fx = { viralfx: VIRAL_FX_DEFAULT, brandName: "アランの空手" };
+// 動画の しるしは アプリの 名前（えんしゅつ 5.14 は 空手では つかわない）
+const fx = { brandName: "アランの空手" };
 
 beforeEach(() => {
   (globalThis.URL as any).createObjectURL = vi.fn(() => "blob:v");

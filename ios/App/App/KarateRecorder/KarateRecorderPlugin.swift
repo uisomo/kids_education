@@ -657,6 +657,39 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// さきに きめた オープニング（5.19）。時間は もとの 録画の 時間
+    struct PlannedOpening {
+        let selection: ApprovedOpening.Selection
+        let highlights: [ApprovedOpening.Highlight]
+        /// 本体（文字つき）は ここから。はじめの 種目の はじまり
+        let bodyStart: Double
+        let title: String
+        let logo: CGImage
+    }
+
+    /// 種目の 区切り（events の drillIndex）から ハイライトを えらぶ。本体は かならず かくした あとの ものなので
+    /// privacyProcessed は いつも true（かくせなければ 本体は できず、オープニングも つくらない）
+    static func planOpening(selection: ApprovedOpening.Selection, events: [OverlayCompositor.Event],
+                            menu: [OverlayCompositor.MenuItem], duration: Double) throws -> PlannedOpening {
+        let changes = events.filter { ($0.patch["drillIndex"] as? NSNumber) != nil }
+        let candidates = changes.enumerated().compactMap { index, event -> ApprovedOpening.Candidate? in
+            guard let row = (event.patch["drillIndex"] as? NSNumber)?.intValue,
+                  row >= 0, row < menu.count, !menu[row].isRest else { return nil }
+            let end = index + 1 < changes.count ? changes[index + 1].t / 1000 : duration
+            return ApprovedOpening.Candidate(id: "drill-\(row)-\(index)", start: max(0, event.t / 1000),
+                end: min(duration, end), kind: selection.app == "piano" ? "performance" : "practice",
+                child: true, privacyProcessed: true)
+        }
+        let highlights = try ApprovedOpening.select(app: selection.app, candidates: candidates, sourceDuration: duration)
+        guard let logoURL = Bundle.main.url(forResource: "decor-banner", withExtension: "png", subdirectory: "public/images"),
+              let logo = UIImage(contentsOfFile: logoURL.path)?.cgImage else {
+            throw ApprovedOpening.Failure.missingAsset("app logo")
+        }
+        return PlannedOpening(selection: selection, highlights: highlights,
+                              bodyStart: candidates.map(\.start).min() ?? 0,
+                              title: menu.first(where: { !$0.isRest })?.name ?? "", logo: logo)
+    }
+
     private static func shifted(_ sound: OverlayCompositor.Sound, byMs shift: Double) -> OverlayCompositor.Sound {
         switch sound {
         case let .music(ms, playing, restart, src):
@@ -678,10 +711,6 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         var decor: OverlayCompositor.Decor
         var menu: [OverlayCompositor.MenuItem]
         var sounds: [OverlayCompositor.Sound]
-        /// 🎬 えんしゅつ（SERIES_GUIDE 5.14）。こなければ nil（いままでと おなじ）
-        var viralFX: ViralFXSettings?
-        /// 動画の 左上の しるし「アランの空手」「アランのピアノ」
-        var brandName: String?
     }
 
     /// ページの `{ room, face, mask, background?, keep? }`。background は web の パス（/alan/privacy/…）、
@@ -743,9 +772,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             // 家族タブで選んだ かざり. An unknown or missing value means none.
             decor: OverlayCompositor.Decor(rawValue: options["decor"] as? String ?? "") ?? .none,
             menu: menu,
-            sounds: sounds,
-            viralFX: (options["viralfx"] as? [String: Any]).map { ViralFXSettings(json: $0) },
-            brandName: options["brandName"] as? String
+            sounds: sounds
         )
     }
 
@@ -1043,13 +1070,116 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             return keepPending(job, mode: "failed", error: "capture unreadable")
         }
 
-        // おへや・かめん（5.16）：**いちばん はじめに** かくした 動画を つくる。
+        let privacy = Self.parsePrivacy(options["privacy"] as? [String: Any])
+        let events = parsed.events.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
+        let totalMs = max(0, parsed.totalDurationMs - shiftMs)
+        // What gets mixed back into the saved video. Voice processing strips
+        // whatever the speaker played out of the voice track, so it has to be
+        // added back; without processing the mic already caught it, and adding
+        // it again would double it.
+        //
+        // Keep the countdown effects (/sounds/…) and leave the character cheer
+        // voices (/characters/…) out: in the recording they talked over the child.
+        let voiceURL = job.voiceName.map { PendingSaves.url($0) }.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil }
+        let hasVoice = voiceURL != nil
+        let mixedSounds = (!hasVoice || job.voiceProcessing)
+            ? parsed.sounds.filter { sound in
+                switch sound {
+                case .music: return true
+                case let .clip(_, src): return src.hasPrefix("/sounds/")
+                }
+            }.map { Self.shifted($0, byMs: shiftMs) }
+            : []
+        let voiceTrack = voiceURL.map { OverlayCompositor.VoiceTrack(url: $0, leadSeconds: job.voiceLeadSeconds) }
+
+        // オープニング（5.19）は さきに きめる。きまったら 本体（文字つき）は はじめの 種目から 書き出し、
+        // オープニングは その 前に 再エンコード なしで つなぐ（本体を もう1回 書き出さない。2026-09-30 uk）
+        var openingStatus = "legacy-recording"
+        var openingTimeOffset: Double?
+        var opening: PlannedOpening?
+        if let data = job.openingSelection,
+           let selection = try? JSONDecoder().decode(ApprovedOpening.Selection.self, from: data) {
+            openingStatus = "needs-finished-body"
+            if let duration = await VideoCheck.videoSeconds(raw) {
+                do {
+                    opening = try Self.planOpening(selection: selection, events: events, menu: parsed.menu, duration: duration)
+                } catch ApprovedOpening.Failure.needsHighlights(let available) {
+                    openingStatus = "needs-highlights-\(available)"
+                } catch {
+                    openingStatus = "needs-assets-or-retry"
+                    print("⚡️ [Opening] \(job.id): \(error)")
+                }
+            }
+        }
+        // 文字つきの 本体だけ ここから（音だけ・そのままの 予備の 道は はじめから）
+        let bodyStart = opening?.bodyStart ?? 0
+
+        // A save that already crashed the app twice skips the overlay, and after
+        // that the mix too: a lighter export that succeeds beats one that
+        // crashes the app on every launch. (バックグラウンドの 失敗は かぞえない)
+        let tryBurn = job.attempts < 2
+        let tryMix = job.attempts < 3 && (voiceTrack != nil || !mixedSounds.isEmpty)
+        if !tryBurn { print("⚡️  [KarateRecorder] save \(job.id) after \(job.attempts) crash(es): skipping the overlay") }
+
+        var exportMode = "raw"
+        var soundMixed = false
+        var burnError: String?
+        var mixError: String?
+        var output: URL?
+        let out = PendingSaves.url("\(job.id)-out.mp4")
+        /// かくした あとの 動画（アバターの 日記 `OpeningAvatarTrack` が となりに ある）
+        var hiddenMovie = raw
+        /// 1回の 書き出しで かくした とき：生の 録画は 写真に 保存 されるまで のこす
+        var keepRawUntilSaved = false
+
+        // おへや・かめん（5.16）＋ 文字・音を **1回の 書き出しで**（速い 道）。
+        // かくせなかったら 保存しない。できなかったら 下の いままでの 2回の 道へ。
+        // 段：full → reduced → wholeFrame（Vision なし・画面ぜんぶ ぼかす）。落ちた 回数 だけ 下から はじめる
+        if privacy.settings.isOn, !job.privacyDone, tryBurn {
+            var level = PrivacyLevel.forAttempt(job.attempts + 1)
+            while true {
+                let current = level
+                do {
+                    let result = try await self.exportRetryingInForeground("KarateRecorderPrivateBurn") {
+                        try await OverlayCompositor.burnPrivate(
+                            sourceURL: raw, outputURL: out, privacy: privacy.settings,
+                            background: privacy.background, keep: privacy.keep, level: current,
+                            events: events, totalDurationMs: totalMs,
+                            menu: parsed.menu, sounds: mixedSounds, voice: voiceTrack,
+                            streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
+                            beltLabel: parsed.beltLabel, menuName: parsed.menuName, decor: parsed.decor,
+                            startSeconds: bodyStart,
+                            onProgress: { [weak self] p in
+                                self?.notifyListeners("exportProgress", data: ["jobId": jobId, "progress": Double(p)])
+                                Task { @MainActor in if self?.savingJobId == jobId { self?.saveProgress = Double(p) } }
+                            })
+                    }
+                    output = out
+                    exportMode = "burned"
+                    soundMixed = result.soundMixed
+                    mixError = result.mixError
+                    hiddenMovie = out
+                    keepRawUntilSaved = true
+                    print("⚡️  [AlanPrivacy] save \(job.id) hidden and finished in one pass at \(current.rawValue)")
+                    break
+                } catch {
+                    if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
+                    try? fm.removeItem(at: out)
+                    print("⚡️  [AlanPrivacy] save \(job.id) one-pass at \(current.rawValue) failed: \(error.localizedDescription)")
+                    if case PrivacyExport.Failure.visionFailed = error, current != .wholeFrame {
+                        level = current.next
+                        continue
+                    }
+                    break
+                }
+            }
+        }
+
+        // いままでの 道：**いちばん はじめに** かくした 動画を つくる。
         // このあとの しあげ（文字・音）と その予備（音だけ・そのまま）は ぜんぶ かくした 動画から なので、
         // どの 道に 行っても 顔と 部屋は 出ない。かくせなかったら 保存しない（生の ファイルは のこす）。
-        // 段：full → reduced → wholeFrame（Vision なし・画面ぜんぶ ぼかす）。落ちた 回数 だけ 下から はじめる
-        let privacy = Self.parsePrivacy(options["privacy"] as? [String: Any])
         var privacyShare: Float = 0
-        if privacy.settings.isOn, !job.privacyDone {
+        if output == nil, privacy.settings.isOn, !job.privacyDone {
             privacyShare = 0.5
             let privateName = "\(job.id)-private.mp4"
             var level = PrivacyLevel.forAttempt(job.attempts + 1)
@@ -1088,31 +1218,13 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             job.attempts = 0   // しあげの 段は また いちばん 上から
             persist(&job)
             raw = PendingSaves.url(privateName)
-        } else if job.privacyDone {
+            hiddenMovie = raw
+        } else if output == nil, job.privacyDone {
             privacyShare = 0.5
         }
         var expected = await VideoCheck.videoSeconds(raw)
-
-        let events = parsed.events.map { OverlayCompositor.Event(t: max(0, $0.t - shiftMs), patch: $0.patch) }
-        let totalMs = max(0, parsed.totalDurationMs - shiftMs)
-        // What gets mixed back into the saved video. Voice processing strips
-        // whatever the speaker played out of the voice track, so it has to be
-        // added back; without processing the mic already caught it, and adding
-        // it again would double it.
-        //
-        // Keep the countdown effects (/sounds/…) and leave the character cheer
-        // voices (/characters/…) out: in the recording they talked over the child.
-        let voiceURL = job.voiceName.map { PendingSaves.url($0) }.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil }
-        let hasVoice = voiceURL != nil
-        let mixedSounds = (!hasVoice || job.voiceProcessing)
-            ? parsed.sounds.filter { sound in
-                switch sound {
-                case .music: return true
-                case let .clip(_, src): return src.hasPrefix("/sounds/")
-                }
-            }.map { Self.shifted($0, byMs: shiftMs) }
-            : []
-        let voiceTrack = voiceURL.map { OverlayCompositor.VoiceTrack(url: $0, leadSeconds: job.voiceLeadSeconds) }
+        let bodyExpected = expected.map { $0 - bodyStart }
+        if output != nil { expected = bodyExpected }
 
         // 「動画を仕上げ中… 42%」 on the web side. かくす 書き出しを したら、その あとの 半分。
         let reportProgress: (Float) -> Void = { [weak self] raw in
@@ -1121,27 +1233,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             Task { @MainActor in if self?.savingJobId == jobId { self?.saveProgress = Double(progress) } }
         }
 
-        // A save that already crashed the app twice skips the overlay, and after
-        // that the mix too: a lighter export that succeeds beats one that
-        // crashes the app on every launch. (バックグラウンドの 失敗は かぞえない)
-        let tryBurn = job.attempts < 2
-        let tryMix = job.attempts < 3 && (voiceTrack != nil || !mixedSounds.isEmpty)
-        if !tryBurn { print("⚡️  [KarateRecorder] save \(job.id) after \(job.attempts) crash(es): skipping the overlay") }
-        // 🎬 えんしゅつは 1回めだけ。人の 切りぬき（Vision）は おもいので、とちゅうで アプリが
-        // 落ちたら 2回めは いままでの 文字だけに する（動画を なくさない ことが いちばん）
-        let viralFX = job.attempts == 0 ? parsed.viralFX : nil
-        if parsed.viralFX != nil, viralFX == nil {
-            print("⚡️  [KarateRecorder] save \(job.id) attempt \(job.attempts): skipping viralfx")
-        }
-
-        var exportMode = "raw"
-        var soundMixed = false
-        var burnError: String?
-        var mixError: String?
-        var output: URL?
-        let out = PendingSaves.url("\(job.id)-out.mp4")
         let source = raw
-        if tryBurn {
+        if output == nil, tryBurn {
             do {
                 let result = try await self.exportRetryingInForeground("KarateRecorderBurn") {
                     try await OverlayCompositor.burn(
@@ -1150,17 +1243,16 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                         streakLabel: parsed.streakLabel, dateLabel: parsed.dateLabel,
                         beltLabel: parsed.beltLabel,
                         menuName: parsed.menuName, decor: parsed.decor,
-                        viralFX: viralFX, brandName: parsed.brandName,
+                        startSeconds: bodyStart,
                         onProgress: reportProgress
                     )
                 }
-                try await VideoCheck.validate(out, expectedSeconds: expected)
+                try await VideoCheck.validate(out, expectedSeconds: bodyExpected)
                 output = out
+                expected = bodyExpected
                 exportMode = "burned"
                 soundMixed = result.soundMixed
                 mixError = result.mixError
-                // 📸 写真の ストップの コマを 写真へ（設定で「しゃしん」が オンのとき）
-                KarateViralFX.saveStills(result.stills)
             } catch {
                 if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
                 burnError = error.localizedDescription
@@ -1206,55 +1298,43 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
-        // Common opening consumes the privacy-resolved source and the already decorated body.
-        // Failure/insufficient meaningful scenes keeps that finished body, never reopens originalRawName.
-        var openingStatus = "legacy-recording"
-        var openingTimeOffset: Double?
-        if let data = job.openingSelection,
-           let selection = try? JSONDecoder().decode(ApprovedOpening.Selection.self, from: data) {
-            openingStatus = "needs-finished-body"
-            if exportMode == "burned", let body = output, let duration = expected {
+        // Common opening consumes the privacy-resolved, already decorated body (which starts at bodyStart).
+        // Failure keeps that finished body, never reopens originalRawName.
+        if let opening {
+            if exportMode == "burned", let body = output, let bodySeconds = expected {
                 do {
-                    let changes = events.filter { ($0.patch["drillIndex"] as? NSNumber) != nil }
-                    let candidates = changes.enumerated().compactMap { index, event -> ApprovedOpening.Candidate? in
-                        guard let row = (event.patch["drillIndex"] as? NSNumber)?.intValue,
-                              row >= 0, row < parsed.menu.count, !parsed.menu[row].isRest else { return nil }
-                        let end = index + 1 < changes.count ? changes[index + 1].t / 1000 : duration
-                        return ApprovedOpening.Candidate(id: "drill-\(row)-\(index)", start: max(0, event.t / 1000),
-                            end: min(duration, end), kind: selection.app == "piano" ? "performance" : "practice",
-                            child: true, privacyProcessed: !privacy.settings.isOn || job.privacyDone)
+                    let openingStarted = Date()
+                    let highlights = opening.highlights.map {
+                        ApprovedOpening.Highlight(id: $0.id, start: $0.start - bodyStart, sourceDuration: $0.sourceDuration)
                     }
-                    let highlights = try ApprovedOpening.select(app: selection.app, candidates: candidates, sourceDuration: duration)
-                    let title = parsed.menu.first(where: { !$0.isRest })?.name ?? ""
-                    guard let logoURL = Bundle.main.url(forResource: "decor-banner", withExtension: "png", subdirectory: "public/images"),
-                          let logo = UIImage(contentsOfFile: logoURL.path)?.cgImage else {
-                        throw ApprovedOpening.Failure.missingAsset("app logo")
+                    var openingPlan = OpeningClipPlan(selection: opening.selection, highlights: highlights,
+                                                      date: job.createdAt, bodyStart: 0)
+                    if privacy.settings.avatar, let track = OpeningAvatarTrack.read(for: hiddenMovie),
+                       track.mask == privacy.settings.mask {
+                        // アバターの 日記は もとの 録画の 時間。本体は bodyStart から
+                        openingPlan.avatarSegments = [.init(start: -bodyStart, track: track)]
                     }
-                    let bodyStart = candidates.map(\.start).min() ?? 0
-                    var openingPlan = OpeningClipPlan(selection: selection, highlights: highlights, date: job.createdAt, bodyStart: bodyStart)
-                    if privacy.settings.avatar, let track = OpeningAvatarTrack.read(for: raw), track.mask == privacy.settings.mask {
-                        openingPlan.avatarSegments = [.init(start: 0, track: track)]
-                    }
-                    let openingOut = PendingSaves.url("\(job.id)-opening.mp4")
+                    let openingOut = PendingSaves.url("\(job.id)-opening.mov")
                     try? fm.removeItem(at: openingOut)
                     // Body remains intact: existing banners, sparkles and sound all come from body.
                     try await self.exportRetryingInForeground("KarateRecorderOpening") {
                         try? fm.removeItem(at: openingOut)
-                        try await openingPlan.export(finishedMovie: body, privacy: privacy.settings, logo: logo,
-                                                     title: title, to: openingOut)
+                        try await openingPlan.export(finishedMovie: body, privacy: privacy.settings, logo: opening.logo,
+                                                     title: opening.title, to: openingOut, joinBody: true)
                     }
-                    try await VideoCheck.validate(openingOut, expectedSeconds: duration - bodyStart + ApprovedOpening.duration)
+                    try await VideoCheck.validate(openingOut, expectedSeconds: bodySeconds + ApprovedOpening.duration)
                     output = openingOut
-                    expected = duration - bodyStart + ApprovedOpening.duration
+                    expected = bodySeconds + ApprovedOpening.duration
                     openingStatus = "ready"
                     openingTimeOffset = ApprovedOpening.duration - bodyStart - shiftMs / 1000
-                } catch ApprovedOpening.Failure.needsHighlights(let available) {
-                    openingStatus = "needs-highlights-\(available)"
+                    print(String(format: "⚡️ [Opening] %@ joined in %.1f s", job.id, Date().timeIntervalSince(openingStarted)))
                 } catch {
                     if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
                     openingStatus = "needs-assets-or-retry"
                     print("⚡️ [Opening] \(job.id): \(error)")
                 }
+            } else {
+                openingStatus = "needs-finished-body"
             }
         }
 
@@ -1284,6 +1364,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         // 映像だけに なったときの 声
         var keepUntilSaved: [String] = []
         if let original = job.originalRawName { keepUntilSaved.append(original) }
+        if keepRawUntilSaved { keepUntilSaved.append(job.rawName) }
         if output == nil, let voice = job.voiceName { keepUntilSaved.append(voice) }
         FinishedVideos.setKeepUntilSaved(finalName, keepUntilSaved)
         PendingSaves.remove(job.id)

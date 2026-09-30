@@ -14,7 +14,6 @@ import type { PrivacySettings } from "./alan/alan-privacy";
 // おへや・かめん（SERIES_GUIDE 5.16）：ネイティブへ わたす 使う 値。background は 背景の 絵の web パス、
 // keep は 人の ほかに のこす かたち [[x, y], …]（0〜1、うつっている 絵で。ピアノの 鍵盤）。
 export type NativePrivacy = PrivacySettings & { background?: string; keep?: [number, number][] };
-import type { ViralFXSettings } from "@alan/daily";
 
 // stopRecording() answers as soon as the camera has stopped: the capture is
 // already safe on disk and the overlay is burned in afterwards, in a save that
@@ -96,9 +95,6 @@ export interface KarateRecorderPluginLike {
     decor?: string;
     // おへや・かめん：録画を はじめた ときの 値で 書き出す（落ちたあとの 書き出しなおしも）
     privacy?: NativePrivacy;
-    // 🎬 えんしゅつ（SERIES_GUIDE 5.14）。ぜんぶ オフ／なし なら いままでと おなじ 書き出し。
-    // 種目ごとに かわる 区切りは events の drillIndex と menu から ネイティブが つくる
-    viralfx?: ViralFXSettings;
     // 動画の 左上の しるし「アランの空手」「アランのピアノ」
     brandName?: string;
   }): Promise<NativeStopResult>;
@@ -522,7 +518,7 @@ export class NativeVideoRecorder {
     labels: {
       streakLabel?: string; dateLabel?: string; beltLabel?: string;
       menuName?: string; decor?: string;
-      viralfx?: ViralFXSettings; brandName?: string;
+      brandName?: string;
     } = {},
   ): Promise<Blob> {
     const plugin = this.getPlugin();

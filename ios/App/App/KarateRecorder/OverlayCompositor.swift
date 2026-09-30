@@ -1241,8 +1241,6 @@ enum OverlayCompositor {
         let soundMixed: Bool
         /// Why (part of) the sound mix was dropped, if it was.
         let mixError: String?
-        /// 🎬 えんしゅつの 写真の ストップ（settings.photos のとき）。写真へ 保存する
-        var stills: [CIImage] = []
     }
 
     /// The asset to export: the raw capture with the voice and music mixed in,
@@ -1275,7 +1273,7 @@ enum OverlayCompositor {
     /// looks frozen.
     private static func export(
         asset: AVAsset, videoComposition: AVVideoComposition?, audioMix: AVAudioMix?, to outputURL: URL,
-        onProgress: ((Float) -> Void)? = nil
+        timeRange: CMTimeRange? = nil, onProgress: ((Float) -> Void)? = nil
     ) async throws {
         guard let export = AVAssetExportSession(
             asset: asset, presetName: AVAssetExportPresetHighestQuality
@@ -1287,6 +1285,7 @@ enum OverlayCompositor {
         export.outputFileType = .mp4
         export.outputURL = outputURL
         export.shouldOptimizeForNetworkUse = true
+        if let timeRange { export.timeRange = timeRange }
 
         try? FileManager.default.removeItem(at: outputURL)
         // exportAsynchronously is deprecated in the iOS 18 SDK in favour of
@@ -1301,8 +1300,24 @@ enum OverlayCompositor {
         }
     }
 
+    /// 動画の 上に かさねる 文字（`overlayLayer`）を、書き出す 大きさで つくる
+    private static func overlayBuilder(
+        events: [Event], totalDurationMs: Double, menu: [MenuItem], streakLabel: String?, dateLabel: String?,
+        beltLabel: String?, menuName: String?, decor: Decor
+    ) -> (CGSize) -> CALayer {
+        // Always built: even with no overlay events the video still carries
+        // the streak pill and the family's decoration.
+        let segs = segments(from: events, totalDurationMs: totalDurationMs)
+        return { size in
+            overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size,
+                         menu: menu, beltLabel: beltLabel, menuName: menuName,
+                         streakLabel: streakLabel, dateLabel: dateLabel, decor: decor)
+        }
+    }
+
     /// Burns `events` into `sourceURL`, writing an .mp4 to `outputURL`, with the
     /// voice and music mixed in.
+    /// - startSeconds: ここから 書き出す（オープニングを 前に つなぐ とき）。文字の 時間は もとの 録画の まま
     @discardableResult
     static func burn(
         sourceURL: URL,
@@ -1317,20 +1332,17 @@ enum OverlayCompositor {
         beltLabel: String? = nil,
         menuName: String? = nil,
         decor: Decor = .none,
-        viralFX: ViralFXSettings? = nil,
-        brandName: String? = nil,
+        startSeconds: Double = 0,
         onProgress: ((Float) -> Void)? = nil
     ) async throws -> ExportResult {
         let started = Date()
-        var result: ExportResult
         // Keep the source asset in this local for the whole export: composition
         // tracks don't retain it.
         let source = AVURLAsset(url: sourceURL)
         // With echo-cancelled input the microphone no longer hears the music or
         // character voices, so they are mixed back in from the original files.
         // A failed mix still exports the recording with its overlay.
-        let (asset, audioMix, mixResult) = await mixedAsset(source: source, sounds: sounds, voice: voice)
-        result = mixResult
+        let (asset, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
         guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
             throw CompositorError.noVideoTrack
         }
@@ -1346,50 +1358,70 @@ enum OverlayCompositor {
         }
         composition.renderSize = size
 
-        // 🎬 えんしゅつ（SERIES_GUIDE 5.14）：カメラの コマに 演出を かけてから、下の 文字を かさねる。
-        // ぜんぶ オフなら ここは 何も しない（いままでと おなじ 書き出し）
-        var viralRenderer: ViralFXRenderer?
-        if let viralFX, !KarateViralFX.isOff(viralFX) {
-            registerFonts()   // 人の うしろの 文字も M PLUS Rounded 1c で
-            let transform = try await videoTrack.load(.preferredTransform)
-            let duration = try await asset.load(.duration)
-            let renderer = ViralFXRenderer(
-                settings: viralFX, look: DailyLook(), size: size,
-                moments: KarateViralFX.finishMoments(events: events, menu: menu),
-                segments: KarateViralFX.segments(events: events, menu: menu),
-                brandName: brandName)
-            composition.customVideoCompositorClass = ViralFXVideoCompositor.self
-            composition.instructions = [ViralFXInstruction(
-                timeRange: CMTimeRange(start: .zero, duration: duration), trackID: videoTrack.trackID,
-                renderer: renderer, orientation: KarateViralFX.orientation(for: transform), size: size)]
-            viralRenderer = renderer
-        }
-
         let parentLayer = CALayer()
         parentLayer.frame = CGRect(origin: .zero, size: size)
         let videoLayer = CALayer()
         videoLayer.frame = parentLayer.frame
         parentLayer.addSublayer(videoLayer)
-
-        // Always built: even with no overlay events the video still carries
-        // the streak pill and the family's decoration.
-        let segs = segments(from: events, totalDurationMs: totalDurationMs)
         parentLayer.addSublayer(
-            overlayLayer(segments: segs, totalDurationMs: totalDurationMs, renderSize: size,
-                         menu: menu, beltLabel: beltLabel, menuName: menuName,
-                         streakLabel: streakLabel, dateLabel: dateLabel, decor: decor)
+            overlayBuilder(events: events, totalDurationMs: totalDurationMs, menu: menu, streakLabel: streakLabel,
+                           dateLabel: dateLabel, beltLabel: beltLabel, menuName: menuName, decor: decor)(size)
         )
         composition.animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer, in: parentLayer
         )
 
+        var timeRange: CMTimeRange?
+        if startSeconds > 0 {
+            let duration = try await source.load(.duration)
+            timeRange = CMTimeRange(start: CMTime(seconds: startSeconds, preferredTimescale: 600), end: duration)
+        }
         try await export(asset: asset, videoComposition: composition, audioMix: audioMix, to: outputURL,
-                         onProgress: onProgress)
+                         timeRange: timeRange, onProgress: onProgress)
         withExtendedLifetime(source) {}
-        print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video%@",
-                     Date().timeIntervalSince(started), totalDurationMs / 1000,
-                     viralRenderer == nil ? "" : " (viralfx)"))
-        if let viralRenderer, viralRenderer.settings.photos { result.stills = viralRenderer.stills }
+        print(String(format: "⚡️  [KarateRecorder] burn export %.1f s for %.1f s of video",
+                     Date().timeIntervalSince(started), totalDurationMs / 1000 - startSeconds))
+        return result
+    }
+
+    /// おへや・かめん（5.16）と 文字・音を **1回の 書き出しで**（2026-09-30 uk：仕上げを 速く）。
+    /// 生の 録画から かくした 動画を つくって、それを また 書き出す 2回の 道より ずっと 速い。
+    /// 失敗したら アプリは いままでの 2回の 道（かくす → `burn`）に もどる。
+    /// かくせない（Vision の 失敗が おおい）ときは `PrivacyExport.Failure.visionFailed` を 投げる（つぎの 段で）
+    @discardableResult
+    static func burnPrivate(
+        sourceURL: URL,
+        outputURL: URL,
+        privacy: PrivacySettings,
+        background: CGImage?,
+        keep: [CGPoint]?,
+        level: PrivacyLevel,
+        events: [Event],
+        totalDurationMs: Double,
+        menu: [MenuItem] = [],
+        sounds: [Sound] = [],
+        voice: VoiceTrack? = nil,
+        streakLabel: String? = nil,
+        dateLabel: String? = nil,
+        beltLabel: String? = nil,
+        menuName: String? = nil,
+        decor: Decor = .none,
+        startSeconds: Double = 0,
+        onProgress: (@Sendable (Float) -> Void)? = nil
+    ) async throws -> ExportResult {
+        let started = Date()
+        let source = AVURLAsset(url: sourceURL)
+        let (asset, audioMix, result) = await mixedAsset(source: source, sounds: sounds, voice: voice)
+        let finish = PrivacyExport.Finish(
+            asset: asset, audioMix: audioMix,
+            overlay: overlayBuilder(events: events, totalDurationMs: totalDurationMs, menu: menu, streakLabel: streakLabel,
+                                    dateLabel: dateLabel, beltLabel: beltLabel, menuName: menuName, decor: decor),
+            start: startSeconds)
+        try await PrivacyExport.export(source: sourceURL, to: outputURL, settings: privacy, background: background,
+                                       keep: keep, level: level, finish: finish, onProgress: onProgress)
+        withExtendedLifetime((source, asset)) {}
+        print(String(format: "⚡️  [KarateRecorder] private burn export %.1f s for %.1f s of video (%@)",
+                     Date().timeIntervalSince(started), totalDurationMs / 1000 - startSeconds, level.rawValue))
         return result
     }
 

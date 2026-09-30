@@ -1120,8 +1120,7 @@ button {
    to be a yellow slab and a grey slab as tall and as raised as 稽古 開始, which
    made three buttons of equal weight and no obvious one to press. */
 .start-row .bgm-toggle-btn,
-.start-row .hook-toggle-btn,
-.start-row .viralfx-btn {
+.start-row .hook-toggle-btn {
   flex: 0 0 auto;
   min-height: 34px;
   padding: 0 0.7rem;
@@ -1141,17 +1140,9 @@ button {
 }
 
 .start-row .bgm-toggle-btn:active,
-.start-row .hook-toggle-btn:active,
-.start-row .viralfx-btn:active {
+.start-row .hook-toggle-btn:active {
   transform: scale(0.95);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-/* 🎬 えんしゅつ：どれか オンなら ピンク */
-.start-row .viralfx-btn.is-on {
-  background: #ff5fa2;
-  border-color: #ffb3d1;
-  color: #2b0a1a;
 }
 
 .start-row .hook-toggle-btn.is-on {

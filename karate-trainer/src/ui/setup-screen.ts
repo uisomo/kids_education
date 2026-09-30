@@ -116,9 +116,6 @@ export interface SetupDeps {
   // the caller re-renders here — otherwise reopening it shows stale words.
   onHookEditorClosed?(): void;
   // 🎬 えんしゅつ（SERIES_GUIDE 5.14）：録画の 演出を えらぶ パネルを ひらく。
-  // viralFxOn は どれか 1つでも オンか（ボタンの 見た目）。なければ ボタンを 出さない
-  viralFxOn?: boolean;
-  onOpenViralFX?(): void;
 }
 
 const NEW_DRILL_NAME = "新しい種目";
@@ -586,18 +583,6 @@ export function renderSetupScreen(root: HTMLElement, deps: SetupDeps): void {
       });
     });
     controls.append(privacyBtn);
-  }
-
-  // 🎬 えんしゅつ：よみあげの となり。子どもが じぶんで 切りかえて よい
-  if (deps.onOpenViralFX) {
-    const fxBtn = document.createElement("button");
-    fxBtn.type = "button";
-    fxBtn.dataset.viralfx = "";
-    fxBtn.className = "viralfx-btn" + (deps.viralFxOn ? " is-on" : "");
-    fxBtn.textContent = "🎬 えんしゅつ";
-    fxBtn.setAttribute("aria-label", "動画の えんしゅつを えらぶ");
-    fxBtn.addEventListener("click", () => deps.onOpenViralFX!());
-    controls.append(fxBtn);
   }
 
   // 合計 sits at the right end of the switch line instead of on a line of its
