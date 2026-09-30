@@ -73,9 +73,9 @@ export function loadPlan(base: Storage = localStorage): Plan {
   try {
     const raw = base.getItem(KEY);
     if (isPlan(raw)) return raw;
-    // テスト版は スイートから（ぜんぶ ためせる。alan-billing の testBuild と おなじ）。
+    // テスト版は ファミリーから（子ども5人・ぜんぶ ためせる。alan-billing の testBuild と おなじ）。
     // プランの カードで あとから 切りかえられる。
-    const plan: Plan = TEST_MODE ? "suite" : migrate(base);
+    const plan: Plan = TEST_MODE ? "family" : migrate(base);
     base.setItem(KEY, plan);
     return plan;
   } catch {

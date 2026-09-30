@@ -93,14 +93,14 @@
    screen. M PLUS Rounded 1c, SIL Open Font License. */
 @font-face {
   font-family: "M PLUS Rounded 1c";
-  src: url("/fonts/MPLUSRounded1c-Medium.ttf") format("truetype");
+  src: url("/fonts/MPLUSRounded1c-Medium.woff2") format("woff2");
   font-weight: 400 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "M PLUS Rounded 1c";
-  src: url("/fonts/MPLUSRounded1c-ExtraBold.ttf") format("truetype");
+  src: url("/fonts/MPLUSRounded1c-ExtraBold.woff2") format("woff2");
   font-weight: 700 900;
   font-style: normal;
   font-display: swap;
