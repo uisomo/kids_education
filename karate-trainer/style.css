@@ -10,7 +10,7 @@
   --ink: #ffffff;         /* Pure white text */
   --ink-dim: rgba(255, 255, 255, 0.75);
   --panel: #251f3d;       /* Toy container card */
-  --panel-line: rgba(255, 209, 102, 0.3);
+  --panel-line: rgba(var(--brand-rgb), 0.3);
 
   /* 「アランのおもちゃ箱」 Special Colors */
   --toy-red: #ff4757;
@@ -27,7 +27,7 @@
   /* The boxes behind text drawn over the camera. Lit from the top with a gold
      hairline, matching the panels OverlayCompositor burns into the video. */
   --overlay-box: linear-gradient(180deg, rgba(42, 32, 74, 0.86) 0%, rgba(13, 10, 30, 0.72) 100%);
-  --overlay-edge: rgba(255, 209, 102, 0.55);
+  --overlay-edge: rgba(var(--brand-rgb), 0.55);
   --overlay-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 
   /* アランの シリーズ 共通の 部品（src/alan/tokens.css）に わたす アプリの色（SERIES_GUIDE 5.2f の 表）。
@@ -40,6 +40,20 @@
   --ink-soft: var(--ink-dim);
   --card: var(--panel);
   --line: var(--panel-line);
+  /* アプリの色の なかま（空手＝金）。うすい 色・つやの ピルの 上下・押しこみの ふち に つかう。
+     ピアノは 下で ピンクに 上書き。ほし・帯・トロフィーの 金は 意味の 色なので #ffd166 の まま。 */
+  --brand-rgb: 255, 209, 102;
+  --kt-pill-top-rgb: 255, 227, 154;
+  --kt-pill-bottom-rgb: 242, 180, 58;
+  --kt-lip-rgb: 201, 143, 16;
+  --kt-pill-top: rgb(var(--kt-pill-top-rgb));
+  --kt-pill-bottom: rgb(var(--kt-pill-bottom-rgb));
+  --kt-lip-brand: rgb(var(--kt-lip-rgb));
+  --kt-modal-lip: #b8862a;
+  --kt-brand-warm: #ff8811;
+  --kt-bar-end: #ff9f0a;
+  --kt-brand-pale: #ffe6a1;
+  --kt-chevron: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffd166' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 /* アランのピアノの 色（SERIES_GUIDE 5.2f：335° ピンク）。main.ts が ピアノの ビルドだけ html に data-piano-build を つける。
    地は 空手と おなじ 暗い インディゴ（5.2f の 表）。 */
@@ -49,6 +63,15 @@
   --brand-dark: #d9487c;
   --on-brand: #4d0a24; /* 白 × ピンクは 2.4:1 → こい ピンク（5.2f） */
   --brand-ink: #ff9fc0; /* 暗い 地の 上の 小さい 文字 */
+  --brand-rgb: 255, 122, 168;
+  --kt-pill-top-rgb: 255, 194, 215;
+  --kt-pill-bottom-rgb: 240, 96, 146;
+  --kt-lip-rgb: 185, 52, 102;
+  --kt-modal-lip: #a8335e;
+  --kt-brand-warm: #d9487c;
+  --kt-bar-end: #f0508a;
+  --kt-brand-pale: #ffd3e2;
+  --kt-chevron: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ff7aa8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
 /* 暗い地なので --ink は 白。白い グロッシーの 丸（もどる・とじる）の 絵だけは こい色に する。 */
@@ -197,7 +220,7 @@ button {
   max-width: 400px;
   height: auto;
   border-radius: 18px;
-  border: 3px solid rgba(255, 209, 102, 0.6);
+  border: 3px solid rgba(var(--brand-rgb), 0.6);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   object-fit: cover;
 }
@@ -222,7 +245,7 @@ button {
   font-size: 1.8rem;
   font-weight: 900;
   text-align: center;
-  color: #ffd166;
+  color: var(--brand);
   text-shadow: 0 3px 0 #d63031, 0 5px 12px rgba(0, 0, 0, 0.5);
   letter-spacing: 0.04em;
 }
@@ -244,7 +267,7 @@ button {
 .section-label {
   font-size: 0.9rem;
   font-weight: 800;
-  color: #ffd166;
+  color: var(--brand);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -277,9 +300,9 @@ button {
 }
 
 .character-card-btn.active {
-  border-color: #ffd166;
-  background: linear-gradient(180deg, rgba(255, 209, 102, 0.25) 0%, rgba(255, 71, 87, 0.15) 100%);
-  box-shadow: 0 6px 16px rgba(255, 209, 102, 0.3);
+  border-color: var(--brand);
+  background: linear-gradient(180deg, rgba(var(--brand-rgb), 0.25) 0%, rgba(255, 71, 87, 0.15) 100%);
+  box-shadow: 0 6px 16px rgba(var(--brand-rgb), 0.3);
   transform: scale(1.04);
 }
 
@@ -288,8 +311,8 @@ button {
   position: absolute;
   top: 4px;
   right: 6px;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -583,11 +606,11 @@ button {
   white-space: nowrap;
 }
 .member-chip.is-active {
-  background: #ffd166;
-  border-color: #ffd166;
+  background: var(--brand);
+  border-color: var(--brand);
   color: #2d264a;
   cursor: default;
-  box-shadow: 0 0 12px rgba(255, 209, 102, 0.55);
+  box-shadow: 0 0 12px rgba(var(--brand-rgb), 0.55);
 }
 
 .preset-band {
@@ -623,7 +646,7 @@ button {
   /* Own chevron, so the ✕ can sit outboard of it inside the same pill. */
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffd166' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: var(--kt-chevron);
   background-repeat: no-repeat;
   background-position: right 0.9rem center;
   background-size: 0.7rem;
@@ -680,10 +703,10 @@ button {
 
 .preset-save {
   flex: 0 0 auto;
-  background: #ffd166;
+  background: var(--brand);
   border: none;
   border-radius: 999px;
-  color: #1a162b;
+  color: var(--on-brand);
   font: inherit;
   font-size: 0.85rem;
   font-weight: 900;
@@ -793,9 +816,9 @@ button {
   height: 34px;
   flex: 0 0 auto;
   padding: 0;
-  background: rgba(255, 209, 102, 0.2);
-  border: 2px solid #ffd166;
-  color: #ffd166;
+  background: rgba(var(--brand-rgb), 0.2);
+  border: 2px solid var(--brand);
+  color: var(--brand);
   border-radius: 9px;
   cursor: grab;
   touch-action: none;
@@ -818,7 +841,7 @@ button {
   z-index: 5;
   transition: none;
   cursor: grabbing;
-  border-color: #ffd166;
+  border-color: var(--brand);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
 }
 
@@ -879,11 +902,11 @@ button {
 }
 
 .row-kufu.is-lit {
-  background: rgba(255, 209, 102, 0.22);
-  border-color: #ffd166;
+  background: rgba(var(--brand-rgb), 0.22);
+  border-color: var(--brand);
   filter: none;
   opacity: 1;
-  box-shadow: 0 0 10px rgba(255, 209, 102, 0.5);
+  box-shadow: 0 0 10px rgba(var(--brand-rgb), 0.5);
 }
 
 .row-del {
@@ -932,8 +955,8 @@ button {
 .add {
   padding: 0.55rem 1rem;
   background: rgba(45, 38, 74, 0.5);
-  border: 1.5px dashed rgba(255, 209, 102, 0.55);
-  color: rgba(255, 209, 102, 0.92);
+  border: 1.5px dashed rgba(var(--brand-rgb), 0.55);
+  color: rgba(var(--brand-rgb), 0.92);
   border-radius: 14px;
   cursor: pointer;
   font-size: 0.92rem;
@@ -1181,9 +1204,9 @@ button {
 
 /* BGM on = filled yellow, off = the same outlined pill as 🪝. */
 .start-row .bgm-toggle-btn {
-  background: #ffd166;
+  background: var(--brand);
   border-color: #ffe08a;
-  color: #1a162b;
+  color: var(--on-brand);
 }
 
 .start-row .bgm-toggle-btn.muted {
@@ -1281,7 +1304,7 @@ button {
 
 [data-prog] {
   font-weight: 800;
-  color: #ffd166;
+  color: var(--brand);
   background: rgba(0, 0, 0, 0.6);
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
@@ -1295,8 +1318,8 @@ button {
   font-weight: 900;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  border: 2px solid rgba(255, 209, 102, 0.9);
-  background: rgba(255, 209, 102, 0.45);
+  border: 2px solid rgba(var(--brand-rgb), 0.9);
+  background: rgba(var(--brand-rgb), 0.45);
   color: #1a162b;
   text-shadow: none;
   cursor: pointer;
@@ -1305,8 +1328,8 @@ button {
 /* BGM off: the same yellow, paler, with faded dark text. */
 .bgm-toggle-btn.muted {
   color: rgba(26, 22, 43, 0.55);
-  background: rgba(255, 209, 102, 0.2);
-  border-color: rgba(255, 209, 102, 0.5);
+  background: rgba(var(--brand-rgb), 0.2);
+  border-color: rgba(var(--brand-rgb), 0.5);
 }
 
 /* Companion cheer overlay on Training Screen — a transparent character clip
@@ -1356,8 +1379,8 @@ button {
   white-space: nowrap;
   font-size: 0.85rem;
   font-weight: 900;
-  color: #1a162b;
-  background: #ffd166;
+  color: var(--on-brand);
+  background: var(--brand);
   border-radius: 999px;
   padding: 0.3rem 0.75rem;
   text-align: center;
@@ -1399,7 +1422,7 @@ button {
 }
 
 [data-timer] {
-  color: #ffd166;
+  color: var(--brand);
   font-size: 1.8rem;
   font-weight: 900;
   line-height: 1;
@@ -1407,7 +1430,7 @@ button {
   background: rgba(0, 0, 0, 0.65);
   padding: 0.5rem 0.8rem;
   border-radius: 16px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   min-width: 3.4rem;
   text-align: center;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
@@ -1425,10 +1448,10 @@ button {
 }
 
 .read-aloud-hint {
-  color: #1a162b;
+  color: var(--on-brand);
   font-size: 1rem;
   font-weight: 900;
-  background: rgba(255, 209, 102, 0.92);
+  background: rgba(var(--brand-rgb), 0.92);
   padding: 0.25rem 0.9rem;
   border-radius: 999px;
   width: fit-content;
@@ -1493,8 +1516,8 @@ button {
   top: 40%;
   left: 50%;
   transform: translate(-50%, -50%) scale(0.8);
-  background: linear-gradient(135deg, #ffd166 0%, #ff8811 100%);
-  color: #1a162b;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--kt-brand-warm) 100%);
+  color: var(--on-brand);
   padding: 1.2rem 2.4rem;
   border-radius: 24px;
   font-size: 1.8rem;
@@ -1503,7 +1526,7 @@ button {
   z-index: 20;
   opacity: 0;
   pointer-events: none;
-  box-shadow: 0 12px 30px rgba(255, 209, 102, 0.6);
+  box-shadow: 0 12px 30px rgba(var(--brand-rgb), 0.6);
   border: 4px solid #fff;
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1641,6 +1664,18 @@ button {
   box-shadow: 0 1px 0 #20a85a;
 }
 
+/* 🪝 hook の 読み上げの あいだの「つづき」（SERIES_GUIDE 5.6）。画面の いちばん下・親指の とどく ところ。
+   ピアノの 次へ より 上に かさねる（hook の あいだは こちらだけ）。画面だけ・動画には 出ない。 */
+.a-btn.hook-skip-btn {
+  position: absolute;
+  left: 0.8rem;
+  right: 0.8rem;
+  bottom: calc(0.8rem + env(safe-area-inset-bottom));
+  z-index: 20;
+  min-height: 56px;
+}
+.a-btn.hook-skip-btn[hidden] { display: none; }
+
 /* 「やめる？」: やめる / つづける side by side. */
 .training-stop-sheet { text-align: center; color: var(--ink); }
 .training-stop-sheet .a-sub { margin-top: 6px; }
@@ -1695,7 +1730,7 @@ button {
 .done-title {
   font-size: 1.6rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
   margin: 0;
 }
 
@@ -1730,7 +1765,7 @@ button {
 .stat .v {
   font-size: 1.6rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
 }
 
 .stat .k {
@@ -1779,7 +1814,7 @@ button {
   gap: 0.6rem;
   padding: 0.5rem 0.75rem;
   background: var(--toy-card-bg);
-  border: 2px solid #ffd166;
+  border: 2px solid var(--brand);
   border-radius: 16px;
 }
 .done-header .done-trophy-img {
@@ -1832,7 +1867,7 @@ button {
   align-items: flex-end;
   justify-content: center;
   font-size: 0.7rem;
-  color: #ffd166;
+  color: var(--brand);
   background: linear-gradient(transparent, var(--ground));
   pointer-events: none;
 }
@@ -1923,8 +1958,8 @@ button {
   z-index: 250;
   padding: 0.45rem 1rem;
   border-radius: 999px;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
   font-weight: 900;
   font-size: 0.95rem;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
@@ -2054,7 +2089,7 @@ input[data-label] {
   margin: 0.5rem 0;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #ffd166;
+  color: var(--brand);
 }
 
 .clip-section ul {
@@ -2093,8 +2128,8 @@ input[data-label] {
 }
 
 .btn-play {
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 .btn-delete {
@@ -2159,8 +2194,8 @@ input[data-label] {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 6px solid rgba(255, 209, 102, 0.35);
-  border-top-color: #ffd166;
+  border: 6px solid rgba(var(--brand-rgb), 0.35);
+  border-top-color: var(--brand);
   animation: loading-spin 0.9s linear infinite;
 }
 
@@ -2197,7 +2232,7 @@ input[data-label] {
 .countdown-intro-label {
   font-size: 8rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
   text-shadow: 0 6px 24px rgba(0, 0, 0, 0.75);
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -2242,7 +2277,7 @@ input[data-label] {
   margin: 0.4rem 0 0.2rem;
 }
 .finish-status.is-done { opacity: 1; }
-.finish-label { font-size: 1rem; font-weight: 900; color: #ffd166; }
+.finish-label { font-size: 1rem; font-weight: 900; color: var(--brand); }
 .finish-bar {
   height: 12px;
   margin: 0.35rem 0;
@@ -2254,7 +2289,7 @@ input[data-label] {
   width: 0;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ffd166, #ff9f0a);
+  background: linear-gradient(90deg, var(--brand), var(--kt-bar-end));
   transition: width 0.4s ease;
 }
 .finish-note { font-size: 0.8rem; font-weight: 700; opacity: 0.8; }
@@ -2273,7 +2308,7 @@ input[data-label] {
 .kufu-title {
   font-size: 1rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
   text-align: center;
 }
 
@@ -2300,7 +2335,7 @@ input[data-label] {
   font-size: 1rem;
   padding: 0.5rem 0.7rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   background: rgba(255, 255, 255, 0.95);
   color: #1a162b;
 }
@@ -2312,8 +2347,8 @@ input[data-label] {
   padding: 0.5rem 0.8rem;
   border-radius: 12px;
   border: none;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 .kufu-save:disabled {
@@ -2339,7 +2374,7 @@ input[data-label] {
   min-width: 0;
   font-size: 0.85rem;
   font-weight: 800;
-  color: #ffd166;
+  color: var(--brand);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2357,8 +2392,8 @@ input[data-label] {
   padding: 0.5rem 0.7rem;
   border-radius: 12px;
   border: none;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 /* 家族: 「工夫をぜんぶけす」 */
@@ -2387,8 +2422,8 @@ input[data-label] {
   overflow: hidden;
   font-size: 1rem;
   font-weight: 900;
-  color: #1a162b;
-  background: rgba(255, 209, 102, 0.94);
+  color: var(--on-brand);
+  background: rgba(var(--brand-rgb), 0.94);
   padding: 0.4rem 0.9rem;
   border-radius: 18px;
   text-align: center;
@@ -2415,7 +2450,7 @@ input[data-label] {
   align-items: stretch;
   background: rgba(26, 22, 43, 0.96);
   backdrop-filter: blur(10px);
-  border-top: 2px solid rgba(255, 209, 102, 0.4);
+  border-top: 2px solid rgba(var(--brand-rgb), 0.4);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -2433,7 +2468,7 @@ input[data-label] {
 }
 
 .bottom-nav-btn.active {
-  color: #ffd166;
+  color: var(--brand);
 }
 
 /* Make the current tab unmistakable: its glossy icon keeps its colour and
@@ -2441,8 +2476,8 @@ input[data-label] {
 .bottom-nav-btn .bottom-nav-label { opacity: 0.6; }
 .bottom-nav-btn.active .bottom-nav-label { opacity: 1; }
 .bottom-nav-btn.active .bottom-nav-label {
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
   border-radius: 999px;
   padding: 0.05rem 0.7rem;
 }
@@ -2555,7 +2590,7 @@ input[data-label] {
 
 .strength-row {
   background: rgba(26, 22, 43, 0.6);
-  border: 2px solid rgba(255, 209, 102, 0.25);
+  border: 2px solid rgba(var(--brand-rgb), 0.25);
   border-radius: 16px;
   padding: 0.8rem 1rem;
 }
@@ -2568,7 +2603,7 @@ input[data-label] {
 }
 
 .strength-name { font-size: 1.1rem; font-weight: 900; color: #fff; }
-.strength-level { font-size: 1rem; font-weight: 900; color: #ffd166; }
+.strength-level { font-size: 1rem; font-weight: 900; color: var(--brand); }
 
 .strength-bars {
   display: flex;
@@ -2601,7 +2636,7 @@ input[data-label] {
   flex-direction: column;
   gap: 0.4rem;
   background: rgba(26, 22, 43, 0.6);
-  border: 2px solid rgba(255, 209, 102, 0.3);
+  border: 2px solid rgba(var(--brand-rgb), 0.3);
   border-radius: 16px;
   padding: 0.9rem 1rem;
 }
@@ -2609,7 +2644,7 @@ input[data-label] {
 .family-label {
   font-size: 0.9rem;
   font-weight: 800;
-  color: #ffd166;
+  color: var(--brand);
 }
 
 .family-select {
@@ -2618,7 +2653,7 @@ input[data-label] {
   font-weight: 800;
   padding: 0.6rem 0.8rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   background: rgba(255, 255, 255, 0.95);
   color: #1a162b;
 }
@@ -2645,7 +2680,7 @@ input[data-label] {
   min-height: 56px;
   padding: 0.55rem 0.8rem;
   border-radius: 14px;
-  border: 2px solid rgba(255, 209, 102, 0.28);
+  border: 2px solid rgba(var(--brand-rgb), 0.28);
   background: rgba(26, 22, 43, 0.5);
   color: #fff;
   font-family: inherit;
@@ -2654,8 +2689,8 @@ input[data-label] {
 }
 
 .decor-option.on {
-  border-color: #ffd166;
-  background: rgba(255, 209, 102, 0.18);
+  border-color: var(--brand);
+  background: rgba(var(--brand-rgb), 0.18);
 }
 
 /* 「いまこれ」 on the picked かざり: the tint alone was too quiet to see. */
@@ -2667,8 +2702,8 @@ input[data-label] {
   right: -0.25rem;
   font-size: 0.62rem;
   font-weight: 900;
-  color: #1a162b;
-  background: #ffd166;
+  color: var(--on-brand);
+  background: var(--brand);
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -2749,7 +2784,7 @@ input[data-label] {
 .hook-modal-auto input {
   width: 1.4rem;
   height: 1.4rem;
-  accent-color: #ffd166;
+  accent-color: var(--brand);
 }
 
 .hook-modal-auto-note {
@@ -2770,8 +2805,8 @@ input[data-label] {
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 900;
-  color: #1a162b;
-  background: linear-gradient(135deg, #ffd166 0%, #ff8811 100%);
+  color: var(--on-brand);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--kt-brand-warm) 100%);
   border: none;
   border-radius: 999px;
   padding: 0.5rem 1.4rem;
@@ -2812,8 +2847,8 @@ input[data-label] {
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 900;
-  color: #1a162b;
-  background: rgba(255, 209, 102, 0.92);
+  color: var(--on-brand);
+  background: rgba(var(--brand-rgb), 0.92);
   border: none;
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
@@ -2861,7 +2896,7 @@ input[data-label] {
 }
 
 .family-member-row.active {
-  border-color: #ffd166;
+  border-color: var(--brand);
 }
 
 .family-member-name {
@@ -2877,7 +2912,7 @@ input[data-label] {
   gap: 0.8rem;
   margin: 0.6rem 0;
   padding: 0.8rem;
-  border: 2px solid rgba(255, 209, 102, 0.4);
+  border: 2px solid rgba(var(--brand-rgb), 0.4);
   border-radius: 18px;
   background: rgba(26, 22, 43, 0.35);
 }
@@ -2902,7 +2937,7 @@ input[data-label] {
   font-weight: 800;
   padding: 0.45rem 0.6rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   background: rgba(255, 255, 255, 0.95);
   color: #1a162b;
 }
@@ -2917,8 +2952,8 @@ input[data-label] {
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
   border: none;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 .family-member-rename:disabled {
@@ -2979,7 +3014,7 @@ input[data-label] {
   font-size: 1rem;
   padding: 0.6rem 0.8rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   background: rgba(255, 255, 255, 0.95);
   color: #1a162b;
 }
@@ -2990,8 +3025,8 @@ input[data-label] {
   padding: 0.6rem 1rem;
   border-radius: 12px;
   border: none;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 /* --- Plan kid limit: locked members and the add hint --- */
@@ -3165,7 +3200,7 @@ button.family-plan:disabled { cursor: default; }
   font-weight: 800;
   padding: 0.5rem 0.7rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   background: rgba(255, 255, 255, 0.95);
   color: #1a162b;
 }
@@ -3180,7 +3215,7 @@ button.family-plan:disabled { cursor: default; }
 .setup-class-label {
   font-size: 0.85rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
   margin: 0.1rem 0 0.3rem;
 }
 
@@ -3194,8 +3229,8 @@ button.family-plan:disabled { cursor: default; }
   gap: 0.6rem;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #1a162b;
-  background: linear-gradient(135deg, #ffe6a1, #ffd166);
+  color: var(--on-brand);
+  background: linear-gradient(135deg, var(--kt-brand-pale), var(--brand));
   padding: 0.55rem 0.7rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
@@ -3385,8 +3420,8 @@ button.family-plan:disabled { cursor: default; }
   border: none;
   border-radius: 12px;
   padding: 0.7rem 1rem;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
   font-size: 1rem;
   font-weight: 900;
   cursor: pointer;
@@ -3504,7 +3539,7 @@ button.family-plan:disabled { cursor: default; }
   font-weight: 700;
   padding: 0.5rem 0.6rem;
   border-radius: 12px;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   background: rgba(255, 255, 255, 0.95);
   color: #1a162b;
 }
@@ -3517,8 +3552,8 @@ button.family-plan:disabled { cursor: default; }
   padding: 0.5rem 0.8rem;
   border-radius: 12px;
   border: none;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -3549,7 +3584,7 @@ button.family-plan:disabled { cursor: default; }
   gap: 0.7rem;
   padding: 1.2rem;
   background: var(--toy-card-bg, #2d264a);
-  border: 3px solid #ffd166;
+  border: 3px solid var(--brand);
   border-radius: 22px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
   animation: kufu-pop 0.36s cubic-bezier(0.25, 0.9, 0.4, 1) both;
@@ -3558,7 +3593,7 @@ button.family-plan:disabled { cursor: default; }
 .kufu-card-title {
   font-size: 1.15rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
   text-align: center;
 }
 
@@ -3599,8 +3634,8 @@ button.family-plan:disabled { cursor: default; }
 
 .kufu-card-save {
   border: none;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
 }
 
 .kufu-card-cancel {
@@ -3665,8 +3700,8 @@ button.family-plan:disabled { cursor: default; }
   padding: 0.4rem 1rem;
   border: none;
   border-radius: 999px;
-  background: #ffd166;
-  color: #1a162b;
+  background: var(--brand);
+  color: var(--on-brand);
   font: inherit;
   font-size: 0.85rem;
   font-weight: 800;
@@ -3931,14 +3966,14 @@ input[data-gate-input]:disabled,
   flex-direction: column;
   gap: 0.4rem;
   padding: 0.8rem 0.9rem;
-  border: 2px solid rgba(255, 209, 102, 0.6);
+  border: 2px solid rgba(var(--brand-rgb), 0.6);
   border-radius: 16px;
   background: rgba(45, 38, 74, 0.92);
 }
 .parent-note-title {
   font-size: 1rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
 }
 .parent-note-list {
   margin: 0;
@@ -3958,7 +3993,7 @@ input[data-gate-input]:disabled,
 }
 .howto-btn {
   padding: 0.7rem 0.4rem;
-  border: 2px solid rgba(255, 209, 102, 0.5);
+  border: 2px solid rgba(var(--brand-rgb), 0.5);
   border-radius: 14px;
   background: #2d264a;
   color: var(--ink, #fff);
@@ -4001,7 +4036,7 @@ input[data-gate-input]:disabled,
   gap: 0.7rem;
   padding: 1.2rem;
   background: var(--toy-card-bg, #2d264a);
-  border: 3px solid #ffd166;
+  border: 3px solid var(--brand);
   border-radius: 22px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
   animation: kufu-pop 0.36s cubic-bezier(0.25, 0.9, 0.4, 1) both;
@@ -4010,7 +4045,7 @@ input[data-gate-input]:disabled,
 .guide-card-title {
   font-size: 1.2rem;
   font-weight: 900;
-  color: #ffd166;
+  color: var(--brand);
   text-align: center;
 }
 
@@ -4071,10 +4106,10 @@ input[data-gate-input]:disabled,
 }
 
 @keyframes guide-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.9); }
-  18%  { box-shadow: 0 0 0 5px rgba(255, 209, 102, 0.75); }
-  70%  { box-shadow: 0 0 0 16px rgba(255, 209, 102, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(var(--brand-rgb), 0.9); }
+  18%  { box-shadow: 0 0 0 5px rgba(var(--brand-rgb), 0.75); }
+  70%  { box-shadow: 0 0 0 16px rgba(var(--brand-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--brand-rgb), 0); }
 }
 
 .guide-tip {
@@ -4088,11 +4123,11 @@ input[data-gate-input]:disabled,
   gap: 0.4rem;
   max-width: calc(100% - 2rem);
   padding: 0.5rem 0.9rem;
-  border: 2px solid #ffd166;
+  border: 2px solid var(--brand);
   border-radius: 999px;
   background: rgba(45, 38, 74, 0.96);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-  color: #ffd166;
+  color: var(--brand);
   font-size: 0.95rem;
   font-weight: 900;
   white-space: nowrap;
@@ -4255,9 +4290,9 @@ input[data-gate-input]:disabled,
   font-weight: 800;
 }
 .item-tab.is-on {
-  background: rgba(255, 209, 102, 0.18);
+  background: rgba(var(--brand-rgb), 0.18);
   color: var(--ink, #fff);
-  box-shadow: inset 0 0 0 2px rgba(255, 209, 102, 0.75);
+  box-shadow: inset 0 0 0 2px rgba(var(--brand-rgb), 0.75);
 }
 /* ブロックは絵そのものが ごほうびなので、キラキラより大きく出す。 */
 .block-grid {
@@ -4362,8 +4397,8 @@ input[data-gate-input]:disabled,
 }
 /* 選ばれている＝稽古中の画面に出るもの。金のふちは帯カードと同じ合図。 */
 .sparkle-cell.selected {
-  border-color: rgba(255, 209, 102, 0.9);
-  background: rgba(255, 209, 102, 0.14);
+  border-color: rgba(var(--brand-rgb), 0.9);
+  background: rgba(var(--brand-rgb), 0.14);
 }
 .sparkle-cell.locked { background: rgba(255, 255, 255, 0.03); }
 .sparkle-art { width: 3.1rem; height: 3.1rem; display: block; }
@@ -4432,14 +4467,14 @@ input[data-gate-input]:disabled,
   --kt-card-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.16), inset 0 -4px 8px rgba(0, 0, 0, 0.28),
     0 4px 0 #14102a, 0 10px 20px rgba(0, 0, 0, 0.35);
   --kt-modal-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), inset 0 -5px 10px rgba(0, 0, 0, 0.3),
-    0 5px 0 #b8862a, 0 20px 44px rgba(0, 0, 0, 0.55);
+    0 5px 0 var(--kt-modal-lip), 0 20px 44px rgba(0, 0, 0, 0.55);
   /* see-through tile over the scenery (cells, rows on the dark screens) */
   --kt-tile: var(--kt-gloss-hi), linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 60%, rgba(0, 0, 0, 0.1) 100%);
   --kt-tile-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -3px 6px rgba(0, 0, 0, 0.2),
     0 3px 0 rgba(0, 0, 0, 0.3), 0 6px 12px rgba(0, 0, 0, 0.2);
   /* glossy pills (light / gold / red) */
   --kt-pill-white: linear-gradient(180deg, #ffffff 0%, #f4f1ea 55%, #e6e1d6 100%);
-  --kt-pill-gold: linear-gradient(180deg, #ffe39a 0%, #ffd166 45%, #f2b43a 100%);
+  --kt-pill-gold: linear-gradient(180deg, var(--kt-pill-top) 0%, var(--brand) 45%, var(--kt-pill-bottom) 100%);
   --kt-pill-red: linear-gradient(180deg, #ff7a87 0%, #ff4757 50%, #d63031 100%);
   --kt-pill-spec: radial-gradient(60% 55% at 28% 18%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%);
   --kt-pill-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.1), 0 3px 0 var(--kt-lip, #b9b4a8), 0 5px 10px rgba(0, 0, 0, 0.28);
@@ -4520,7 +4555,7 @@ input[data-gate-input]:disabled,
 }
 .member-chip.is-active {
   background: var(--kt-pill-spec), var(--kt-pill-gold);
-  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.1), 0 3px 0 #c98f10, 0 0 12px rgba(255, 209, 102, 0.55);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.1), 0 3px 0 var(--kt-lip-brand), 0 0 12px rgba(var(--brand-rgb), 0.55);
 }
 
 /* ---- gold buttons (保存 / 追加 / OK …) ---- */
@@ -4536,11 +4571,11 @@ input[data-gate-input]:disabled,
 .kufu-card-upgrade,
 .done-toast,
 .read-aloud-hint {
-  --kt-lip: #c98f10;
+  --kt-lip: var(--kt-lip-brand);
   background: var(--kt-pill-spec), var(--kt-pill-gold);
   box-shadow: var(--kt-pill-shadow);
 }
-.done-toast { box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.1), 0 3px 0 #c98f10, 0 8px 20px rgba(0, 0, 0, 0.4); }
+.done-toast { box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.1), 0 3px 0 var(--kt-lip-brand), 0 8px 20px rgba(0, 0, 0, 0.4); }
 /* プランの 買う ボタン：おなじ つやの ピルを アプリの 色で（空手＝金・ピアノ＝ピンク） */
 .family-plan-buy {
   --kt-lip: var(--brand-dark);
@@ -4580,15 +4615,15 @@ input[data-gate-input]:disabled,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.28), 0 2px 0 rgba(10, 8, 22, 0.55), 0 4px 10px rgba(0, 0, 0, 0.35);
 }
 .bgm-toggle-btn {
-  background: var(--kt-pill-spec), linear-gradient(180deg, rgba(255, 227, 154, 0.75), rgba(242, 180, 58, 0.55));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 rgba(201, 143, 16, 0.8), 0 4px 10px rgba(0, 0, 0, 0.3);
+  background: var(--kt-pill-spec), linear-gradient(180deg, rgba(var(--kt-pill-top-rgb), 0.75), rgba(var(--kt-pill-bottom-rgb), 0.55));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 rgba(var(--kt-lip-rgb), 0.8), 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 .bgm-toggle-btn.muted {
-  background: linear-gradient(180deg, rgba(255, 209, 102, 0.3), rgba(255, 209, 102, 0.14));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 0 rgba(201, 143, 16, 0.4);
+  background: linear-gradient(180deg, rgba(var(--brand-rgb), 0.3), rgba(var(--brand-rgb), 0.14));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 0 rgba(var(--kt-lip-rgb), 0.4);
 }
 [data-cue] {
-  background: var(--kt-pill-spec), linear-gradient(180deg, #ffe39a 0%, #ffd166 40%, #ff8811 100%);
+  background: var(--kt-pill-spec), linear-gradient(180deg, var(--kt-pill-top) 0%, var(--brand) 40%, var(--kt-brand-warm) 100%);
 }
 
 /* ---- the belt card: a glossy white card, the obi a glossy band ---- */
@@ -4693,16 +4728,16 @@ input[data-gate-input]:disabled,
   .belt-bar.lit { animation: none; }
   .done-toast { animation: none; }
   /* The spotlight stays, as a still gold ring. */
-  .is-guide-spot { animation: none; box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.85); }
+  .is-guide-spot { animation: none; box-shadow: 0 0 0 4px rgba(var(--brand-rgb), 0.85); }
   .guide-tip-hand { animation: none; }
 }
 
 /* ---------- おへや・かめん（SERIES_GUIDE 5.16） ---------- */
 .start-row .privacy-open-btn { gap: 0.3rem; padding-left: 0.4rem; }
 .start-row .privacy-open-btn.is-on {
-  background: #ffd166;
+  background: var(--brand);
   border-color: #ffe29a;
-  color: #1a162b;
+  color: var(--on-brand);
 }
 .privacy-open-mask { width: 30px; height: auto; display: block; }
 .start-row .privacy-open-btn:not(.is-on) .privacy-open-mask { filter: grayscale(0.7) opacity(0.8); }
@@ -4715,7 +4750,7 @@ input[data-gate-input]:disabled,
   min-height: 60px;
   padding: 0.55rem 0.9rem;
   border-radius: 18px;
-  border: 2px solid rgba(255, 209, 102, 0.28);
+  border: 2px solid rgba(var(--brand-rgb), 0.28);
   background: rgba(26, 22, 43, 0.5);
   color: #fff;
   font-family: inherit;
@@ -4724,7 +4759,7 @@ input[data-gate-input]:disabled,
   transition: transform 0.08s ease;
 }
 .privacy-toggle:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
-.privacy-toggle.is-on { border-color: #ffd166; background: rgba(255, 209, 102, 0.2); }
+.privacy-toggle.is-on { border-color: var(--brand); background: rgba(var(--brand-rgb), 0.2); }
 .privacy-toggle.is-locked { opacity: 0.75; }
 .privacy-toggle-text { display: flex; flex-direction: column; flex: 1; }
 .privacy-toggle-name { font-size: 1.05rem; font-weight: 900; }
@@ -4747,7 +4782,7 @@ input[data-gate-input]:disabled,
   font-size: 0.8rem;
 }
 .privacy-mask img { width: 100%; max-width: 88px; height: auto; }
-.privacy-mask.is-on { border-color: #ffd166; background: rgba(255, 209, 102, 0.2); }
+.privacy-mask.is-on { border-color: var(--brand); background: rgba(var(--brand-rgb), 0.2); }
 .privacy-parent-label { font-weight: 900; margin: 0.6rem 0 0.3rem; }
 .privacy-parent-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 /* 「かくす」が ふえて 4つに なったので、375px でも 1行に おさまるよう 合計は 2行に おりかえす */
