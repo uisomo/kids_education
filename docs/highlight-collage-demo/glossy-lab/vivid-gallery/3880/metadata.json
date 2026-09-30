@@ -1,0 +1,462 @@
+{
+  "id": "3880",
+  "name": "人物の後ろに隠れる文字・回転文字・細かな紙面模様",
+  "slots": [
+    {
+      "sourceFrame": 43,
+      "sourceTimeApprox": 21.733,
+      "part": "waist",
+      "destination": [
+        5,
+        200,
+        670,
+        900
+      ],
+      "sourceCrop": [
+        53.16152576340568,
+        131.1768045425415,
+        549.8307537661658,
+        798.3444242477417
+      ],
+      "landmarksInCanvas": {
+        "contour": [
+          [
+            412.1752033665842,
+            369.74730239286305
+          ],
+          [
+            412.27617518542377,
+            390.1780390800658
+          ],
+          [
+            409.85173384909814,
+            410.84251579135514
+          ],
+          [
+            405.57435651053635,
+            431.24787413427003
+          ],
+          [
+            398.9612266510784,
+            450.97653232167636
+          ],
+          [
+            388.32154160899836,
+            468.8163503430323
+          ],
+          [
+            373.8514491957886,
+            483.4578920519654
+          ],
+          [
+            356.21238799283304,
+            493.90020069414925
+          ],
+          [
+            335.74358090856924,
+            496.96111833846817
+          ],
+          [
+            315.1014694033016,
+            491.9319667833198
+          ],
+          [
+            297.51190893453924,
+            480.18901295528354
+          ],
+          [
+            283.3659046033324,
+            464.4748127476801
+          ],
+          [
+            273.3826487282532,
+            445.70127041995516
+          ],
+          [
+            268.2637301021139,
+            424.9828856116168
+          ],
+          [
+            266.24798813242177,
+            403.62962738546105
+          ],
+          [
+            266.4910642761266,
+            382.16605257895947
+          ],
+          [
+            269.0023292203985,
+            361.2365291641602
+          ]
+        ],
+        "leftEye": [
+          [
+            296.48390451123527,
+            362.3527845472373
+          ],
+          [
+            304.3152294640607,
+            360.4349882952866
+          ],
+          [
+            315.2015712720873,
+            361.06049966782183
+          ],
+          [
+            322.7661499501054,
+            363.9382829236299
+          ],
+          [
+            314.8668075778334,
+            365.08487709467977
+          ],
+          [
+            304.0548954701142,
+            364.8535279929268
+          ]
+        ],
+        "lips": [
+          [
+            318.2243077951557,
+            438.20078574425315
+          ],
+          [
+            325.620790229976,
+            434.164015850071
+          ],
+          [
+            333.4264372530646,
+            431.93274375452324
+          ],
+          [
+            340.4867099177137,
+            433.9205047313392
+          ],
+          [
+            347.7788156298411,
+            432.9222341638512
+          ],
+          [
+            355.01095816209386,
+            436.0931099302052
+          ],
+          [
+            361.6989613387742,
+            441.079646355426
+          ],
+          [
+            366.41197048777406,
+            447.8012031023975
+          ],
+          [
+            358.97549915676717,
+            454.24770007835104
+          ],
+          [
+            349.3198486120877,
+            457.961151018558
+          ],
+          [
+            339.2111326883402,
+            458.6310442469891
+          ],
+          [
+            328.95288329671735,
+            456.45229754641804
+          ],
+          [
+            319.417429890943,
+            451.3752776737029
+          ],
+          [
+            312.32007776571817,
+            443.94030715057045
+          ]
+        ],
+        "nose": [
+          [
+            344.7797002671768,
+            374.9698026880036
+          ],
+          [
+            323.81449737765,
+            397.1734860625522
+          ],
+          [
+            321.99455034235865,
+            415.74474195770915
+          ],
+          [
+            332.1019354153615,
+            416.7043832860485
+          ],
+          [
+            341.964979748389,
+            419.4759058875899
+          ],
+          [
+            351.39687453019656,
+            418.1769897994854
+          ],
+          [
+            360.8212451082268,
+            418.3423148772796
+          ],
+          [
+            361.3199396556851,
+            399.8657452677912
+          ]
+        ],
+        "rightEye": [
+          [
+            389.49885481109084,
+            367.36445734388326
+          ],
+          [
+            382.0089420449843,
+            364.3944478598437
+          ],
+          [
+            371.34035852959033,
+            363.4701921820415
+          ],
+          [
+            364.11835581253547,
+            365.91868101191017
+          ],
+          [
+            371.61745202490647,
+            367.78551316997437
+          ],
+          [
+            381.94718135241544,
+            368.63548317893503
+          ]
+        ]
+      },
+      "background": "transparent",
+      "clip": "rectangle",
+      "rotation": 0,
+      "flatColor": null,
+      "z": 0
+    }
+  ],
+  "typography": [
+    {
+      "text": "突",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 207,
+      "rotation": -90,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 148,
+      "rotation": 90,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 71,
+      "rotation": -90,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 55,
+      "rotation": 90,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    },
+    {
+      "text": "正拳突き",
+      "font": [
+        "Hiragino Sans",
+        "W6"
+      ],
+      "pointSize": 104,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 0
+    }
+  ],
+  "colors": {
+    "#050505": "#050505",
+    "#080808": "#080808",
+    "#0a0a0c": "#0a0a0c",
+    "#0b0c0d": "#0b0c0d",
+    "#101010": "#101010",
+    "#101012": "#101012",
+    "#101111": "#101111",
+    "#101315": "#101315",
+    "#101616": "#101616",
+    "#111111": "#111111",
+    "#121313": "#121313",
+    "#131313": "#131313",
+    "#141016": "#141016",
+    "#141414": "#141414",
+    "#151515": "#151515",
+    "#151917": "#151917",
+    "#161315": "#161315",
+    "#161b20": "#161b20",
+    "#17130e": "#17130e",
+    "#171716": "#171716",
+    "#171917": "#171917",
+    "#171919": "#171919",
+    "#181818": "#181818",
+    "#1b1b1b": "#1b1b1b",
+    "#202222": "#202222",
+    "#202d30": "#202d30",
+    "#203533": "#203533",
+    "#212026": "#212026",
+    "#228997": "#1dcf31",
+    "#242322": "#242322",
+    "#247384": "#22c43e",
+    "#2496c2": "#1ae551",
+    "#24aeb7": "#1cdf26",
+    "#25203d": "#3ea0b2",
+    "#252424": "#252424",
+    "#262323": "#262323",
+    "#263230": "#263230",
+    "#263eaa": "#1fd9b6",
+    "#29221c": "#29221c",
+    "#299bc4": "#1ee652",
+    "#2c2330": "#2c2330",
+    "#353932": "#353932",
+    "#368bc0": "#29e46f",
+    "#38866a": "#6bc537",
+    "#3c8371": "#5fc33c",
+    "#49a9b8": "#3be050",
+    "#4db1c4": "#3be655",
+    "#5264b3": "#44ddc0",
+    "#63645d": "#63645d",
+    "#696b69": "#696b69",
+    "#6b6454": "#6b6454",
+    "#72835f": "#c37f44",
+    "#777f79": "#777f79",
+    "#78bfd4": "#53ed75",
+    "#84817b": "#84817b",
+    "#86a6aa": "#3ea6b2",
+    "#91b8bf": "#43acbf",
+    "#948b62": "#cd4861",
+    "#96383d": "#c532ce",
+    "#97a08b": "#97a08b",
+    "#99bbc7": "#46a5c7",
+    "#a4a5a2": "#a4a5a2",
+    "#a5a52b": "#d62325",
+    "#a7beb5": "#a7beb5",
+    "#aed34b": "#ec6737",
+    "#af82cf": "#5293eb",
+    "#b2aba1": "#b2aba1",
+    "#b44b58": "#c93dde",
+    "#b4b594": "#de514e",
+    "#b75e36": "#df2aa8",
+    "#b7a67c": "#df4e78",
+    "#b7d65a": "#ee6c42",
+    "#b8442e": "#e023c3",
+    "#b85c47": "#e039c2",
+    "#bc4d59": "#cf3de2",
+    "#bd2b1f": "#e217d4",
+    "#bea695": "#be7642",
+    "#c6c6c1": "#c6c6c1",
+    "#c7c3ba": "#c7c3ba",
+    "#cc4315": "#e90fb4",
+    "#ce711c": "#ea1485",
+    "#cfcbbd": "#cfcbbd",
+    "#d18c77": "#eb52c9",
+    "#d19b45": "#eb327b",
+    "#d3d0c6": "#d3d0c6",
+    "#d4d4d2": "#d4d4d2",
+    "#d68d43": "#ee308f",
+    "#d88732": "#ef2388",
+    "#d8d1bd": "#d8d1bd",
+    "#d9c7b1": "#d99a4c",
+    "#d9d9d3": "#d9d9d3",
+    "#dbc340": "#f02d4c",
+    "#ddddcf": "#ddddcf",
+    "#dea43e": "#f12b74",
+    "#dedfdd": "#dedfdd",
+    "#e1cc3b": "#f32843",
+    "#e2ddbb": "#f3556b",
+    "#e2ded5": "#e2ded5",
+    "#e3c9b7": "#e38c4f",
+    "#e49360": "#f444b1",
+    "#e4c438": "#f4264e",
+    "#e5e4dc": "#e5e4dc",
+    "#e6e7e9": "#e6e7e9",
+    "#e7d4a0": "#f55681",
+    "#e7dcca": "#e7dcca",
+    "#e7e0cd": "#e7e0cd",
+    "#e8a1bb": "#bb56f6",
+    "#e8dfc8": "#e8dfc8",
+    "#e8e5dc": "#e8e5dc",
+    "#e9222a": "#eb16f6",
+    "#e9262c": "#ee19f6",
+    "#e9e3d5": "#e9e3d5",
+    "#e9e6df": "#e9e6df",
+    "#ebe3cc": "#ebe3cc",
+    "#ebe5d3": "#ebe5d3",
+    "#ebe7dc": "#ebe7dc",
+    "#ec4051": "#e22bf7",
+    "#ecd1a0": "#f75690",
+    "#ece7df": "#ece7df",
+    "#ece9e1": "#ece9e1",
+    "#ecebe5": "#ecebe5",
+    "#eddb46": "#f82f46",
+    "#eee6d3": "#eee6d3",
+    "#eeebe2": "#eeebe2",
+    "#eeeee7": "#eeeee7",
+    "#eeeeee": "#eeeeee",
+    "#efbf31": "#f82058",
+    "#efe8d8": "#efe8d8",
+    "#efecdf": "#efecdf",
+    "#efefeb": "#efefeb",
+    "#f03e40": "#f529f9",
+    "#f0e8db": "#f0e8db",
+    "#f1e5d4": "#f1e5d4",
+    "#f1eee7": "#f1eee7",
+    "#f2f1ea": "#f2f1ea",
+    "#f3f1e7": "#f3f1e7",
+    "#f4f1e7": "#f4f1e7",
+    "#f5f5ef": "#f5f5ef",
+    "#f8f8f0": "#f8f8f0",
+    "#f9f8ec": "#f9f8ec",
+    "#faf7f0": "#faf7f0",
+    "#fafaf6": "#fafaf6",
+    "#fafaf7": "#fafaf7",
+    "#fafaf8": "#fafaf8",
+    "#fc7b18": "#fe0f98",
+    "#fff5e9": "#fff5e9"
+  },
+  "tone": null,
+  "foregroundPixels": 388617,
+  "prompt": "Use case: style-transfer. Generate a complete portrait glossy collage BACKGROUND for template 3880. Image 1 is the EXACT flat layout target; image 2 is the accepted 3900 material reference ONLY. Preserve image 1's layout and colors, do not copy image 2's frames or shapes. This is a 720x1280 composition: preserve aspect ratio, exact element bounds, spacing, edges, and blank space. Set brand-appropriate vivid midtones first, then add shallow rounded glossy resin volume and restrained upper-left capsule reflections, deeper SAME-HUE edges and soft shadows. Preserve neutrals and negative space. Do not wash colored planes out with white; NO unintended pastel colors. No new panels or shapes. Sparse/empty references must stay sparse/empty: only a subtle material surface is required. Round star tips and valleys. NO TEXT, glyphs, numbers, handwriting, photos, people, faces or silhouettes. Every photograph and every text element will be composited at its original position afterward. Do not invent content in blank areas. Do not add large sparkles. Retain all crop apertures and geometry.  Render one full layout, not a contact sheet."
+}

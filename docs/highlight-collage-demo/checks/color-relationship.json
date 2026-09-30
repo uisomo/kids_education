@@ -1,0 +1,9 @@
+{
+  "anglesChecked": 72,
+  "maximumHueRotationErrorDegrees": 0.5681818181818343,
+  "neutralColors": "unchanged exactly",
+  "saturation": "S^0.6; monotonic before 8-bit rounding",
+  "value": "V^0.4; monotonic before 8-bit rounding",
+  "limitation": "Reference paints are manually approximated; exact original/perceptual contrast is not preserved",
+  "hook": "single template primary; monochrome designs may select one independent color"
+}

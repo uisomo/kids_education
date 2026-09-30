@@ -1,0 +1,21 @@
+{
+  "preferredPatterns": [
+    1,
+    6
+  ],
+  "linePatterns": [
+    [
+      "normal",
+      "black",
+      "pale"
+    ],
+    [
+      "pale",
+      "black",
+      "normal"
+    ]
+  ],
+  "status": "user-preferred candidates",
+  "selectionPolicy": "not specified",
+  "appliedToVideos": false
+}

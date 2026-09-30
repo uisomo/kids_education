@@ -1,0 +1,28 @@
+{
+  "reviewImages": 34,
+  "assets": {
+    "rectangle.png": {
+      "size": [
+        1983,
+        793
+      ],
+      "alpha": true
+    },
+    "circle.png": {
+      "size": [
+        1254,
+        1254
+      ],
+      "alpha": true
+    },
+    "star.png": {
+      "size": [
+        1254,
+        1254
+      ],
+      "alpha": true
+    }
+  },
+  "fontAndPhotoPlacement": "existing renderer coordinates; individual generated shapes composited in place",
+  "wholeBackgroundGeneration": false
+}

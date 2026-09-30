@@ -41,6 +41,8 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopMusic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "playClip", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "audioRoute", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deferPendingSaves", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "resumeDeferredSaves", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getSaveStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "markVideoSeen", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "motionEffectsInfo", returnType: CAPPluginReturnPromise),
@@ -956,6 +958,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @MainActor
     private func enqueueSave(_ job: PendingSave) {
+        guard !DeferredVideoJobs.contains(job.id) else { return }
         guard savingJobId != job.id, !saveQueue.contains(where: { $0.id == job.id }) else { return }
         saveQueue.append(job)
         runNextSave()
@@ -963,6 +966,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @MainActor
     private func runNextSave() {
+        saveQueue.removeAll { DeferredVideoJobs.contains($0.id) }
         guard savingJobId == nil, !saveQueue.isEmpty else { return }
         var job = saveQueue.removeFirst()
         savingJobId = job.id
@@ -1003,7 +1007,17 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     /// → 生の 映像だけ（声が 読めないときだけ）。どの 段も できた 動画を VideoCheck で たしかめてから つかう。
     /// できた 動画が Application Support に 入って たしかめられるまで、日記も 生の ファイルも 消さない。
     @MainActor
+    private func deferredResult(_ original: PendingSave) -> JSObject {
+        var job = original
+        job.attempts = max(0, job.attempts - 1)
+        job.inProgress = false
+        try? PendingSaves.save(job)
+        return ["jobId": job.id, "pending": true, "deferred": true, "uri": "", "exportMode": "deferred"]
+    }
+
+    @MainActor
     private func runSave(_ job: PendingSave) async -> JSObject {
+        if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
         var job = job
         let fm = FileManager.default
         let started = Date()
@@ -1045,6 +1059,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                     privacyError = nil
                     break
                 } catch {
+                if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
                     privacyError = error.localizedDescription
                     print("⚡️  [AlanPrivacy] save \(job.id) could not hide the room/face at \(level.rawValue): \(error.localizedDescription)")
                     if level == .wholeFrame { break }
@@ -1137,6 +1152,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 // 📸 写真の ストップの コマを 写真へ（設定で「しゃしん」が オンのとき）
                 KarateViralFX.saveStills(result.stills)
             } catch {
+                if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
                 burnError = error.localizedDescription
                 try? fm.removeItem(at: out)
                 print("⚡️  [KarateRecorder] burn-in failed: \(error.localizedDescription)")
@@ -1156,6 +1172,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 soundMixed = result.soundMixed
                 mixError = result.mixError
             } catch {
+                if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
                 mixError = error.localizedDescription
                 try? fm.removeItem(at: out)
                 print("⚡️  [KarateRecorder] sound-only export failed: \(error.localizedDescription)")
@@ -1173,6 +1190,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
                 exportMode = "remuxed"
                 soundMixed = true
             } catch {
+                if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
                 try? fm.removeItem(at: remuxed)
                 print("⚡️  [KarateRecorder] remux with the voice failed: \(error.localizedDescription)")
             }
@@ -1180,6 +1198,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
 
         // できあがりは Application Support/KarateRecorder/finished へ（tmp では ない）。コピーでなく 移す。
         // 生の 映像を そのまま つかう ときも 移す（そのとき 声は 写真に 保存 されるまで のこす）
+        if DeferredVideoJobs.contains(job.id) { return deferredResult(job) }
         let placed = output ?? raw
         let ext = placed.pathExtension.isEmpty ? "mov" : placed.pathExtension
         let finalName = FinishedVideos.name(forJob: job.id, ext: ext)
@@ -1244,6 +1263,27 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
     /// — for the app to show a save still running or a video finished while
     /// nobody was looking (after the app was killed mid-save). `unsaved` は
     /// まだ 写真に 保存 されていない できあがり ぜんぶ（見たか どうかに かかわらず）
+    @objc func deferPendingSaves(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            let ids = PendingSaves.all().map { $0.id } + self.saveQueue.map { $0.id } + [self.savingJobId].compactMap { $0 }
+            DeferredVideoJobs.postpone(ids)
+            self.saveQueue.removeAll { DeferredVideoJobs.contains($0.id) }
+            // Wait for the active exporter to release memory before starting a new capture.
+            for _ in 0..<80 {
+                if self.savingJobId == nil { call.resolve(["deferred": true]); return }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+            call.reject("動画の仕上げを停止中です。少し待ってもう一度ためしてください。")
+        }
+    }
+    @objc func resumeDeferredSaves(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            DeferredVideoJobs.resume(PendingSaves.all().map { $0.id })
+            self.resumePendingSaves()
+            call.resolve()
+        }
+    }
+
     @objc func getSaveStatus(_ call: CAPPluginCall) {
         Task { @MainActor in
             let unseen: [JSObject] = Self.unseenVideos().compactMap { entry in
@@ -1266,6 +1306,7 @@ public class KarateRecorderPlugin: CAPPlugin, CAPBridgedPlugin {
             } else {
                 result["saving"] = NSNull()
             }
+            result["deferred"] = PendingSaves.all().filter { DeferredVideoJobs.contains($0.id) }.count
             call.resolve(result)
         }
     }

@@ -187,7 +187,10 @@ export interface BgmPlayer {
 // video that finished — or is still being finished — after the app was
 // reopened. Absent on the web.
 export interface SavedVideosLike {
+  postpone?(): Promise<void>;
+  resume?(): Promise<void>;
   status(): Promise<{
+    deferred?: number;
     saving: { jobId: string; progress: number; resumed: boolean } | null;
     unseen: { jobId: string; uri: string; createdAt: number }[];
   } | null>;
@@ -467,13 +470,22 @@ export class KarateApp {
       // done; only one resumed after a crash is shown while it runs.
       const resumed = !latest && status.saving?.resumed && !this.savedVideoDismissed.has(status.saving.jobId)
         ? status.saving : null;
-      if (!latest && !resumed) return;
+      if (!latest && !resumed) {
+        if (status.deferred && saves.resume && !this.root.querySelector("[data-resume-videos]")) {
+          const resume = document.createElement("button"); resume.className = "a-btn"; resume.dataset.resumeVideos = "";
+          resume.textContent = "後回しにした 動画を 仕上げる";
+          resume.onclick = async () => { resume.disabled = true; await saves.resume!(); resume.remove(); void this.offerSavedVideo(); };
+          this.root.append(resume);
+        }
+        return;
+      }
 
       const jobId = latest?.jobId ?? resumed!.jobId;
       let fileUri: string | null = latest?.uri ?? null;
       const progressFns: ((fraction: number) => void)[] = [];
       const done = resumed
         ? saves.watch(resumed.jobId, (f) => progressFns.forEach((fn) => fn(f))).then((r) => {
+          if (!r.uri) return null;
           fileUri = r.uri;
           return { playbackUrl: saves.playbackUrl(r.uri) };
         })
@@ -496,6 +508,7 @@ export class KarateApp {
         saving: resumed && done
           ? { progress: resumed.progress, onProgress: (fn) => { progressFns.push(fn); }, done }
           : undefined,
+        onPostpone: saves.postpone ? () => saves.postpone!() : undefined,
         shareAllowed: getShareAllowed(this.mem()),
         onSave: () => save(),   // the card reports success/failure itself
         onSend: () => { void share().catch((e) => console.error("shareRecording failed", e)); },

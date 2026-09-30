@@ -1,0 +1,193 @@
+{
+  "logo": "docs/highlight-collage-demo/glossy-lab/prototype/assets/alan-karate-logo.png",
+  "source": "karate-trainer/public/images/decor-banner.png",
+  "bounds720": [
+    462,
+    12,
+    702,
+    103
+  ],
+  "frames": [
+    0,
+    14
+  ],
+  "seconds": 0.5,
+  "protectedFilesUnchanged": true,
+  "renders": [
+    {
+      "id": "3870",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3871",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3872",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3873",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3877",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3878",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3879",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3880",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3881",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3882",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3883",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3884",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3885",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3886",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3887",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3888",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3889",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3890",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3891",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3892",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3893",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3894",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3895",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3896",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3897",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3898",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3899",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3900",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3901",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3902",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3903",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3904",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3905",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3907",
+      "frames": 971,
+      "audioVideoDecode": true
+    },
+    {
+      "id": "3908",
+      "frames": 971,
+      "audioVideoDecode": true
+    }
+  ]
+}

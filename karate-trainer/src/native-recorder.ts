@@ -60,6 +60,7 @@ export interface NativeSaveResult {
 }
 
 export interface SaveStatus {
+  deferred?: number;
   // A save still running (or queued), e.g. one resumed at launch.
   saving: { jobId: string; progress: number; resumed: boolean } | null;
   // Finished videos nobody has seen yet, oldest first.
@@ -133,6 +134,8 @@ export interface KarateRecorderPluginLike {
     eventName: "audioRouteChanged",
     listener: (data: { headphones?: boolean }) => void,
   ): Promise<PluginListenerHandle>;
+  deferPendingSaves?(): Promise<void>;
+  resumeDeferredSaves?(): Promise<void>;
   getSaveStatus?(): Promise<SaveStatus>;
   // Writes a finished video into the phone's own 写真 library (no share sheet).
   saveToPhotos?(opts: { uri: string }): Promise<void>;
@@ -233,6 +236,8 @@ export class NativeSaveTracker {
     return () => { this.anyFinished.delete(fn); };
   }
 
+  async postpone(): Promise<void> { if (!this.plugin.deferPendingSaves) throw new Error("native update required"); await this.plugin.deferPendingSaves(); }
+  async resume(): Promise<void> { this.finished.clear(); await this.plugin.resumeDeferredSaves?.(); }
   async status(): Promise<SaveStatus | null> {
     await this.listen();
     try {

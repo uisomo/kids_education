@@ -1,0 +1,747 @@
+{
+  "id": "3892",
+  "name": "原顔の断片を残す不均等区画・半分着色・多色と濃淡",
+  "slots": [
+    {
+      "sourceFrame": 19,
+      "sourceTimeApprox": 9.733,
+      "part": "waist",
+      "destination": [
+        25,
+        35,
+        670,
+        1218
+      ],
+      "sourceCrop": [
+        254.53486523937514,
+        107.32446193695068,
+        646.8512939422197,
+        820.5205965042114
+      ],
+      "landmarksInCanvas": {
+        "contour": [
+          [
+            479.1161231377496,
+            272.3564248039154
+          ],
+          [
+            481.125504104678,
+            302.99735960021155
+          ],
+          [
+            480.403910162556,
+            334.2646076963345
+          ],
+          [
+            477.1970778405966,
+            365.2949849269018
+          ],
+          [
+            469.0285504606905,
+            395.45349703671053
+          ],
+          [
+            453.3364050697907,
+            422.21739458757133
+          ],
+          [
+            431.35641012300783,
+            443.6047562787626
+          ],
+          [
+            404.75505723550594,
+            458.9327964252176
+          ],
+          [
+            374.2785223978371,
+            464.61711266130055
+          ],
+          [
+            345.7133677582033,
+            459.9088833835394
+          ],
+          [
+            320.58093498801856,
+            445.8722025133611
+          ],
+          [
+            299.5699328232235,
+            426.5720354978442
+          ],
+          [
+            284.2892764827628,
+            402.5466225590845
+          ],
+          [
+            275.14728151492164,
+            375.400490117657
+          ],
+          [
+            269.5911256976978,
+            346.9526551339727
+          ],
+          [
+            266.6794605592015,
+            318.0697313384733
+          ],
+          [
+            266.50514252058883,
+            289.6880109810827
+          ]
+        ],
+        "leftEye": [
+          [
+            298.11327854359627,
+            285.27642333936217
+          ],
+          [
+            308.5070857829921,
+            280.0044976095055
+          ],
+          [
+            324.3081628946485,
+            279.1249338078184
+          ],
+          [
+            335.52542677889795,
+            283.1955966565822
+          ],
+          [
+            324.51784911103533,
+            286.38819010410083
+          ],
+          [
+            309.1364298794361,
+            287.9386557491379
+          ]
+        ],
+        "lips": [
+          [
+            337.81172519302794,
+            390.9145663281173
+          ],
+          [
+            347.09645219821664,
+            385.938473117208
+          ],
+          [
+            356.83937246675913,
+            383.27278175809477
+          ],
+          [
+            366.7289118930122,
+            385.00444765447116
+          ],
+          [
+            376.5044403159607,
+            382.55023074890863
+          ],
+          [
+            388.2044879075021,
+            384.81264387640056
+          ],
+          [
+            399.8762930089759,
+            389.0345098260595
+          ],
+          [
+            409.74848731499134,
+            395.39160535099154
+          ],
+          [
+            398.7356624544139,
+            404.7416743273298
+          ],
+          [
+            384.4015744931556,
+            410.503276462673
+          ],
+          [
+            369.41546616741755,
+            412.6228064377977
+          ],
+          [
+            355.36446635199314,
+            411.5866454212607
+          ],
+          [
+            341.3656530164318,
+            406.79633640911374
+          ],
+          [
+            330.5280340194745,
+            397.99960277843616
+          ]
+        ],
+        "nose": [
+          [
+            363.28455384899917,
+            296.6270159634965
+          ],
+          [
+            338.38237629064264,
+            331.1693517697364
+          ],
+          [
+            337.768219668792,
+            356.82633515954086
+          ],
+          [
+            351.5502106058748,
+            357.9895495979211
+          ],
+          [
+            365.1521850530565,
+            361.0811702695115
+          ],
+          [
+            380.00367140250677,
+            356.76936324156895
+          ],
+          [
+            395.15074680971435,
+            354.56109274581894
+          ],
+          [
+            392.9945284018582,
+            328.58809403559275
+          ]
+        ],
+        "rightEye": [
+          [
+            436.19588337049044,
+            275.3623861063536
+          ],
+          [
+            423.71673260467406,
+            271.8143436368638
+          ],
+          [
+            406.7274811747066,
+            272.95191819350424
+          ],
+          [
+            396.0082136588674,
+            278.7587217444621
+          ],
+          [
+            408.38930488723184,
+            280.24135168404484
+          ],
+          [
+            424.8529639128641,
+            279.4202038277231
+          ]
+        ]
+      },
+      "background": "transparent",
+      "clip": "rectangle",
+      "rotation": 0,
+      "flatColor": null,
+      "z": 0
+    },
+    {
+      "sourceFrame": 21,
+      "part": "left-half",
+      "sourceCrop": [
+        315.613652408123,
+        179.92166489821216,
+        403.3065015077591,
+        287.85132532853345
+      ],
+      "destination": [
+        35,
+        52,
+        169,
+        208
+      ],
+      "clip": "master-person-alpha + polygon",
+      "colorPattern": "full",
+      "tone": "#6a23d6",
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          169,
+          0
+        ],
+        [
+          169,
+          208
+        ],
+        [
+          20.279999999999998,
+          176.79999999999998
+        ]
+      ]
+    },
+    {
+      "sourceFrame": 23,
+      "part": "head",
+      "sourceCrop": [
+        251.3457008600235,
+        53.98440742492676,
+        559.3675521612167,
+        392.9714183807373
+      ],
+      "destination": [
+        214,
+        52,
+        189,
+        208
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "full",
+      "tone": null,
+      "polygon": null
+    },
+    {
+      "sourceFrame": 43,
+      "part": "right-half",
+      "sourceCrop": [
+        300.94730615615845,
+        247.9277930540197,
+        379.7647604942322,
+        308.199964018429
+      ],
+      "destination": [
+        413,
+        52,
+        272,
+        208
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "right-half",
+      "tone": "#df741c",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 47,
+      "part": "eyes",
+      "sourceCrop": [
+        193.69798052958288,
+        305.1459649112545,
+        346.4881156260683,
+        357.791270527401
+      ],
+      "destination": [
+        30,
+        270,
+        386,
+        133
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "full",
+      "tone": "#6a23d6",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 50,
+      "part": "head",
+      "sourceCrop": [
+        70.94959488667939,
+        147.74904870986938,
+        590.9606886788418,
+        421.1145644187927
+      ],
+      "destination": [
+        426,
+        270,
+        253,
+        133
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "full",
+      "tone": null,
+      "polygon": null
+    },
+    {
+      "sourceFrame": 52,
+      "part": "mouth",
+      "sourceCrop": [
+        281.0478278426395,
+        267.1551515534853,
+        400.1342354702519,
+        357.5726091966725
+      ],
+      "destination": [
+        49,
+        413,
+        216,
+        164
+      ],
+      "clip": "master-person-alpha + polygon",
+      "colorPattern": "full",
+      "tone": null,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          216,
+          0
+        ],
+        [
+          216,
+          164
+        ],
+        [
+          25.919999999999998,
+          139.4
+        ]
+      ]
+    },
+    {
+      "sourceFrame": 18,
+      "part": "face",
+      "sourceCrop": [
+        145.5905778512722,
+        66.26802825927734,
+        797.8556291952366,
+        331.0488906860352
+      ],
+      "destination": [
+        275,
+        413,
+        404,
+        164
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "gradient",
+      "tone": "#2336ef",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 20,
+      "part": "face",
+      "sourceCrop": [
+        293.54663121700287,
+        102.70808785210289,
+        559.1486216783524,
+        360.7574150775846
+      ],
+      "destination": [
+        238,
+        587,
+        211,
+        205
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "right-half",
+      "tone": "#df741c",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 22,
+      "part": "eyes-nose",
+      "sourceCrop": [
+        281.75402011871336,
+        140.25091336748818,
+        494.0762034416199,
+        338.0965841911056
+      ],
+      "destination": [
+        459,
+        587,
+        220,
+        205
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "diagonal",
+      "tone": "#6a23d6",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 24,
+      "part": "head",
+      "sourceCrop": [
+        152.3466693970465,
+        21.38823413848877,
+        662.43229750664,
+        366.39160442352295
+      ],
+      "destination": [
+        91,
+        802,
+        275,
+        186
+      ],
+      "clip": "master-person-alpha + polygon",
+      "colorPattern": "full",
+      "tone": null,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          275,
+          0
+        ],
+        [
+          275,
+          186
+        ],
+        [
+          33.0,
+          158.1
+        ]
+      ]
+    },
+    {
+      "sourceFrame": 44,
+      "part": "left-half",
+      "sourceCrop": [
+        261.7959133386612,
+        294.11168569714357,
+        325.6623709201813,
+        364.4025798401184
+      ],
+      "destination": [
+        376,
+        802,
+        169,
+        186
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "left-half",
+      "tone": "#2336ef",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 45,
+      "part": "eyes",
+      "sourceCrop": [
+        299.8813127325326,
+        298.3209995916897,
+        381.71900984027945,
+        406.2771106699941
+      ],
+      "destination": [
+        555,
+        802,
+        141,
+        186
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "full",
+      "tone": "#c34f3c",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 46,
+      "part": "head",
+      "sourceCrop": [
+        189.4819597005844,
+        197.66679246975826,
+        411.4583226442337,
+        473.14515058444096
+      ],
+      "destination": [
+        51,
+        998,
+        195,
+        242
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "left-half",
+      "tone": "#c34f3c",
+      "polygon": null
+    },
+    {
+      "sourceFrame": 48,
+      "part": "face",
+      "sourceCrop": [
+        224.49053478240967,
+        187.3194089348252,
+        432.4061851501465,
+        413.96619897533105
+      ],
+      "destination": [
+        256,
+        998,
+        222,
+        242
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "full",
+      "tone": null,
+      "polygon": null
+    },
+    {
+      "sourceFrame": 49,
+      "part": "mouth",
+      "sourceCrop": [
+        313.6116164859493,
+        299.3127158637227,
+        385.583340603142,
+        388.6314709219823
+      ],
+      "destination": [
+        488,
+        998,
+        195,
+        242
+      ],
+      "clip": "master-person-alpha",
+      "colorPattern": "full",
+      "tone": "#2336ef",
+      "polygon": null
+    }
+  ],
+  "typography": [],
+  "colors": {
+    "#050505": "#050505",
+    "#080808": "#080808",
+    "#0a0a0c": "#0a0a0c",
+    "#0b0c0d": "#0b0c0d",
+    "#101010": "#101010",
+    "#101012": "#101012",
+    "#101111": "#101111",
+    "#101315": "#101315",
+    "#101616": "#101616",
+    "#111111": "#111111",
+    "#121313": "#121313",
+    "#131313": "#131313",
+    "#141016": "#141016",
+    "#141414": "#141414",
+    "#151515": "#151515",
+    "#151917": "#151917",
+    "#161315": "#161315",
+    "#161b20": "#161b20",
+    "#17130e": "#17130e",
+    "#171716": "#171716",
+    "#171917": "#171917",
+    "#171919": "#171919",
+    "#181818": "#181818",
+    "#1b1b1b": "#1b1b1b",
+    "#202222": "#202222",
+    "#202d30": "#202d30",
+    "#203533": "#203533",
+    "#212026": "#212026",
+    "#228997": "#cf781d",
+    "#242322": "#242322",
+    "#247384": "#c47e22",
+    "#2496c2": "#e5a21a",
+    "#24aeb7": "#df741c",
+    "#25203d": "#71b23e",
+    "#252424": "#252424",
+    "#262323": "#262323",
+    "#263230": "#263230",
+    "#263eaa": "#b2d91f",
+    "#29221c": "#29221c",
+    "#299bc4": "#e6a11e",
+    "#2c2330": "#2c2330",
+    "#353932": "#353932",
+    "#368bc0": "#e4ba29",
+    "#38866a": "#c53b37",
+    "#3c8371": "#c34f3c",
+    "#49a9b8": "#e0923b",
+    "#4db1c4": "#e6993b",
+    "#5264b3": "#bedd44",
+    "#63645d": "#63645d",
+    "#696b69": "#696b69",
+    "#6b6454": "#6b6454",
+    "#72835f": "#b244c3",
+    "#777f79": "#777f79",
+    "#78bfd4": "#edb253",
+    "#84817b": "#84817b",
+    "#86a6aa": "#3ea6b2",
+    "#91b8bf": "#43acbf",
+    "#948b62": "#6448cd",
+    "#96383d": "#3299ce",
+    "#97a08b": "#97a08b",
+    "#99bbc7": "#46a5c7",
+    "#a4a5a2": "#a4a5a2",
+    "#a5a52b": "#6a23d6",
+    "#a7beb5": "#a7beb5",
+    "#aed34b": "#af37ec",
+    "#af82cf": "#56eb52",
+    "#b2aba1": "#b2aba1",
+    "#b44b58": "#3db3de",
+    "#b4b594": "#8b4ede",
+    "#b75e36": "#2a60df",
+    "#b7a67c": "#5d4edf",
+    "#b7d65a": "#b042ee",
+    "#b8442e": "#2378e0",
+    "#b85c47": "#397fe0",
+    "#bc4d59": "#3db3e2",
+    "#bd2b1f": "#1783e2",
+    "#bea695": "#be7642",
+    "#c6c6c1": "#c6c6c1",
+    "#c7c3ba": "#c7c3ba",
+    "#cc4315": "#0f5de9",
+    "#ce711c": "#1430ea",
+    "#cfcbbd": "#cfcbbd",
+    "#d18c77": "#528ceb",
+    "#d19b45": "#3432eb",
+    "#d3d0c6": "#d3d0c6",
+    "#d4d4d2": "#d4d4d2",
+    "#d68d43": "#3044ee",
+    "#d88732": "#2336ef",
+    "#d8d1bd": "#d8d1bd",
+    "#d9c7b1": "#d99a4c",
+    "#d9d9d3": "#d9d9d3",
+    "#dbc340": "#5b2df0",
+    "#ddddcf": "#ddddcf",
+    "#dea43e": "#312bf1",
+    "#dedfdd": "#dedfdd",
+    "#e1cc3b": "#5e28f3",
+    "#e2ddbb": "#8055f3",
+    "#e2ded5": "#e2ded5",
+    "#e3c9b7": "#e38c4f",
+    "#e49360": "#446bf4",
+    "#e4c438": "#5026f4",
+    "#e5e4dc": "#e5e4dc",
+    "#e6e7e9": "#e6e7e9",
+    "#e7d4a0": "#6956f5",
+    "#e7dcca": "#e7dcca",
+    "#e7e0cd": "#e7e0cd",
+    "#e8a1bb": "#56f1f6",
+    "#e8dfc8": "#e8dfc8",
+    "#e8e5dc": "#e8e5dc",
+    "#e9222a": "#16a7f6",
+    "#e9262c": "#19a6f6",
+    "#e9e3d5": "#e9e3d5",
+    "#e9e6df": "#e9e6df",
+    "#ebe3cc": "#ebe3cc",
+    "#ebe5d3": "#ebe5d3",
+    "#ebe7dc": "#ebe7dc",
+    "#ec4051": "#2bbbf7",
+    "#ecd1a0": "#5d56f7",
+    "#ece7df": "#ece7df",
+    "#ece9e1": "#ece9e1",
+    "#ecebe5": "#ecebe5",
+    "#eddb46": "#682ff8",
+    "#eee6d3": "#eee6d3",
+    "#eeebe2": "#eeebe2",
+    "#eeeee7": "#eeeee7",
+    "#eeeeee": "#eeeeee",
+    "#efbf31": "#3e20f8",
+    "#efe8d8": "#efe8d8",
+    "#efecdf": "#efecdf",
+    "#efefeb": "#efefeb",
+    "#f03e40": "#29aaf9",
+    "#f0e8db": "#f0e8db",
+    "#f1e5d4": "#f1e5d4",
+    "#f1eee7": "#f1eee7",
+    "#f2f1ea": "#f2f1ea",
+    "#f3f1e7": "#f3f1e7",
+    "#f4f1e7": "#f4f1e7",
+    "#f5f5ef": "#f5f5ef",
+    "#f8f8f0": "#f8f8f0",
+    "#f9f8ec": "#f9f8ec",
+    "#faf7f0": "#faf7f0",
+    "#fafaf6": "#fafaf6",
+    "#fafaf7": "#fafaf7",
+    "#fafaf8": "#fafaf8",
+    "#fc7b18": "#0f38fe",
+    "#fff5e9": "#fff5e9"
+  },
+  "tone": null,
+  "foregroundPixels": 578356,
+  "prompt": "Use case: style-transfer. Generate a complete portrait glossy collage BACKGROUND for template 3892. Image 1 is the EXACT flat layout target; image 2 is the accepted 3900 material reference ONLY. Preserve image 1's layout and colors, do not copy image 2's frames or shapes. This is a 720x1280 composition: preserve aspect ratio, exact element bounds, spacing, edges, and blank space. Set brand-appropriate vivid midtones first, then add shallow rounded glossy resin volume and restrained upper-left capsule reflections, deeper SAME-HUE edges and soft shadows. Preserve neutrals and negative space. Do not wash colored planes out with white; NO unintended pastel colors. No new panels or shapes. Sparse/empty references must stay sparse/empty: only a subtle material surface is required. Round star tips and valleys. NO TEXT, glyphs, numbers, handwriting, photos, people, faces or silhouettes. Every photograph and every text element will be composited at its original position afterward. Do not invent content in blank areas. Do not add large sparkles. Retain all crop apertures and geometry.  Render one full layout, not a contact sheet."
+}

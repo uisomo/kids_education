@@ -1,0 +1,76 @@
+{
+  "hookColors": [
+    "#fa19a8"
+  ],
+  "hookColorSource": "single independent color for neutral design",
+  "allRenderedText": [
+    "正拳突き"
+  ],
+  "palette": {
+    "selection": "random hue per selection, retained on revision",
+    "brandBase": "#ffd166",
+    "hueRotation": 321.8539600131973,
+    "space": "HSV (logo vividness); OKLab only for neutral classification",
+    "relationship": "shared HSV hue rotation; monotonic S^0.6/V^0.4 brightening preserves ordering, not exact contrast; neutral colors unchanged"
+  },
+  "characters": [],
+  "textPolicy": {
+    "alphabet": "replace with source-grounded Japanese",
+    "decorativeNumbers": "recording date 2026.09.25"
+  },
+  "template": "3898",
+  "name": "背景を抜いた人物アップ／額で分割し頭頂を離す",
+  "canvas": [
+    720,
+    1280
+  ],
+  "slots": [
+    {
+      "sourceFrame": 19,
+      "part": "head",
+      "sourceCrop": [
+        310.3427152633667,
+        90.82922458648682,
+        607.2569961547852,
+        540.4422785077777
+      ],
+      "destination": [
+        10,
+        14,
+        700,
+        1060
+      ],
+      "splitAtY": 284,
+      "gap": 126,
+      "clip": "same cutout portrait split at detected forehead, transparent outside person"
+    }
+  ],
+  "typography": [
+    {
+      "text": "正拳突き",
+      "font": [
+        "Hiragino Mincho ProN",
+        "W3"
+      ],
+      "pointSize": 37,
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "layer": "behind-subject",
+      "afterPhotoCount": 1
+    }
+  ],
+  "privacyDemo": {
+    "room": true,
+    "face": false,
+    "background": "black design background; source room removed"
+  },
+  "fontTransform": "uniform font point size only",
+  "layoutRevision": 3,
+  "defaultLayerOrder": [
+    "background",
+    "shapes-and-text",
+    "cutout-person"
+  ],
+  "cutoutDefault": true
+}

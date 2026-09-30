@@ -1,0 +1,422 @@
+{
+  "reviewOnly": true,
+  "protectedVideosUnchanged": true,
+  "thumbnailFrames": 15,
+  "thumbnailSeconds": 0.5,
+  "hookFrames": 120,
+  "hookSeconds": 4,
+  "beatFrames": [
+    40,
+    40,
+    40
+  ],
+  "highlightSourceStarts": [
+    8,
+    12,
+    22
+  ],
+  "text": "one line per highlight; uniform zoom .55 to 1 over 9 frames",
+  "hookTextCenter": [
+    360,
+    640
+  ],
+  "frameAsset": "assets/highlight-frame.png",
+  "frameColor": "same template primary hue as Hook, retained during black line",
+  "bodyStartsAt": 4.5,
+  "bodySourceStartsAt": 4,
+  "renders": [
+    {
+      "id": "3870",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    },
+    {
+      "id": "3871",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3872",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3873",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3877",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3878",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3879",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    },
+    {
+      "id": "3880",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3881",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3882",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3883",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3884",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3885",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    },
+    {
+      "id": "3886",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3887",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3888",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3889",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    },
+    {
+      "id": "3890",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3891",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3892",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3893",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3894",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3895",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3896",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3897",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    },
+    {
+      "id": "3898",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3899",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3900",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    },
+    {
+      "id": "3901",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3902",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3903",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3904",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3905",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3907",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "original-layout-motion-baseline"
+    },
+    {
+      "id": "3908",
+      "frames": 971,
+      "duration": 32.37,
+      "fps": 30.0,
+      "size": [
+        540,
+        960
+      ],
+      "artwork": "generated-glossy-review"
+    }
+  ],
+  "audioHookSource": [
+    0.2645,
+    4
+  ],
+  "audioBodySourceStart": 4,
+  "audioLeadSilenceSeconds": 0.5,
+  "audioVideoDecodeAfterMux": true,
+  "frameAlphaPreservedForAll35Palettes": true
+}

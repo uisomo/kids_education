@@ -1,0 +1,213 @@
+{
+  "templateCount": 35,
+  "referenceCount": 35,
+  "imageCount": 70,
+  "videoCount": 35,
+  "videoFramesEach": 1136,
+  "durationSecondsEach": 37.86666666666667,
+  "highlightsFrames": [
+    90,
+    90,
+    120
+  ],
+  "sourceRanges": [
+    [
+      8,
+      11
+    ],
+    [
+      12,
+      15
+    ],
+    [
+      22,
+      26
+    ]
+  ],
+  "firstFrameVerification": "Decoded first video frame compared with its title/collage JPEG; threshold mean RGB error <12/255",
+  "checks": [
+    {
+      "id": "3878",
+      "frames": 1136,
+      "firstFrameMeanError": 3.61
+    },
+    {
+      "id": "3895",
+      "frames": 1136,
+      "firstFrameMeanError": 4.27
+    },
+    {
+      "id": "3894",
+      "frames": 1136,
+      "firstFrameMeanError": 2.69
+    },
+    {
+      "id": "3889",
+      "frames": 1136,
+      "firstFrameMeanError": 3.65
+    },
+    {
+      "id": "3900",
+      "frames": 1136,
+      "firstFrameMeanError": 3.43
+    },
+    {
+      "id": "3901",
+      "frames": 1136,
+      "firstFrameMeanError": 3.74
+    },
+    {
+      "id": "3879",
+      "frames": 1136,
+      "firstFrameMeanError": 4.16
+    },
+    {
+      "id": "3880",
+      "frames": 1136,
+      "firstFrameMeanError": 4.26
+    },
+    {
+      "id": "3881",
+      "frames": 1136,
+      "firstFrameMeanError": 3.82
+    },
+    {
+      "id": "3882",
+      "frames": 1136,
+      "firstFrameMeanError": 4.16
+    },
+    {
+      "id": "3883",
+      "frames": 1136,
+      "firstFrameMeanError": 4.14
+    },
+    {
+      "id": "3884",
+      "frames": 1136,
+      "firstFrameMeanError": 2.35
+    },
+    {
+      "id": "3885",
+      "frames": 1136,
+      "firstFrameMeanError": 3.32
+    },
+    {
+      "id": "3886",
+      "frames": 1136,
+      "firstFrameMeanError": 3.61
+    },
+    {
+      "id": "3887",
+      "frames": 1136,
+      "firstFrameMeanError": 3.52
+    },
+    {
+      "id": "3888",
+      "frames": 1136,
+      "firstFrameMeanError": 2.7
+    },
+    {
+      "id": "3890",
+      "frames": 1136,
+      "firstFrameMeanError": 3.63
+    },
+    {
+      "id": "3892",
+      "frames": 1136,
+      "firstFrameMeanError": 2.76
+    },
+    {
+      "id": "3891",
+      "frames": 1136,
+      "firstFrameMeanError": 3.7
+    },
+    {
+      "id": "3893",
+      "frames": 1136,
+      "firstFrameMeanError": 2.79
+    },
+    {
+      "id": "3899",
+      "frames": 1136,
+      "firstFrameMeanError": 3.12
+    },
+    {
+      "id": "3896",
+      "frames": 1136,
+      "firstFrameMeanError": 3.19
+    },
+    {
+      "id": "3898",
+      "frames": 1136,
+      "firstFrameMeanError": 2.33
+    },
+    {
+      "id": "3877",
+      "frames": 1136,
+      "firstFrameMeanError": 3.13
+    },
+    {
+      "id": "3871",
+      "frames": 1136,
+      "firstFrameMeanError": 2.64
+    },
+    {
+      "id": "3872",
+      "frames": 1136,
+      "firstFrameMeanError": 3.86
+    },
+    {
+      "id": "3873",
+      "frames": 1136,
+      "firstFrameMeanError": 4.39
+    },
+    {
+      "id": "3870",
+      "frames": 1136,
+      "firstFrameMeanError": 3.28
+    },
+    {
+      "id": "3897",
+      "frames": 1136,
+      "firstFrameMeanError": 3.37
+    },
+    {
+      "id": "3902",
+      "frames": 1136,
+      "firstFrameMeanError": 3.33
+    },
+    {
+      "id": "3903",
+      "frames": 1136,
+      "firstFrameMeanError": 3.83
+    },
+    {
+      "id": "3904",
+      "frames": 1136,
+      "firstFrameMeanError": 3.67
+    },
+    {
+      "id": "3905",
+      "frames": 1136,
+      "firstFrameMeanError": 3.29
+    },
+    {
+      "id": "3907",
+      "frames": 1136,
+      "firstFrameMeanError": 3.07
+    },
+    {
+      "id": "3908",
+      "frames": 1136,
+      "firstFrameMeanError": 3.01
+    }
+  ],
+  "limitations": [
+    "No iPhone performance measurement",
+    "Source Hook voice starts at output 0; three lines visible together; Hook end is a provisional 4 seconds",
+    "Manual scene selection",
+    "Temporary sparkle positions, not pose tracking",
+    "Reference style fidelity is provisional",
+    "Collage privacy handling is not yet connected to preview/body export"
+  ]
+}

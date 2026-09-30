@@ -1,0 +1,10 @@
+{
+  "templates": 34,
+  "duplicateSourceFramesWithinCollage": 0,
+  "previewExcludedFromAudit": true,
+  "visuallySimilarPosesStillPossible": true,
+  "partsBasedLayouts": [
+    "3878",
+    "3895"
+  ]
+}

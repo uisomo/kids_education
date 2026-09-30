@@ -27,6 +27,7 @@ export interface SavedVideoModalDeps {
   // The finished video was on screen.
   onShown(): void;
   onClose(): void;
+  onPostpone?(): Promise<void>;
 }
 
 export function openSavedVideoModal(host: HTMLElement, deps: SavedVideoModalDeps): () => void {
@@ -108,6 +109,16 @@ export function openSavedVideoModal(host: HTMLElement, deps: SavedVideoModalDeps
     if (!closed) deps.onShown();
   };
 
+  if (deps.saving && deps.onPostpone) {
+    const postpone = document.createElement("button"); postpone.className = "a-btn primary";
+    postpone.textContent = "前の動画は 仕上げずに はじめる";
+    postpone.onclick = async () => {
+      postpone.disabled = true;
+      try { await deps.onPostpone!(); close(); deps.onClose(); }
+      catch { status.textContent = "まだ停止できません。もう一度ためしてね"; postpone.disabled = false; }
+    };
+    card.append(postpone);
+  }
   if (deps.ready) {
     showReady(deps.ready.playbackUrl);
   } else if (deps.saving) {
